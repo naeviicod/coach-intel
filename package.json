@@ -1,0 +1,48 @@
+{
+  "name": "coach-intel",
+  "productName": "Coach Intel",
+  "version": "0.2.0",
+  "description": "Coach Intel — offline competitive intelligence assistant for Call of Duty",
+  "main": "src/main/main.js",
+  "author": "Ion",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "postinstall": "sh scripts/patch-electron-branding.sh || true",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "verify:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/main.js",
+    "dist": "env -u ELECTRON_RUN_AS_NODE CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.naevii.coachintel",
+    "productName": "Coach Intel",
+    "mac": {
+      "category": "public.app-category.sports",
+      "target": "dir",
+      "icon": "build/icon.icns",
+      "identity": null
+    },
+    "asarUnpack": [
+      "src/renderer/assets/**"
+    ],
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "data",
+        "to": "data"
+      }
+    ]
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3"
+  }
+}

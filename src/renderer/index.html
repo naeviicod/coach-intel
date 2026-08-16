@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' cci-asset:; img-src 'self' cci-asset: file: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Coach Intel</title>
+  <link rel="stylesheet" href="styles.css?v=20260816-splash4" />
+</head>
+<body>
+  <div id="splash">
+    <div class="splash-atmosphere" aria-hidden="true">
+      <span class="splash-flow splash-flow-a"></span>
+      <span class="splash-flow splash-flow-b"></span>
+      <span class="splash-flow splash-flow-c"></span>
+      <span class="splash-flow splash-flow-d"></span>
+    </div>
+    <div class="splash-stage">
+      <div class="splash-logo">
+        <img src="cci-asset://static/full-logo.png" alt="Coach Intel" />
+      </div>
+      <div class="splash-bar" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
+  <div id="app">
+    <nav id="sidebar" aria-label="Global navigation"></nav>
+    <div class="main-column">
+      <header id="topbar"></header>
+      <main id="content"></main>
+      <footer id="statusbar"></footer>
+    </div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

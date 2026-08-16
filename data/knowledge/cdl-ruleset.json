@@ -1,0 +1,148 @@
+{
+  "game": "Black Ops 7",
+  "season": "2026",
+  "version": "1",
+  "source": "Call of Duty League Competitive Settings",
+  "status": "CURRENT",
+  "last_checked": "2026-08-16",
+  "modes": [
+    "Hardpoint",
+    "Search & Destroy",
+    "Overload"
+  ],
+  "maps": [
+    {
+      "map_id": "colossus",
+      "name": "Colossus",
+      "modes": [
+        "Hardpoint"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "den",
+      "name": "Den",
+      "modes": [
+        "Hardpoint",
+        "Search & Destroy",
+        "Overload"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "exposure",
+      "name": "Exposure",
+      "modes": [
+        "Overload"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "fringe",
+      "name": "Fringe",
+      "modes": [
+        "Search & Destroy"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "gridlock",
+      "name": "Gridlock",
+      "modes": [
+        "Hardpoint",
+        "Search & Destroy",
+        "Overload"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "hacienda",
+      "name": "Hacienda",
+      "modes": [
+        "Hardpoint",
+        "Search & Destroy"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "raid",
+      "name": "Raid",
+      "modes": [
+        "Search & Destroy"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "sake",
+      "name": "Sake",
+      "modes": [
+        "Hardpoint",
+        "Search & Destroy"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    },
+    {
+      "map_id": "scar",
+      "name": "Scar",
+      "modes": [
+        "Hardpoint",
+        "Overload"
+      ],
+      "retired_modes": [],
+      "active": true,
+      "competitive_pool": true,
+      "notes": "",
+      "created_at": "2026-08-16",
+      "updated_at": "2026-08-16",
+      "deactivated_at": null
+    }
+  ]
+}

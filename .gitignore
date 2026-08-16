@@ -1,0 +1,14 @@
+node_modules/
+dist/
+
+# Live org data: rosters, screenshots, notes, strats, integration secrets.
+# Per-installation runtime state, not source. Seed data in data/knowledge and
+# data/templates stays tracked.
+data/org/
+
+.DS_Store
+
+.env
+.env.local
+
+npm-debug.log*
