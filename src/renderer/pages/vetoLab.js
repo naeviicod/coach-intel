@@ -154,7 +154,7 @@ async function draw(container, ctx, teams, active, reload) {
             el('span', { class: `veto-turn ${step.team}` }, step.team === 'us' ? 'US' : 'THEM'),
             el('span', { class: `veto-act ${step.action}` }, step.action === 'pick' ? 'PICK' : 'BAN'),
             el('span', { class: 'veto-map' }, step.map || (isCurrent ? 'Choose' : 'open')),
-            step.map ? iconBtn('edit', 'Undo from here', () => undoTo(i)) : null,
+            step.map ? iconBtn('trash', 'Undo from here', () => undoTo(i)) : null,
           ])
         );
       });

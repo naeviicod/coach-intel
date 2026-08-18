@@ -14,7 +14,7 @@ function draw(container, ctx, state) {
   container.append(
     el('div', { class: 'onboarding-screen' }, [
       el('div', { class: 'onboarding-brand-wrap' }, [
-        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260817b`, alt: 'Coach Intel' }),
+        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260818`, alt: 'Coach Intel' }),
       ]),
       state.step === 1 ? orgStep(container, ctx, state) : teamStep(container, ctx, state),
     ])

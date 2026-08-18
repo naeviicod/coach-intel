@@ -1,10 +1,10 @@
 // Org-level permission roles (profiles.role), not in-game SMG/AR positions.
 // `user` is the player role the product uses; `member` is the historical DB value.
 
-const STAFF_ROLES = new Set(['owner', 'admin', 'team_leader', 'coach']);
+const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
 const PLAYER_ROLES = new Set(['member', 'user', 'player']);
 const CREATIVE_ROLES = new Set(['creative']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'coach', 'analyst', 'creative']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative']);
 
 const ANALYTICS_PAGES = new Set([
   'teams',
@@ -27,13 +27,14 @@ const TEAM_PAGES = new Set([
   'veto-lab',
 ]);
 
-const ORG_CALENDAR_ROLES = new Set(['owner', 'admin', 'coach', 'analyst', 'creative', 'team_leader', 'member', 'user', 'player']);
+const ORG_CALENDAR_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative', 'team_leader', 'member', 'user', 'player']);
 
-const ALWAYS_PAGES = new Set(['settings', 'teach']);
+const ALWAYS_PAGES = new Set(['settings']);
 
 export const ROLE_LABELS = {
   owner: 'Org owner',
   admin: 'Admin',
+  developer: 'Developer',
   team_leader: 'Team leader',
   coach: 'Coach',
   analyst: 'Analyst',
@@ -43,7 +44,7 @@ export const ROLE_LABELS = {
   player: 'Player',
 };
 
-export const ASSIGNABLE_ROLES = ['owner', 'admin', 'team_leader', 'coach', 'analyst', 'creative', 'user'];
+export const ASSIGNABLE_ROLES = ['owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'creative', 'user'];
 
 export function normalizeRole(role) {
   const r = String(role || '').toLowerCase().trim();

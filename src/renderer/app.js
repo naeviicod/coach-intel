@@ -34,7 +34,6 @@ import * as warRoom from './pages/warRoom.js';
 import * as playbooks from './pages/playbooks.js';
 import * as reports from './pages/reports.js';
 import * as rankings from './pages/rankings.js';
-import * as teachCCIntel from './pages/teachCCIntel.js';
 import * as integrationsPage from './pages/integrations.js';
 import * as settingsPage from './pages/settings/index.js';
 
@@ -67,7 +66,6 @@ const routes = {
   settings: settingsPage,
 
   member: memberProfile,
-  teach: teachCCIntel,
 };
 
 const NAV_GROUPS = [
@@ -128,7 +126,6 @@ const LEGACY_TAB_ROUTES = {
   'maps-modes': (teamId) => `#/maps-modes/${teamId}`,
   intel: (teamId) => `#/intel-feed/${teamId}`,
   strats: (teamId) => `#/playbooks/${teamId}`,
-  teach: () => '#/teach',
 };
 
 const SPLASH_MIN_MS = 5000;
@@ -435,7 +432,7 @@ function restAtmosphere() {
   window.setTimeout(hide, 800);
 }
 
-// Lockup is 1024x341. The Ci lives in the left square. Clip hides the type,
+// Lockup is 2172x724 (3:1). The Ci lives in the left square. Clip hides the type,
 // then the remaining mark flies to the sign-in Ci so this is one motion,
 // not a crossfade between two screens.
 const LOCKUP_CLIP_RIGHT = 66.7;
@@ -1083,16 +1080,6 @@ function renderTopbar() {
   topbar.append(statusPill());
 
   topbar.append(notificationBell());
-  topbar.append(
-    el('button', {
-      type: 'button',
-      class: 'topbar-icon-btn',
-      'aria-label': 'Help',
-      title: 'Help',
-      html: icon('help', 16),
-      onclick: () => navigate('teach'),
-    })
-  );
   topbar.append(el('div', { class: 'topbar-divider' }));
 
   const chip = chipIdentity(state.org, state.access);

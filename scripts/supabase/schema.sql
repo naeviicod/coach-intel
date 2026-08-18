@@ -7,7 +7,7 @@ create table if not exists public.profiles (
   discord_username text,
   avatar_url text,
   role text not null default 'member'
-    check (role in ('owner', 'admin', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative')),
+    check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative')),
   created_at timestamptz not null default now()
 );
 
@@ -32,7 +32,7 @@ create policy "only owner or team_leader can edit roles"
   using (
     exists (
       select 1 from public.profiles p
-      where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader')
+      where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader')
     )
   )
   with check (
@@ -98,16 +98,16 @@ begin
       meta ->> 'avatar_url',
       case
         when not exists (
-          select 1 from public.profiles p where p.role in ('owner', 'admin', 'team_leader', 'coach')
+          select 1 from public.profiles p where p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')
         ) then 'owner'
         else 'member'
       end
     )
     returning * into rec;
-  elsif rec.role not in ('owner', 'admin', 'team_leader', 'coach')
+  elsif rec.role not in ('owner', 'admin', 'developer', 'team_leader', 'coach')
     and not exists (
       select 1 from public.profiles p
-      where p.id <> uid and p.role in ('owner', 'admin', 'team_leader', 'coach')
+      where p.id <> uid and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')
     ) then
     update public.profiles set role = 'owner' where id = uid returning * into rec;
   end if;
@@ -136,7 +136,7 @@ select
   u.raw_user_meta_data ->> 'avatar_url',
   case
     when exists (
-      select 1 from public.profiles p where p.role in ('owner', 'admin', 'team_leader', 'coach')
+      select 1 from public.profiles p where p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')
     ) then 'member'
     when u.id = (select id from auth.users order by created_at asc limit 1) then 'owner'
     else 'member'
@@ -190,14 +190,14 @@ create policy "members are readable by any signed-in teammate"
 drop policy if exists "owner/team_leader/coach can manage teams" on public.teams;
 create policy "owner/team_leader/coach can manage teams"
   on public.teams for all to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')));
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')));
 
 drop policy if exists "owner/team_leader/coach can manage members" on public.members;
 create policy "owner/team_leader/coach can manage members"
   on public.members for all to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')));
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')));
 
 -- Lets every signed-in client subscribe to live changes on these tables.
 -- `alter publication ... add table` has no `if not exists` form, so this is
@@ -221,7 +221,7 @@ end $$;
 -- Existing projects already have profiles.role check without admin/user.
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
-  check (role in ('owner', 'admin', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative'));
+  check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative'));
 
 alter table public.members add column if not exists slot text not null default 'starter';
 alter table public.members add column if not exists title text;
@@ -240,7 +240,7 @@ create table if not exists public.invites (
   team_id text not null references public.teams (id) on delete cascade,
   member_id text not null references public.members (id) on delete cascade,
   access_role text not null default 'user'
-    check (access_role in ('owner', 'admin', 'team_leader', 'coach', 'analyst', 'user', 'creative')),
+    check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative')),
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '14 days'),
   accepted_at timestamptz,
@@ -252,13 +252,13 @@ alter table public.invites enable row level security;
 -- Existing projects already have invites.access_role without owner/admin/creative.
 alter table public.invites drop constraint if exists invites_access_role_check;
 alter table public.invites add constraint invites_access_role_check
-  check (access_role in ('owner', 'admin', 'team_leader', 'coach', 'analyst', 'user', 'creative'));
+  check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative'));
 
 drop policy if exists "staff can manage invites" on public.invites;
 create policy "staff can manage invites"
   on public.invites for all to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'team_leader', 'coach')));
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')));
 
 -- Preview is callable while signed out so the sign-in screen can name the player.
 create or replace function public.invite_preview(invite_token text)
@@ -327,7 +327,7 @@ begin
   end if;
 
   select role into current_role from public.profiles where id = uid;
-  if current_role in ('owner', 'admin', 'coach', 'team_leader', 'analyst') then
+  if current_role in ('owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst') then
     return json_build_object('ok', false, 'error', 'Staff accounts cannot accept a player invite. The player should open this link and sign in with their Discord.');
   end if;
 
@@ -395,7 +395,7 @@ create policy "teams are readable by org-wide staff or your own team"
   on public.teams for select
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach', 'analyst'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
     or id = public.my_team_id()
   );
 
@@ -405,7 +405,7 @@ create policy "members are readable by org-wide staff or your own team"
   on public.members for select
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach', 'analyst'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
     or team_id = public.my_team_id()
   );
 
@@ -415,14 +415,14 @@ create policy "owner/coach manage all teams, team_leader manages their own"
   on public.teams for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and id = public.my_team_id()
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and id = public.my_team_id()
@@ -435,14 +435,14 @@ create policy "owner/coach manage all members, team_leader manages their own tea
   on public.members for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and team_id = public.my_team_id()
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and team_id = public.my_team_id()
@@ -475,14 +475,14 @@ drop policy if exists "org-wide staff can read guild links" on public.discord_gu
 create policy "org-wide staff can read guild links"
   on public.discord_guild_links for select
   to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach')));
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
 
 drop policy if exists "org-wide staff can manage guild links" on public.discord_guild_links;
 create policy "org-wide staff can manage guild links"
   on public.discord_guild_links for all
   to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach')));
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
 
 -- ---------- Shared org/team documents (K/D, match history, strats, …) ----------
 -- One row per record. Local JSON is the working copy; this table is what every
@@ -509,7 +509,7 @@ create policy "shared docs readable by staff, own team, or org-level"
   on public.shared_docs for select
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach', 'analyst'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
     or team_id = public.my_team_id()
     or team_id = ''
   );
@@ -519,14 +519,14 @@ create policy "shared docs writable by staff"
   on public.shared_docs for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and (team_id = public.my_team_id() or team_id = '')
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'coach'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and (team_id = public.my_team_id() or team_id = '')

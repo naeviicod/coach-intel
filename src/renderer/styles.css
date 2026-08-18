@@ -190,7 +190,8 @@ img {
 .splash-stage {
   position: relative;
   z-index: 1;
-  width: min(629px, 53vw);
+  /* 3:1 lockup; snap to 3px so height stays on whole pixels (avoids a soft mark). */
+  width: min(630px, round(down, 53vw, 3px));
 }
 
 .splash-logo {
@@ -209,6 +210,7 @@ img {
   display: block;
   width: 100%;
   height: auto;
+  aspect-ratio: 3 / 1;
   pointer-events: none;
   -webkit-user-drag: none;
 }
@@ -343,8 +345,15 @@ img {
 #sidebar {
   width: var(--nav-w);
   flex-shrink: 0;
-  background: var(--bg-elevated);
+  position: relative;
+  /* A flat fill reads as a cheap panel bolted next to the content area — a
+     faint top-to-bottom wash plus a hairline top highlight gives it the same
+     "lit surface" depth a single solid color can't, at zero runtime cost. */
+  background:
+    linear-gradient(180deg, #ffffff08 0%, transparent 14%),
+    linear-gradient(180deg, var(--bg-elevated) 0%, #0c0f11 100%);
   border-right: 1px solid var(--border);
+  box-shadow: 6px 0 24px -12px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
   /* Window uses titleBarStyle 'hiddenInset', so the macOS traffic lights sit
@@ -352,6 +361,13 @@ img {
   padding-top: 52px;
   -webkit-app-region: drag;
   transition: width var(--dur-panel) var(--ease-out);
+}
+#sidebar::after {
+  /* Hairline light catching the panel's outer edge, like a physical bezel. */
+  content: '';
+  position: absolute; top: 0; right: -1px; bottom: 0; width: 1px;
+  background: linear-gradient(180deg, #ffffff14 0%, transparent 45%);
+  pointer-events: none;
 }
 #sidebar.collapsed {
   width: var(--nav-w-collapsed);
@@ -362,7 +378,7 @@ img {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 2px 18px 16px;
+  padding: 2px 18px 18px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 6px;
   -webkit-app-region: no-drag;
@@ -417,10 +433,11 @@ img {
 
 .sb-section-label {
   font-size: 9.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   color: var(--text-faint);
-  padding: 13px 10px 5px;
+  padding: 15px 10px 6px;
   white-space: nowrap;
 }
 #sidebar.collapsed .sb-section-label {
@@ -438,7 +455,8 @@ img {
   color: var(--text-dim);
   cursor: pointer;
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 560;
+  letter-spacing: -0.005em;
   margin-bottom: 2px;
   position: relative;
   white-space: nowrap;
@@ -447,21 +465,27 @@ img {
   width: 100%;
   text-align: left;
   font-family: var(--font);
-  transition: background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+  transition: background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
 }
-.sb-link:hover { background: #ffffff0a; color: var(--text); }
-.sb-link:active { background: #ffffff12; }
+.sb-link:hover { background: #ffffff0c; color: var(--text); transform: translateX(1px); }
+.sb-link:active { background: #ffffff14; transform: translateX(1px) scale(0.99); }
 .sb-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.sb-link.active { background: var(--accent-dim); color: var(--accent); font-weight: 650; }
+.sb-link.active {
+  background: linear-gradient(90deg, var(--accent-dim) 0%, #b6f5420f 100%);
+  color: var(--accent-bright);
+  font-weight: 650;
+}
 .sb-link.active::before {
   content: '';
   position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 16px; border-radius: 0 3px 3px 0; background: var(--accent);
+  width: 3px; height: 16px; border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--accent) 65%, transparent);
 }
-.sb-link .icon { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; opacity: .85; flex-shrink: 0; transition: opacity var(--dur-hover) var(--ease-out); }
+.sb-link .icon { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; opacity: .8; flex-shrink: 0; transition: opacity var(--dur-hover) var(--ease-out); }
 .sb-link .icon svg { display: block; }
 .sb-link:hover .icon { opacity: 1; }
-.sb-link.active .icon { opacity: 1; }
+.sb-link.active .icon { opacity: 1; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent)); }
 .sb-link-label { overflow: hidden; text-overflow: ellipsis; }
 .sb-link .badge-soon { margin-left: auto; }
 
@@ -1974,10 +1998,7 @@ tr.clickable-row:hover td { background: #ffffff06; }
   font-size: 13px;
   -webkit-app-region: no-drag;
   opacity: 0;
-  transform: translateY(10px);
-  transition:
-    opacity 320ms var(--ease-out) 40ms,
-    transform 320ms var(--ease-out) 40ms;
+  transition: opacity 420ms var(--ease-out) 80ms;
 }
 .signin-screen .inline-error {
   opacity: 0;

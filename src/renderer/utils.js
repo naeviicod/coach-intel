@@ -15,7 +15,6 @@ const ICON_SHAPES = {
   performance: '<path d="M3 13.5V9M7 13.5V5M11 13.5V7M2.5 13.5h11"/>',
   mapsModes: '<path d="M8 1.5l5.5 3.25v6.5L8 14.5l-5.5-3.25v-6.5L8 1.5z"/>',
   intel: '<path d="M8 2l4 6-4 6-4-6 4-6z"/>',
-  teach: '<path d="M3 13l1-3.5L10.5 3l3 3L7 12.5 3 13z"/><path d="M9 4.5l3 3"/>',
   dashboard: '<rect x="2" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="8.8" y="2.5" width="5.2" height="3.2" rx="1.2"/><rect x="2" y="9.3" width="5.2" height="4.2" rx="1.2"/><rect x="8.8" y="7.3" width="5.2" height="6.2" rx="1.2"/>',
   calendar: '<rect x="2" y="3.2" width="12" height="10.8" rx="1.6"/><path d="M2 6.6h12M5.3 1.8v2.6M10.7 1.8v2.6"/>',
   tasks: '<path d="M2.2 4.4l1.5 1.5 2.6-2.8M2.2 11.4l1.5 1.5 2.6-2.8"/><path d="M8.4 4.3h5.4M8.4 11.3h5.4"/>',

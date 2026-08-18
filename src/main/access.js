@@ -1,5 +1,5 @@
-const STAFF_ROLES = new Set(['owner', 'admin', 'team_leader', 'coach']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'coach', 'analyst', 'creative']);
+const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative']);
 
 function isStaff(role) {
   const r = String(role || '').toLowerCase().trim();

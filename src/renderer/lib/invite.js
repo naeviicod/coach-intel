@@ -9,6 +9,7 @@ export const ACCESS_ROLES = [
   { value: 'analyst', label: 'Analyst', hint: 'Analytics only, across the org.' },
   { value: 'creative', label: 'Creative', hint: 'Team Hub + member directory, their team. For artists, designers, and content.' },
   { value: 'admin', label: 'Admin', hint: 'Sees everything across the org.' },
+  { value: 'developer', label: 'Developer', hint: 'Builds/maintains Coach Intel. Full access, same as Admin.' },
   { value: 'owner', label: 'Org owner', hint: 'Full control. Sees every team and every page.' },
 ];
 
