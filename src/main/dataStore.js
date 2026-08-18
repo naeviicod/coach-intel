@@ -999,6 +999,27 @@ async function copyImage(sourcePath, destRelative) {
   return destRelative;
 }
 
+const FOLDER_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+
+// Non-recursive: lists image files directly inside a user-picked folder, for
+// bulk-matching against records by file name (e.g. player photo import).
+async function listFolderImages(folderPath) {
+  if (!folderPath) return [];
+  let entries;
+  try {
+    entries = await fs.readdir(folderPath, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isFile() && FOLDER_IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+    .map((entry) => ({
+      path: path.join(folderPath, entry.name),
+      base: path.basename(entry.name, path.extname(entry.name)),
+    }))
+    .sort((a, b) => a.base.localeCompare(b.base));
+}
+
 async function saveMapArt(sourcePath, mapName, layoutKey) {
   const rawExt = path.extname(String(sourcePath || '')).toLowerCase();
   const ext = ['.jpg', '.jpeg', '.png', '.webp'].includes(rawExt) ? rawExt : '.jpg';
@@ -1075,6 +1096,7 @@ module.exports = {
   getMapObjectives,
   saveMapObjectives,
   copyImage,
+  listFolderImages,
   saveMapArt,
   resolveDataPath,
   patchTeamLogo,

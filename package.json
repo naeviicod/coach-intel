@@ -1,10 +1,10 @@
 {
   "name": "coach-intel",
   "productName": "Coach Intel",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Coach Intel — offline competitive intelligence assistant for Call of Duty",
   "main": "src/main/main.js",
-  "author": "Ion",
+  "author": "IK Studios",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -14,7 +14,8 @@
     "verify:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/main.js",
     "verify:interaction": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/interaction.js",
     "dist": "sh scripts/dist-mac.sh",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "release:win": "electron-builder --win nsis --publish always"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -39,6 +40,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "IK-Studios",
+      "repo": "coach-intel"
     },
     "protocols": [
       {
@@ -71,6 +77,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
+    "electron-updater": "^6.8.9",
     "ws": "^8.21.3"
   }
 }

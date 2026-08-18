@@ -251,6 +251,102 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot } = {}) {
   );
 }
 
+function toFileUrl(rawPath) {
+  const norm = String(rawPath).replace(/\\/g, '/');
+  const withSlash = norm.startsWith('/') ? norm : `/${norm}`;
+  return `file://${encodeURI(withSlash)}`;
+}
+
+function matchMemberByFilename(base, members) {
+  const key = String(base || '').trim().toLowerCase();
+  if (!key) return null;
+  return members.find((m) => String(m.gamertag || '').trim().toLowerCase() === key) || null;
+}
+
+function photoImportRow(row, index, members) {
+  const options = [
+    el('option', { value: '' }, '— Skip —'),
+    ...members.map((m) =>
+      el('option', { value: m.id, selected: row.match?.id === m.id ? 'selected' : null }, m.gamertag)
+    ),
+  ];
+  return el('div', { class: 'photo-import-row' }, [
+    el('img', { class: 'photo-import-thumb', src: toFileUrl(row.file.path), alt: '' }),
+    el('div', { class: 'photo-import-name' }, row.file.base),
+    el('select', { id: `photo-import-${index}` }, options),
+    row.match
+      ? el('span', { class: 'pill match' }, 'Matched')
+      : el('span', { class: 'pill nomatch' }, 'No match'),
+  ]);
+}
+
+// Bulk photo import: pick a folder, match each image's filename to a
+// player's gamertag (exact, case-insensitive), let the coach fix any misses,
+// then reuse the same copyImage + saveMember path the single-photo upload uses.
+export async function openPhotoImportModal(ctx, team, members) {
+  const folder = await window.cci.pickImageFolder();
+  if (!folder) return;
+  const files = await window.cci.listFolderImages(folder);
+  if (!files.length) {
+    toast('No image files (png/jpg/webp) found in that folder.', 'error');
+    return;
+  }
+
+  const rows = files.map((file) => ({ file, match: matchMemberByFilename(file.base, members) }));
+  const matchedCount = rows.filter((r) => r.match).length;
+
+  const body = el('div', {}, [
+    el('h3', {}, `Import Photos — ${team.name}`),
+    el(
+      'div',
+      { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
+      `${files.length} image${files.length === 1 ? '' : 's'} found. ${matchedCount} matched a gamertag automatically — review and fix the rest below, then import.`
+    ),
+    el('div', { class: 'photo-import-list' }, rows.map((row, i) => photoImportRow(row, i, members))),
+  ]);
+
+  const overlay = openModal(body, { width: '600px' });
+  body.append(
+    el('div', { class: 'modal-actions' }, [
+      el('button', { class: 'btn subtle', type: 'button', onclick: () => overlay.remove() }, 'Cancel'),
+      el('button', {
+        class: 'btn primary',
+        type: 'button',
+        onclick: async () => {
+          const selections = rows
+            .map((row, i) => {
+              const memberId = body.querySelector(`#photo-import-${i}`)?.value || '';
+              return memberId ? { file: row.file, memberId } : null;
+            })
+            .filter(Boolean);
+          if (!selections.length) {
+            toast('Assign at least one photo to a player first.', 'error');
+            return;
+          }
+          let ok = 0;
+          let failed = 0;
+          for (const { file, memberId } of selections) {
+            const member = members.find((m) => m.id === memberId);
+            if (!member) { failed++; continue; }
+            try {
+              const rel = await window.cci.copyImage(file.path, `org/members/${team.id}/${member.id}.${imageExt(file.path)}`);
+              if (!rel) { failed++; continue; }
+              await window.cci.saveMember(team.id, { ...member, photo: rel });
+              ok++;
+            } catch (err) {
+              console.error('[teams] photo import failed for', member.gamertag, err);
+              failed++;
+            }
+          }
+          overlay.remove();
+          toast(failed ? `${ok} photo${ok === 1 ? '' : 's'} imported, ${failed} failed.` : `${ok} photo${ok === 1 ? '' : 's'} imported.`);
+          ctx.navigate('players');
+        },
+      }, matchedCount ? `Import (${matchedCount} matched)` : 'Import'),
+    ])
+  );
+}
+
 function arrivalSlot(member, destMembers) {
   if (isStaffMember(member)) return 'staff';
   return defaultSlot(destMembers);

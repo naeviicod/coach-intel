@@ -90,6 +90,8 @@ contextBridge.exposeInMainWorld('cci', {
   saveMapObjectives: (mapSlug, mapName, mode, data) => ipcRenderer.invoke('cci:saveMapObjectives', mapSlug, mapName, mode, data),
 
   pickImage: () => ipcRenderer.invoke('cci:pickImage'),
+  pickImageFolder: () => ipcRenderer.invoke('cci:pickImageFolder'),
+  listFolderImages: (folderPath) => ipcRenderer.invoke('cci:listFolderImages', folderPath),
   copyImage: (sourcePath, destRelative) => ipcRenderer.invoke('cci:copyImage', sourcePath, destRelative),
   saveMapArt: (sourcePath, mapName, layoutKey) => ipcRenderer.invoke('cci:saveMapArt', sourcePath, mapName, layoutKey),
   dataUrlForPath: (relative) => ipcRenderer.invoke('cci:dataUrlForPath', relative),

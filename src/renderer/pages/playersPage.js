@@ -1,5 +1,5 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../utils.js';
-import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
+import { openMemberModal, openTransferModal, openPhotoImportModal } from '../lib/teamManage.js';
 import { defaultSlot, isStaffMember, splitRoster } from '../lib/roster.js';
 import { isNaevii, memberStaffTitle, orgTitles } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
@@ -73,6 +73,10 @@ function rosterCard(team, members, matches, ctx, teams) {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: 'staff' }),
         }, '+ Add Staff'),
+        el('button', {
+          class: 'btn',
+          onclick: () => openPhotoImportModal(ctx, team, members),
+        }, 'Import Photos'),
         ctx.canEdit ? transferSelected : null,
       ]),
     ]),

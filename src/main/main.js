@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeImage, shell, screen, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, shell, screen, clipboard, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { registerAssetScheme, handleAssetProtocol } = require('./assetProtocol');
@@ -18,6 +18,7 @@ const { assertCanEdit, seesAllTeams } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
+const { autoUpdater } = require('electron-updater');
 
 app.setName('Coach Intel');
 console.log('[main] Coach Intel starting');
@@ -275,6 +276,46 @@ function registerDeepLinkProtocol() {
   app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.execPath, [appEntryPath()]);
 }
 
+// ---------- Auto-update (Windows) ----------
+//
+// Mac builds aren't code-signed, and Squirrel.Mac refuses to apply an unsigned
+// update, so this only runs on win32 for now. `npm run release:win` publishes
+// the installer + latest.yml to a GitHub Release; this is what checks that feed.
+function initAutoUpdater() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[main] update downloaded', info.version);
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update ready',
+      message: `Coach Intel ${info.version} has been downloaded.`,
+      detail: 'Restart now to install it, or keep working — it will install the next time you quit.',
+      buttons: ['Restart Now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[main] auto-update check failed', err.message);
+  });
+
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('[main] initial update check failed', err.message);
+  });
+
+  // Practice sessions can leave the app open for days — recheck periodically,
+  // not just on launch.
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('[main] periodic update check failed', err.message);
+    });
+  }, 4 * 60 * 60 * 1000);
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   // Without this return, app.quit() only *requests* a shutdown — the rest of
@@ -329,6 +370,12 @@ app.whenReady().then(async () => {
   if (process.platform === 'darwin') {
     const icon = nativeImage.createFromPath(ICON_PATH);
     if (!icon.isEmpty()) app.dock.setIcon(icon);
+  } else {
+    // titleBarStyle: 'hiddenInset' and trafficLightPosition (in createWindow)
+    // are macOS-only — on Windows the window falls back to Electron's default
+    // frame, which without this would carry a generic File/Edit/View/Window/Help
+    // menu bar that has nothing to do with the app.
+    Menu.setApplicationMenu(null);
   }
   await seedPackagedData();
   await dataStore.ensureDirectories();
@@ -358,6 +405,7 @@ app.whenReady().then(async () => {
   events.subscribe((eventId, payload) => discord.get().publish(eventId, payload));
 
   createWindow();
+  initAutoUpdater();
 
   const launchUrl = pendingLaunchUrl || launchUrlFromArgv();
   pendingLaunchUrl = null;
@@ -867,6 +915,14 @@ ipcMain.handle('cci:pickImage', async () => {
   if (result.canceled || !result.filePaths.length) return null;
   return result.filePaths[0];
 });
+ipcMain.handle('cci:pickImageFolder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+ipcMain.handle('cci:listFolderImages', (e, folderPath) => dataStore.listFolderImages(folderPath));
 
 ipcMain.handle('cci:copyImage', requireEdit((e, sourcePath, destRelative) =>
   dataStore.copyImage(sourcePath, destRelative)
