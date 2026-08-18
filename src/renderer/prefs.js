@@ -36,3 +36,14 @@ export function setPref(name, value) {
     // in-memory cache still keeps the setting for the rest of the session.
   }
 }
+
+export function resolveActiveTeam(teams, requestedId) {
+  if (!teams?.length) return null;
+  const remembered = getPref('lastTeamId');
+  const team =
+    (requestedId && teams.find((t) => t.id === requestedId)) ||
+    teams.find((t) => t.id === remembered) ||
+    teams[0];
+  if (team) setPref('lastTeamId', team.id);
+  return team;
+}

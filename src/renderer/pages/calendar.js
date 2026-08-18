@@ -11,7 +11,8 @@ import {
   todayIso,
   parseMaps,
   formatMaps,
-  leagueItemsForTeam,
+  chipClass,
+  orgCalendarItems,
 } from '../lib/calendar.js';
 
 export const TYPE_META = {
@@ -23,6 +24,7 @@ export const TYPE_META = {
   meeting: { label: 'Meeting', cls: 'meeting' },
   training: { label: 'Training', cls: 'training' },
   practice: { label: 'Training', cls: 'training' },
+  task: { label: 'Task', cls: 'task' },
   other: { label: 'Other', cls: 'other' },
 };
 
@@ -37,8 +39,8 @@ export const EVENT_TYPE_OPTIONS = [
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
   if (!teams.length) {
-    container.append(pageHeader('Calendar', 'League matches across every team in the org'));
-    container.append(emptyState('No teams yet', 'Create a team, then schedule a league match to put it on the org calendar.'));
+    container.append(pageHeader('Calendar', 'Org overview for every team, meeting, and assigned task'));
+    container.append(emptyState('No teams yet', 'Create a team, then add a match, meeting, or task to put it on the org calendar.'));
     return;
   }
   const filterId = teams.some((t) => t.id === ctx.param) ? ctx.param : null;
@@ -67,38 +69,54 @@ async function draw(container, ctx, teams, filterId, state, reload) {
   const scoped = filterId ? teams.filter((t) => t.id === filterId) : teams;
   const packs = await Promise.all(
     scoped.map(async (team) => {
-      const [events, matches] = await Promise.all([
+      const [events, matches, tasks, scrims, members] = await Promise.all([
         window.cci.getEvents(team.id),
         window.cci.getMatches(team.id),
+        window.cci.getTasks(team.id),
+        window.cci.getScrims(team.id),
+        window.cci.getMembers(team.id).catch(() => []),
       ]);
-      return leagueItemsForTeam(team, { events, matches });
+      return orgCalendarItems(team, { events, matches, tasks, scrims, members });
     })
   );
   const items = packs.flat();
   const byDate = bucketByDate(items);
-  const many = teams.length > 1;
 
   container.append(
     pageHeader(
       'Calendar',
-      many
-        ? 'League matches for every team — opponent, maps, date and time'
-        : `${teams[0].name}: league matches — opponent, maps, date and time`,
-      el('div', { style: 'display:flex;gap:10px;align-items:center;' }, [
+      'Org overview — matches, meetings, reviews and tasks for every team and staff seat',
+      el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;' }, [
         orgTeamFilter(teams, filterId, (id) => ctx.navigate('calendar', id || undefined)),
         el(
           'button',
           {
             class: 'btn primary edit-only',
-            onclick: () => addLeagueMatch(teams, filterId || teams[0].id, todayIso(), reload),
+            onclick: () => addEvent(filterId || teams[0].id, todayIso(), reload, null, teams),
           },
           [
             el('span', { class: 'icon', style: 'display:inline-flex;vertical-align:-2px;margin-right:6px;', html: icon('plus', 13) }),
-            'Add League Match',
+            'Add Event',
           ]
         ),
       ])
     )
+  );
+
+  container.append(
+    el('div', { class: 'cal-legend' }, [
+      ['match', 'Match'],
+      ['scrim', 'Scrim'],
+      ['meeting', 'Meeting'],
+      ['vod', 'VOD'],
+      ['training', 'Training'],
+      ['task', 'Task'],
+    ].map(([cls, label]) =>
+      el('span', { class: 'cal-legend-item' }, [
+        el('span', { class: `cal-dot ${cls}` }),
+        label,
+      ])
+    ))
   );
 
   const shell = el('div', { class: 'cal-shell' });
@@ -109,7 +127,8 @@ async function draw(container, ctx, teams, filterId, state, reload) {
     .filter((i) => i.date >= todayIso())
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time || '').localeCompare(b.time || '')))
     .slice(0, 12);
-  container.append(el('div', { class: 'section-title' }, 'Upcoming league matches'));
+
+  container.append(el('div', { class: 'section-title' }, 'Upcoming'));
   if (!upcoming.length) {
     container.append(
       el(
@@ -118,7 +137,7 @@ async function draw(container, ctx, teams, filterId, state, reload) {
         el(
           'div',
           { class: 'field-hint', style: 'padding:6px;' },
-          'No league matches scheduled. Add one from a team planner or with Add League Match.'
+          'Nothing scheduled. Add a match, meeting, or task so staff and creatives can see it here.'
         )
       )
     );
@@ -135,12 +154,19 @@ function renderCalendar(shell, ctx, teams, filterId, state, byDate, reload) {
   shell.append(
     el('div', { class: 'cal-toolbar' }, [
       el('div', { class: 'cal-month-label' }, title),
-      el('div', { style: 'display:flex;gap:6px;' }, [
-        el('button', { class: 'btn sm subtle', 'aria-label': 'Previous month', onclick: () => nav(-1) }, '‹'),
+      el('div', { class: 'cal-nav' }, [
+        el('button', {
+          type: 'button',
+          class: 'btn cal-nav-btn',
+          'aria-label': 'Previous month',
+          onclick: () => nav(-1),
+          html: icon('chevronLeft', 14),
+        }),
         el(
           'button',
           {
-            class: 'btn sm subtle',
+            type: 'button',
+            class: 'btn sm',
             onclick: () => {
               const d = new Date();
               state.year = d.getFullYear();
@@ -150,7 +176,13 @@ function renderCalendar(shell, ctx, teams, filterId, state, byDate, reload) {
           },
           'Today'
         ),
-        el('button', { class: 'btn sm subtle', 'aria-label': 'Next month', onclick: () => nav(1) }, '›'),
+        el('button', {
+          type: 'button',
+          class: 'btn cal-nav-btn',
+          'aria-label': 'Next month',
+          onclick: () => nav(1),
+          html: icon('chevronRight', 14),
+        }),
       ]),
     ])
   );
@@ -188,7 +220,7 @@ function renderCalendar(shell, ctx, teams, filterId, state, byDate, reload) {
         [el('div', { class: 'cal-num' }, String(day.day))]
       );
       for (const item of dayItems.slice(0, 3)) {
-        cell.append(el('div', { class: 'cal-chip match', title: itemDetail(item) }, item.title));
+        cell.append(el('div', { class: `cal-chip ${chipClass(item.type)}`, title: itemDetail(item) }, item.title));
       }
       if (dayItems.length > 3) cell.append(el('div', { class: 'cal-more' }, `+${dayItems.length - 3} more`));
       board.append(cell);
@@ -198,17 +230,22 @@ function renderCalendar(shell, ctx, teams, filterId, state, byDate, reload) {
 }
 
 function itemDetail(item) {
-  return [item.title, formatMaps(item.maps), item.time, item.result].filter(Boolean).join(' · ');
+  return [item.teamName, item.title, item.people?.join(', '), formatMaps(item.maps), item.time]
+    .filter(Boolean)
+    .join(' · ');
 }
 
-function seriesDetail(item, { time = true } = {}) {
-  const parts = [formatMaps(item.maps)];
+function itemSub(item, { time = true } = {}) {
+  const parts = [item.teamName];
+  if (item.people?.length) parts.push(item.people.join(', '));
+  if (item.maps?.length) parts.push(formatMaps(item.maps));
   if (time && item.time) parts.push(item.time);
   if (item.result) parts.push(item.result);
-  return parts.filter(Boolean).join(' · ') || 'League match';
+  return parts.filter(Boolean).join(' · ') || (TYPE_META[item.type]?.label || 'Event');
 }
 
 function upcomingRow(item, ctx) {
+  const cls = chipClass(item.type);
   return el(
     'div',
     {
@@ -224,10 +261,10 @@ function upcomingRow(item, ctx) {
       },
     },
     [
-      el('span', { class: 'cal-dot match', style: 'flex-shrink:0;' }),
+      el('span', { class: `cal-dot ${cls}`, style: 'flex-shrink:0;' }),
       el('div', { class: 'crow-main' }, [
-        el('div', { class: 'crow-title' }, `${item.teamName} vs ${item.opponent || 'TBD'}`),
-        el('div', { class: 'crow-sub' }, seriesDetail(item, { time: false })),
+        el('div', { class: 'crow-title' }, item.title),
+        el('div', { class: 'crow-sub' }, itemSub(item, { time: false })),
       ]),
       el('div', { class: 'crow-meta' }, `${fmtDate(item.date)}${item.time ? ` · ${item.time}` : ''}`),
     ]
@@ -237,24 +274,25 @@ function upcomingRow(item, ctx) {
 function openDay(ctx, teams, filterId, date, dayItems, reload) {
   const body = el('div', {}, [el('h3', {}, fmtDate(date))]);
   if (!dayItems.length) {
-    body.append(el('div', { class: 'field-hint', style: 'margin-bottom:8px;' }, 'No league matches on this day.'));
+    body.append(el('div', { class: 'field-hint', style: 'margin-bottom:8px;' }, 'Nothing on this day yet.'));
   }
   for (const item of dayItems) {
+    const cls = chipClass(item.type);
     const row = el('div', { class: 'crow', style: 'cursor:default;' }, [
-      el('span', { class: 'cal-dot match', style: 'flex-shrink:0;' }),
+      el('span', { class: `cal-dot ${cls}`, style: 'flex-shrink:0;' }),
       el('div', { class: 'crow-main' }, [
-        el('div', { class: 'crow-title' }, `${item.teamName} vs ${item.opponent || 'TBD'}`),
-        el('div', { class: 'crow-sub' }, seriesDetail(item)),
+        el('div', { class: 'crow-title' }, item.title),
+        el('div', { class: 'crow-sub' }, itemSub(item)),
       ]),
     ]);
     if (item.event) {
       row.append(
         el('div', { class: 'crow-actions edit-only' }, [
-          iconBtn('edit', 'Edit match', () => {
+          iconBtn('edit', 'Edit', () => {
             overlay.remove();
-            addLeagueMatch(teams, item.teamId, date, reload, item.event);
+            addEvent(item.teamId, date, reload, item.event, teams);
           }),
-          iconBtn('trash', 'Delete match', async () => {
+          iconBtn('trash', 'Delete', async () => {
             await window.cci.deleteEvent(item.teamId, item.event.event_id);
             overlay.remove();
             reload();
@@ -273,81 +311,48 @@ function openDay(ctx, teams, filterId, date, dayItems, reload) {
   }
   body.append(
     el('div', { class: 'modal-actions' }, [
-      el('button', { class: 'btn subtle', onclick: () => overlay.remove() }, 'Close'),
+      el('button', { class: 'btn', onclick: () => overlay.remove() }, 'Close'),
       el(
         'button',
         {
           class: 'btn primary edit-only',
           onclick: () => {
             overlay.remove();
-            addLeagueMatch(teams, filterId || teams[0].id, date, reload);
+            addEvent(filterId || teams[0].id, date, reload, null, teams);
           },
         },
-        '+ Add League Match'
+        '+ Add Event'
       ),
     ])
   );
   const overlay = openModal(body, { width: '460px' });
 }
 
-function addLeagueMatch(teams, teamId, date, reload, event = null) {
-  const fields = [];
-  if (teams.length > 1 && !event) {
-    fields.push({
-      key: 'team_id',
-      label: 'Team',
-      type: 'select',
-      options: teams.map((t) => [t.id, t.name]),
-    });
-  }
-  fields.push(
-    { key: 'opponent', label: 'Opponent', required: true, placeholder: 'Opposing team' },
-    [
-      { key: 'date', label: 'Date', type: 'date' },
-      { key: 'time', label: 'Time', type: 'time' },
-    ],
-    { key: 'maps', label: 'Maps', placeholder: 'Den, Raid, Scar', hint: 'Comma-separated map names for the series' },
-    { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Optional details' }
-  );
-  openForm({
-    title: event ? 'Edit League Match' : 'Add League Match',
-    fields,
-    values: event
-      ? { ...event, maps: formatMaps(event.maps) }
-      : { team_id: teamId, type: 'league-match', date },
-    onSubmit: async (values) => {
-      const id = event?.team_id || values.team_id || teamId;
-      const opponent = values.opponent || '';
-      await window.cci.saveEvent(id, {
-        ...(event || {}),
-        type: 'league-match',
-        title: `vs ${opponent || 'TBD'}`,
-        opponent,
-        maps: parseMaps(values.maps),
-        date: values.date,
-        time: values.time,
-        notes: values.notes,
-      });
-      toast(event ? 'League match updated' : 'League match added', 'ok');
-      reload();
-    },
-  });
-}
-
-export async function addEvent(teamId, date, reload, event = null) {
+export async function addEvent(teamId, date, reload, event = null, teams = null) {
   let members = [];
+  const rosterTeam = event?.team_id || teamId;
   try {
-    members = await window.cci.getMembers(teamId);
+    members = await window.cci.getMembers(rosterTeam);
   } catch (err) {
     console.error('[calendar] could not load roster for attendees', err);
   }
 
+  const teamFields = teams?.length > 1 && !event
+    ? [{
+        key: 'team_id',
+        label: 'Team',
+        type: 'select',
+        options: teams.map((t) => [t.id, t.name]),
+      }]
+    : [];
+
   openForm({
     title: event ? 'Edit Event' : 'Add Event',
     fields: [
-      { key: 'title', label: 'Title', placeholder: 'VOD review, training block…' },
+      ...teamFields,
+      { key: 'title', label: 'Title', placeholder: 'VOD review, design sync, training block…' },
       { key: 'type', label: 'Type', type: 'select', options: EVENT_TYPE_OPTIONS },
-      { key: 'opponent', label: 'Opponent', placeholder: 'Required for league matches' },
+      { key: 'opponent', label: 'Opponent', placeholder: 'League matches and scrims' },
       { key: 'maps', label: 'Maps', placeholder: 'Den, Raid, Scar', hint: 'League matches only — comma-separated' },
       [
         { key: 'date', label: 'Date', type: 'date' },
@@ -359,22 +364,23 @@ export async function addEvent(teamId, date, reload, event = null) {
             label: 'Attendees',
             type: 'checks',
             options: members.map((m) => [m.id, m.gamertag]),
-            hint: 'Who this is for — they show up in the app notification feed, and get named in the Discord post for this event\'s channel.',
+            hint: 'Who this is for — they show in the feed, and get named in the Discord post.',
           }
         : null,
       { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Optional details' },
     ].filter(Boolean),
     values: event
       ? { ...event, maps: formatMaps(event.maps), attendees: event.attendee_ids || [] }
-      : { type: 'training', date },
+      : { type: 'meeting', date, team_id: teamId },
     onSubmit: async (values) => {
+      const id = event?.team_id || values.team_id || teamId;
       const type = values.type || 'training';
       const opponent = values.opponent || '';
       const title =
         values.title ||
-        (type === 'league-match' ? `vs ${opponent || 'TBD'}` : 'Training');
-      const { attendees, ...rest } = values;
-      await window.cci.saveEvent(teamId, {
+        (type === 'league-match' ? `vs ${opponent || 'TBD'}` : 'Event');
+      const { attendees, team_id: _team, ...rest } = values;
+      await window.cci.saveEvent(id, {
         ...(event || {}),
         ...rest,
         type,

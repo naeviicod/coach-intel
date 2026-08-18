@@ -1,5 +1,5 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../utils.js';
-import { openMemberModal, openTransferModal, openPhotoImportModal } from '../lib/teamManage.js';
+import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
 import { defaultSlot, isStaffMember, splitRoster } from '../lib/roster.js';
 import { isNaevii, memberStaffTitle, orgTitles } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
@@ -73,10 +73,6 @@ function rosterCard(team, members, matches, ctx, teams) {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: 'staff' }),
         }, '+ Add Staff'),
-        el('button', {
-          class: 'btn',
-          onclick: () => openPhotoImportModal(ctx, team, members),
-        }, 'Import Photos'),
         ctx.canEdit ? transferSelected : null,
       ]),
     ]),
@@ -166,22 +162,22 @@ function memberRow(member, team, matches, ctx, teams) {
     el('div', { class: 'crow-meta', style: 'width:70px;text-align:right;' }, totals.matches ? `${totals.kd} K/D` : '—'),
     el('div', { class: 'row-actions edit-only' }, [
       staff ? null : el('button', {
-        class: 'btn subtle sm',
+        class: 'btn sm',
         onclick: () => toggleSlot(ctx, team.id, member),
       }, onBench ? 'Start' : 'Bench'),
-      el('button', { class: 'btn subtle sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
+      el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
       canTransfer
         ? el('button', {
-          class: 'btn subtle sm',
+          class: 'btn sm',
           onclick: () => openTransferModal(ctx, team, member),
         }, 'Transfer')
         : null,
       el('button', {
-        class: 'btn subtle sm',
+        class: 'btn sm',
         onclick: () => openInviteModal(ctx, team.id, member),
       }, member.linked ? 'Linked' : 'Invite'),
       el('button', {
-        class: 'btn subtle sm danger',
+        class: 'btn sm danger',
         onclick: async () => {
           if (!confirm(`Remove ${member.gamertag} from ${team.name}?`)) return;
           await window.cci.deleteMember(team.id, member.id);

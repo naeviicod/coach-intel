@@ -59,11 +59,18 @@ export async function render(container, ctx) {
 
   const standings = sortStandings(rankings.teams || []);
   if (!standings.length) {
+    const first = teams[0];
+    const body = first
+      ? `${first.name} is on your roster. This table is the league standings. Add ${first.name} and the other teams with records and points.`
+      : 'Rankings are yours to maintain. Add the teams in your league or region with their records and points to track the table.';
     container.append(
       emptyState(
-        'No standings entered',
-        'Rankings are yours to maintain — add the teams in your league or region with their records and points to track the table.',
-        el('button', { class: 'btn primary edit-only', onclick: () => teamForm(rankings, reload) }, 'Add the first team')
+        'No league table yet',
+        body,
+        el('button', {
+          class: 'btn primary edit-only',
+          onclick: () => teamForm(rankings, reload, null, first?.name || ''),
+        }, first ? `Add ${first.name} to the table` : 'Add the first team')
       )
     );
     return;
@@ -125,7 +132,7 @@ function editRegion(rankings, reload) {
   });
 }
 
-function teamForm(rankings, reload, team = null) {
+function teamForm(rankings, reload, team = null, seedName = '') {
   openForm({
     title: team ? 'Edit Team' : 'Add Team',
     fields: [
@@ -139,7 +146,7 @@ function teamForm(rankings, reload, team = null) {
         { key: 'note', label: 'Note', placeholder: 'Streak, seed…' },
       ],
     ],
-    values: team || { wins: 0, losses: 0, points: 0 },
+    values: team || { name: seedName, wins: 0, losses: 0, points: 0 },
     onSubmit: async (values) => {
       const teams = (rankings.teams || []).slice();
       if (team) {

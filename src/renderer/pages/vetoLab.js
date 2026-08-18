@@ -1,6 +1,7 @@
 import { el, icon, fmtStamp } from '../utils.js';
 import { iconBtn } from './teamHub/parts.js';
-import { pageHeader, teamSelect, emptyState, confirmModal, toast } from './planningShared.js';
+import { pageHeader, emptyState, confirmModal, toast } from './planningShared.js';
+import { resolveActiveTeam } from '../prefs.js';
 import { VETO_FORMATS, seriesModes, buildVetoSequence, availableMaps, resultSeries, isSequenceComplete, groupStepsByMode, shortMode } from '../lib/veto.js';
 import { collectVetoes, intelForOpponent, suggestForStep, summaryLines, mapRecommendation } from '../lib/vetoIntel.js';
 
@@ -11,7 +12,7 @@ export async function render(container, ctx) {
     container.append(emptyState('No teams yet', 'Create a team to model vetoes against your opponents.'));
     return;
   }
-  const active = teams.find((t) => t.id === ctx.param) || teams[0];
+  const active = resolveActiveTeam(teams, ctx.param);
   const reload = () => {
     container.innerHTML = '';
     return draw(container, ctx, teams, active, reload);
@@ -46,8 +47,7 @@ async function draw(container, ctx, teams, active, reload) {
   container.append(
     pageHeader(
       'Veto Lab',
-      `${active.name}: model the map veto, then keep the book`,
-      teamSelect(teams, active.id, (id) => ctx.navigate('veto-lab', id))
+      `${active.name}: model the map veto, then keep the book`
     )
   );
 

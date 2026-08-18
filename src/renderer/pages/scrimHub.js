@@ -1,8 +1,9 @@
 import { el, icon, fmtDate } from '../utils.js';
 import { kpi, iconBtn } from './teamHub/parts.js';
 import { isPlayingMember, isStarter } from '../lib/roster.js';
-import { pageHeader, teamSelect, emptyState, openForm, confirmModal, toast } from './planningShared.js';
+import { pageHeader, emptyState, openForm, confirmModal, toast } from './planningShared.js';
 import { parseVodUrl } from '../lib/vodLink.js';
+import { resolveActiveTeam } from '../prefs.js';
 
 async function openMedia(url) {
   const ok = await window.cci.openMedia?.(url);
@@ -34,7 +35,7 @@ export async function render(container, ctx) {
     container.append(emptyState('No teams yet', 'Create a team before booking scrims against opponents.'));
     return;
   }
-  const active = teams.find((t) => t.id === ctx.param) || teams[0];
+  const active = resolveActiveTeam(teams, ctx.param);
   const reload = () => {
     container.innerHTML = '';
     return draw(container, ctx, teams, active, reload);
@@ -61,7 +62,6 @@ async function draw(container, ctx, teams, active, reload) {
       'Scrim Hub',
       `${active.name} — scheduling and block results`,
       el('div', { style: 'display:flex;gap:10px;align-items:center;' }, [
-        teamSelect(teams, active.id, (id) => ctx.navigate('scrim-hub', id)),
         bookBtn,
       ])
     )

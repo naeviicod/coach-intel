@@ -1,10 +1,11 @@
 import { el } from '../utils.js';
+import { resolveActiveTeam } from '../prefs.js';
 import { scoreboardDrop, scoreboardGrid, fmtDateFolder } from '../components/scoreboardDrop.js';
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
-  const requested = ctx.param && teams.find((t) => t.id === ctx.param);
-  const state = { teamId: requested?.id || teams[0]?.id || null };
+  const team = resolveActiveTeam(teams, ctx.param);
+  const state = { teamId: team?.id || null };
 
   const reload = async () => {
     container.innerHTML = '';
@@ -34,25 +35,13 @@ async function draw(container, ctx, teams, state, reload) {
     return;
   }
 
-  const teamSelect = el('select', {
-    id: 'sb-team',
-    onchange: () => {
-      state.teamId = teamSelect.value;
-      ctx.navigate('needs-review', state.teamId);
-    },
-  });
-  for (const team of teams) {
-    teamSelect.append(el('option', { value: team.id, selected: team.id === state.teamId ? '' : null }, team.name));
-  }
+  const teamName = teams.find((t) => t.id === state.teamId)?.name || 'this team';
 
   container.append(
     el('div', { class: 'card sb-drop-card' }, [
       el('div', { class: 'card-head' }, [
         el('h2', {}, 'Scoreboard inbox'),
-        el('div', { class: 'field', style: 'margin:0;min-width:180px;' }, [
-          el('label', { for: 'sb-team' }, 'Team'),
-          teamSelect,
-        ]),
+        el('div', { class: 'card-meta' }, teamName),
       ]),
       scoreboardDrop({
         teamId: state.teamId,
@@ -62,7 +51,6 @@ async function draw(container, ctx, teams, state, reload) {
   );
 
   const items = state.teamId ? await window.cci.listScoreboards(state.teamId) : [];
-  const teamName = teams.find((t) => t.id === state.teamId)?.name || 'this team';
 
   container.append(
     el('div', { class: 'card', style: 'margin-top:14px;' }, [

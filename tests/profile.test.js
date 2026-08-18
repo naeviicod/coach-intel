@@ -70,4 +70,7 @@ test('top-bar chip uses the signed-in person, not a generic Coach', async () => 
   const local = chipIdentity({ coachName: 'Coach' }, { local: true, me: null });
   assert.equal(local.name, 'Coach');
   assert.equal(local.title, 'Local');
+  assert.equal(local.verified, false);
+  assert.equal(filled.verified, true);
+  assert.equal(discordFallback.verified, true);
 });

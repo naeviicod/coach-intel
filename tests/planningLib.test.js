@@ -213,3 +213,34 @@ test('calendar: org league items show team, opponent and maps only', async () =>
   assert.equal(optic.title, 'ROME vs Optic');
   assert.deepEqual(optic.maps, ['Den']);
 });
+
+test('calendar: org overview includes meetings, tasks and every team', async () => {
+  const cal = await import(libUrl('calendar.js'));
+  const team = { id: 'rome', name: 'Rome', tag: 'ROME' };
+  const items = cal.orgCalendarItems(team, {
+    events: [
+      { type: 'league-match', date: '2026-08-22', opponent: 'FaZe', maps: ['Den'] },
+      { type: 'meeting', date: '2026-08-20', time: '11:00', title: 'Creative review', attendee_ids: ['m1'] },
+      { type: 'training', date: '2026-08-21', title: 'Aim trainers' },
+    ],
+    matches: [],
+    tasks: [
+      { title: 'Thumbnails', due: '2026-08-19', done: false, assignee_id: 'm1' },
+      { title: 'Done already', due: '2026-08-19', done: true },
+      { title: 'No date', done: false },
+    ],
+    scrims: [{ date: '2026-08-23', opponent: 'LAT', time: '19:00' }],
+    members: [{ id: 'm1', gamertag: 'Naevii' }],
+  });
+  const types = items.map((i) => i.type).sort();
+  assert.deepEqual(types, ['league-match', 'meeting', 'scrim', 'task', 'training']);
+  const meeting = items.find((i) => i.type === 'meeting');
+  assert.equal(meeting.title, 'Creative review');
+  assert.deepEqual(meeting.people, ['Naevii']);
+  const task = items.find((i) => i.type === 'task');
+  assert.equal(task.title, 'Thumbnails');
+  assert.equal(task.date, '2026-08-19');
+  assert.equal(items.some((i) => i.title === 'Done already'), false);
+  assert.equal(cal.chipClass('vod-review'), 'vod');
+  assert.equal(cal.chipClass('task'), 'task');
+});

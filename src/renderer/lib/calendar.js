@@ -163,8 +163,102 @@ export function leagueItemsForTeam(team, { events = [], matches = [] } = {}) {
     item.title = chipLabel({ name: item.teamName, tag: item.teamTag }, item.opponent);
     item.sub = [maps, item.time, item.result].filter(Boolean).join(' · ');
   }
-  return items.sort((a, b) => {
-    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-    return (a.time || '').localeCompare(b.time || '');
-  });
+  return items.sort(byWhen);
+}
+
+const CHIP_CLS = {
+  'league-match': 'match',
+  match: 'match',
+  scrim: 'scrim',
+  'scrim-block': 'scrim',
+  'vod-review': 'vod',
+  meeting: 'meeting',
+  training: 'training',
+  practice: 'training',
+  task: 'task',
+  other: 'other',
+};
+
+export function chipClass(type) {
+  return CHIP_CLS[type] || 'other';
+}
+
+function memberName(members, id) {
+  return (members || []).find((m) => m.id === id)?.gamertag || '';
+}
+
+function byWhen(a, b) {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  return (a.time || '').localeCompare(b.time || '');
+}
+
+/**
+ * Org calendar: every team's matches, meetings, reviews, scrims and open
+ * tasks with a due date. Staff, creatives and marketing read this as one
+ * overview rather than hopping team planners.
+ */
+export function orgCalendarItems(team, { events = [], matches = [], tasks = [], scrims = [], members = [] } = {}) {
+  const items = leagueItemsForTeam(team, { events, matches });
+  const seenScrim = new Set();
+
+  for (const event of events) {
+    if (!event || event.type === 'league-match') continue;
+    const people = (event.attendee_ids || []).map((id) => memberName(members, id)).filter(Boolean);
+    if (event.type === 'scrim' || event.type === 'scrim-block') {
+      seenScrim.add(leagueKey(team.id, event.date, event.opponent));
+    }
+    items.push({
+      type: event.type,
+      date: event.date,
+      time: event.time || '',
+      teamId: team.id,
+      teamName: team.name || 'Team',
+      title: event.title || event.type,
+      people,
+      opponent: event.opponent || '',
+      event,
+      source: 'event',
+      route: event.type === 'vod-review' ? 'vod-library' : null,
+      param: team.id,
+    });
+  }
+
+  for (const scrim of scrims) {
+    if (!scrim?.date) continue;
+    const key = leagueKey(team.id, scrim.date, scrim.opponent);
+    if (seenScrim.has(key)) continue;
+    seenScrim.add(key);
+    items.push({
+      type: 'scrim',
+      date: scrim.date,
+      time: scrim.time || '',
+      teamId: team.id,
+      teamName: team.name || 'Team',
+      title: `Scrim vs ${scrim.opponent || 'TBD'}`,
+      opponent: scrim.opponent || '',
+      source: 'scrim',
+      route: 'scrim-hub',
+      param: team.id,
+    });
+  }
+
+  for (const task of tasks) {
+    if (!task?.due || task.done) continue;
+    const assignee = memberName(members, task.assignee_id);
+    items.push({
+      type: 'task',
+      date: String(task.due).slice(0, 10),
+      time: '',
+      teamId: team.id,
+      teamName: team.name || 'Team',
+      title: task.title || 'Task',
+      people: assignee ? [assignee] : [],
+      source: 'task',
+      route: 'tasks',
+      param: team.id,
+      task,
+    });
+  }
+
+  return items.sort(byWhen);
 }

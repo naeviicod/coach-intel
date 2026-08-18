@@ -1,5 +1,5 @@
 import { el, teamMark } from '../utils.js';
-import { getPref, setPref } from '../prefs.js';
+import { resolveActiveTeam } from '../prefs.js';
 import { emptyState } from './planningShared.js';
 import { MODES, modeByKey, statusPill, iconBtn } from './teamHub/parts.js';
 import { openEditor } from './strategyBoard.js';
@@ -24,18 +24,16 @@ export async function render(container, ctx) {
 
   const parts = (ctx.param || '').split('/').filter(Boolean);
   const requested = parts[0];
-  const remembered = getPref('lastTeamId');
-  const team =
-    teams.find((t) => t.id === requested) ||
-    (!requested && teams.find((t) => t.id === remembered)) ||
-    teams[0];
+  const team = resolveActiveTeam(
+    teams,
+    requested && ['edit', 'new', 'mode'].includes(requested) ? null : requested
+  );
 
   if (team.id !== requested) {
     const tail = requested && ['edit', 'new', 'mode'].includes(requested) ? `/${parts.join('/')}` : parts.slice(1).length ? `/${parts.slice(1).join('/')}` : '';
     ctx.navigate('playbooks', `${team.id}${tail}`);
     return;
   }
-  setPref('lastTeamId', team.id);
 
   const action = parts[1] || '';
   const stratId = action === 'edit' ? parts[2] : null;
@@ -91,7 +89,7 @@ function renderRail(rail, state) {
   let mapFilter = '';
   let objectiveFilter = '';
 
-  rail.append(teamBlock(team, teams, (id) => ctx.navigate('playbooks', id)));
+  rail.append(teamBlock(team));
   rail.append(
     el('div', { class: 'playbooks-rail-head' }, [
       el('div', {}, [
@@ -230,7 +228,7 @@ function renderRail(rail, state) {
   draw();
 }
 
-function teamBlock(team, teams, onChange) {
+function teamBlock(team) {
   return el('div', { class: 'playbooks-team' }, [
     el('div', { class: 'playbooks-team-id' }, [
       teamMark(team, { class: 'sb-org-logo', style: 'width:34px;height:34px;' }),
@@ -239,13 +237,6 @@ function teamBlock(team, teams, onChange) {
         el('div', { class: 'team-select-sub' }, team.tag ? `${team.tag} · Playbooks` : 'Playbooks'),
       ]),
     ]),
-    teams.length > 1
-      ? el(
-          'select',
-          { 'aria-label': 'Team', onchange: (e) => onChange(e.target.value) },
-          teams.map((t) => el('option', { value: t.id, selected: t.id === team.id ? 'selected' : null }, t.name))
-        )
-      : null,
   ]);
 }
 

@@ -47,10 +47,11 @@ function brandTintFilter(hex) {
   if (color === DEFAULT_ACCENT) return 'none';
   const t = hexToHsl(color);
   if (t.s < 0.12) return `saturate(0) brightness(${(1 + t.l * 0.35).toFixed(2)})`;
+  // Hue-rotate on lime under-saturates most targets into a dusty wash.
+  // Hold brightness near 1 and push saturation so the recolor stays solid.
   const rotate = Math.round(t.h - BRAND_HSL.h);
-  const sat = Math.min(1.8, Math.max(0.55, t.s / Math.max(BRAND_HSL.s, 0.2)));
-  const bright = Math.min(1.25, Math.max(0.85, t.l / Math.max(BRAND_HSL.l, 0.2)));
-  return `hue-rotate(${rotate}deg) saturate(${sat.toFixed(2)}) brightness(${bright.toFixed(2)})`;
+  const sat = Math.min(2.6, Math.max(1.2, (t.s / Math.max(BRAND_HSL.s, 0.2)) * 1.55));
+  return `hue-rotate(${rotate}deg) saturate(${sat.toFixed(2)}) brightness(1.05)`;
 }
 
 export function resolveAccent({ invite, shared, org, firstLaunch } = {}) {
@@ -64,7 +65,7 @@ export function applyAccent(hex) {
   const root = document.documentElement;
   root.style.setProperty('--accent', color);
   root.style.setProperty('--accent-bright', lighten(color));
-  root.style.setProperty('--accent-dim', `${color}26`);
+  root.style.setProperty('--accent-dim', `${color}42`);
   root.style.setProperty('--brand-tint', brandTintFilter(color));
   return color;
 }

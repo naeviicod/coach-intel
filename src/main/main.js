@@ -38,10 +38,10 @@ function createWindow() {
     height: work.height,
     minWidth: 1040,
     minHeight: 680,
-    backgroundColor: '#080a0c',
+    backgroundColor: '#070908',
     title: 'Coach Intel',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 18 },
+    trafficLightPosition: { x: 14, y: 12 },
     icon: ICON_PATH,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -797,7 +797,7 @@ ipcMain.handle('cci:getAppVersion', () => app.getVersion());
 ipcMain.handle('cci:setTrafficLights', (e, collapsed) => {
   if (process.platform !== 'darwin') return;
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setTrafficLightPosition(collapsed ? { x: 14, y: 16 } : { x: 16, y: 18 });
+  mainWindow.setTrafficLightPosition({ x: 14, y: 12 });
 });
 
 ipcMain.handle('cci:getNeedsReview', (e, teamId) => dataStore.getNeedsReview(teamId));

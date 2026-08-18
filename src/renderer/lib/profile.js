@@ -78,6 +78,7 @@ export function chipIdentity(org, access) {
     name,
     title,
     role,
+    verified: Boolean(!access?.local && me),
     photo: org?.profilePhoto || null,
     avatarUrl: me?.avatar_url || null,
   };

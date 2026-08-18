@@ -5,7 +5,8 @@
 // state instead of a filled-in placeholder.
 
 import { el, fmtDate, fmtStamp } from '../utils.js';
-import { pageHeader, emptyState, teamSelect } from './planningShared.js';
+import { pageHeader, emptyState } from './planningShared.js';
+import { resolveActiveTeam } from '../prefs.js';
 import { intelForOpponent, summaryLines } from '../lib/vetoIntel.js';
 import { mapReadiness } from '../lib/readiness.js';
 
@@ -17,7 +18,7 @@ export async function render(container, ctx) {
     return;
   }
   const [teamId, opponentId] = (ctx.param || '').split('/');
-  const active = teams.find((t) => t.id === teamId) || teams[0];
+  const active = resolveActiveTeam(teams, teamId);
   const reload = () => ctx.navigate('war-room', [active.id, opponentId].filter(Boolean).join('/'));
   await draw(container, ctx, teams, active, opponentId, reload);
 }
@@ -34,7 +35,7 @@ async function draw(container, ctx, teams, active, opponentId, reload) {
   ]);
 
   container.append(
-    pageHeader('War Room', `${active.name} — prep for the upcoming series`, teamSelect(teams, active.id, (id) => ctx.navigate('war-room', id)))
+    pageHeader('War Room', `${active.name} — prep for the upcoming series`)
   );
 
   const opponentSelect = el(

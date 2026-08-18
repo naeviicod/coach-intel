@@ -132,6 +132,15 @@ const SPLASH_MIN_MS = 5000;
 const SPLASH_BAR_MS = 280;
 const BOOT_TIMEOUT_MS = 8000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
+const TEAM_NAV_PAGES = new Set([
+  'team-hub',
+  'playbooks',
+  'scrim-hub',
+  'vod-library',
+  'needs-review',
+  'veto-lab',
+  'war-room',
+]);
 const bootStart = performance.now();
 window.__cciBootStart = bootStart;
 
@@ -179,6 +188,7 @@ function navigate(page, param) {
   const hash = param ? `#/${page}/${param}` : `#/${page}`;
   if (window.location.hash === hash) {
     state.route = parseHash();
+    renderTopbar();
     renderContent();
     syncNavActive();
     return;
@@ -272,6 +282,7 @@ window.addEventListener('hashchange', () => {
     return;
   }
   state.route = next;
+  renderTopbar();
   renderContent();
   syncNavActive();
 });
@@ -415,21 +426,38 @@ function prefersReducedMotion() {
 }
 
 function finishSplash(splash) {
-  if (!splash) return;
-  splash.classList.add('hide');
+  if (!splash || splash.dataset.done === '1') return;
+  splash.dataset.done = '1';
   splash.setAttribute('aria-hidden', 'true');
-  splash.style.display = 'none';
+  const done = () => {
+    splash.classList.add('hide');
+    splash.style.display = 'none';
+  };
+  if (prefersReducedMotion() || splash.classList.contains('landed')) {
+    done();
+    return;
+  }
+  splash.classList.add('hide');
+  let finished = false;
+  const settle = () => {
+    if (finished) return;
+    finished = true;
+    splash.removeEventListener('transitionend', onEnd);
+    done();
+  };
+  const onEnd = (event) => {
+    if (event && event.target !== splash) return;
+    if (event && event.propertyName && event.propertyName !== 'opacity') return;
+    settle();
+  };
+  splash.addEventListener('transitionend', onEnd);
+  window.setTimeout(settle, 320);
 }
 
 function restAtmosphere() {
   const atmosphere = document.getElementById('atmosphere');
   if (!atmosphere) return;
-  atmosphere.classList.add('rest');
-  const hide = () => { atmosphere.style.display = 'none'; };
-  atmosphere.addEventListener('transitionend', (event) => {
-    if (event.propertyName === 'opacity') hide();
-  }, { once: true });
-  window.setTimeout(hide, 800);
+  atmosphere.classList.add('arena');
 }
 
 // Lockup is 2172x724 (3:1). The Ci lives in the left square. Clip hides the type,
@@ -651,6 +679,7 @@ async function prepareApp({ fast = false } = {}) {
   return () => {
     booted = true;
     document.getElementById('app').classList.add('shell');
+    restAtmosphere();
     document.getElementById('sidebar').style.display = '';
     document.getElementById('topbar').style.display = '';
     document.getElementById('statusbar').style.display = '';
@@ -672,6 +701,7 @@ function paintSplashVersion() {
 }
 
 async function boot() {
+  if (/Mac/i.test(navigator.platform || '')) document.documentElement.classList.add('is-mac');
   applyAccent(DEFAULT_ACCENT);
   paintSplashVersion();
   const barAnim = runSplashBar();
@@ -766,7 +796,7 @@ function navLink(item) {
       'aria-current': active ? 'page' : null,
       'data-page': item.page,
       onclick: () => {
-        const needsTeam = item.page === 'team-hub' || item.page === 'playbooks';
+        const needsTeam = TEAM_NAV_PAGES.has(item.page);
         navigate(item.page, needsTeam ? rememberedTeamId() || undefined : undefined);
       },
     },
@@ -789,28 +819,42 @@ function renderSidebar() {
     el('div', { class: 'sb-brand' }, [
       el('img', {
         class: 'sb-wordmark brand-tint',
-        src: asset('wordmark.png'),
-        alt: '',
-        onerror: (e) => {
-          e.target.hidden = true;
-          e.target.nextElementSibling?.classList.add('show');
-        },
+        src: asset('logo-mark.png'),
+        alt: 'Coach Intel',
       }),
-      el('div', { class: 'sb-wordmark-text', 'aria-label': 'Coach Intel' }, [
-        el('span', {}, 'COACH'),
-        el('span', { class: 'sb-wordmark-intel' }, 'INTEL'),
-      ]),
       el('img', { class: 'sb-brand-icon brand-tint', src: asset('ci-mark.png'), alt: '' }),
     ])
   );
 
   const nav = el('div', { class: 'sb-nav' });
   const role = state.access?.role;
+  const foldedPref = getPref('navGroupsFolded', {}) || {};
   for (const group of NAV_GROUPS) {
     const items = group.items.filter((item) => canAccessPage(role, item.page));
     if (!items.length) continue;
-    nav.append(el('div', { class: 'sb-section-label' }, group.label));
-    for (const item of items) nav.append(navLink(item));
+    const key = group.label.toLowerCase();
+    const hasActive = items.some((item) => isActive(item));
+    const folded = Boolean(foldedPref[key]) && !navCollapsed && !hasActive;
+    const heading = el(
+      'button',
+      {
+        type: 'button',
+        class: 'sb-section-label',
+        'aria-expanded': String(!folded),
+        'aria-label': `${folded ? 'Show' : 'Hide'} ${group.label}`,
+        onclick: () => toggleNavGroup(group.label),
+      },
+      [
+        el('span', {}, group.label),
+        el('span', { class: 'chev', html: icon(folded ? 'chevronRight' : 'chevronDown', 15) }),
+      ]
+    );
+    nav.append(
+      el('div', { class: `sb-group${folded ? ' folded' : ''}` }, [
+        heading,
+        el('div', { class: 'sb-group-items' }, items.map((item) => navLink(item))),
+      ])
+    );
   }
   sidebar.append(nav);
 
@@ -851,6 +895,15 @@ function syncNavActive() {
 
 // Toggling only changes chrome: no route change, no reload, and the page keeps
 // its own state because content is never re-rendered here.
+function toggleNavGroup(label) {
+  const key = String(label || '').toLowerCase();
+  const folded = { ...(getPref('navGroupsFolded', {}) || {}) };
+  folded[key] = !folded[key];
+  setPref('navGroupsFolded', folded);
+  renderSidebar();
+  syncNavActive();
+}
+
 function setNavCollapsed(collapsed, { persist = true } = {}) {
   navCollapsed = collapsed;
   document.getElementById('sidebar').classList.toggle('collapsed', collapsed);
@@ -1082,6 +1135,7 @@ function renderTopbar() {
   topbar.append(notificationBell());
   topbar.append(el('div', { class: 'topbar-divider' }));
 
+  const hideVerified = state.route.page === 'players' || state.route.page === 'database';
   const chip = chipIdentity(state.org, state.access);
   const titleLine = chip.title || (!state.access?.local && accessRoleLabel(state.access?.role)) || '';
   const roleBits = [titleLine, !state.access?.canEdit ? 'View only' : ''].filter(Boolean);
@@ -1100,7 +1154,12 @@ function renderTopbar() {
       },
     }, [
       el('div', {}, [
-        el('div', { class: 'topbar-profile-name' }, chip.name),
+        el('div', { class: 'topbar-profile-name' }, [
+          chip.name,
+          chip.verified && !hideVerified
+            ? el('span', { class: 'verified-mark', title: 'Verified', html: icon('check', 9) })
+            : null,
+        ]),
         el('div', { class: 'topbar-profile-role' }, roleBits.join(' · ') || 'Signed in'),
       ]),
       faceMark({ photo: chip.photo, avatarUrl: chip.avatarUrl, name: chip.name, size: 28 }),

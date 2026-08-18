@@ -1,8 +1,9 @@
 import { el, icon, fmtDate } from '../utils.js';
 import { iconBtn } from './teamHub/parts.js';
-import { pageHeader, teamSelect, emptyState, openForm, confirmModal, toast } from './planningShared.js';
+import { pageHeader, emptyState, openForm, confirmModal, toast } from './planningShared.js';
 import { parseVodUrl } from '../lib/vodLink.js';
 import { openVodReview } from './vodReview.js';
+import { resolveActiveTeam } from '../prefs.js';
 
 const SOURCES = ['Link', 'YouTube', 'Twitch', 'Local File', 'Other'];
 
@@ -13,7 +14,7 @@ export async function render(container, ctx) {
     container.append(emptyState('No teams yet', 'Create a team to start building a VOD library.'));
     return;
   }
-  const active = teams.find((t) => t.id === ctx.param) || teams[0];
+  const active = resolveActiveTeam(teams, ctx.param);
   const reload = () => {
     container.innerHTML = '';
     return draw(container, ctx, teams, active, reload);
@@ -36,7 +37,6 @@ async function draw(container, ctx, teams, active, reload) {
       'VOD Library',
       `${active.name} — clips and timestamped review`,
       el('div', { style: 'display:flex;gap:10px;align-items:center;' }, [
-        teamSelect(teams, active.id, (id) => ctx.navigate('vod-library', id)),
         el('button', { class: 'btn primary edit-only', onclick: () => vodForm(active.id, mapNames, modeNames, matches, strats, reload) }, [
           el('span', { class: 'icon', style: 'display:inline-flex;vertical-align:-2px;margin-right:6px;', html: icon('plus', 13) }),
           'Add VOD',

@@ -1,5 +1,5 @@
 import { el, icon, teamMark } from '../../utils.js';
-import { getPref, setPref } from '../../prefs.js';
+import { resolveActiveTeam } from '../../prefs.js';
 import { inlineError, skeleton } from './parts.js';
 import * as overview from './sections/overview.js';
 import * as roster from './sections/roster.js';
@@ -45,20 +45,26 @@ export async function render(container, ctx) {
 
   const parts = (ctx.param || '').split('/').filter(Boolean);
   const requestedTeam = parts[0];
-  const remembered = getPref('lastTeamId');
-  const team =
-    teams.find((t) => t.id === requestedTeam) ||
-    (!requestedTeam && teams.find((t) => t.id === remembered)) ||
-    teams[0];
+  const team = resolveActiveTeam(teams, SECTIONS.includes(requestedTeam) ? null : requestedTeam);
 
   // A hub URL without a valid team is normalised so back/forward and reloads
   // land on the same place the user is looking at.
+  if (!team) {
+    container.append(
+      el('div', { style: 'padding:26px;' }, [
+        el('div', { class: 'card empty-state' }, [
+          el('div', { class: 'title' }, 'No teams yet'),
+          el('div', {}, 'Create a team to open the Team Hub.'),
+        ]),
+      ])
+    );
+    return;
+  }
   if (team.id !== requestedTeam) {
     const tail = requestedTeam && SECTIONS.includes(requestedTeam) ? `/${parts.join('/')}` : '';
     ctx.navigate('team-hub', `${team.id}${tail}`);
     return;
   }
-  setPref('lastTeamId', team.id);
 
   const sectionKey = SECTIONS.includes(parts[1]) ? parts[1] : 'overview';
   const def = SECTION_DEFS.find((s) => s.key === sectionKey);
@@ -191,7 +197,7 @@ async function paintSection(workspace, def, hubCtx, retry, { animate = true } = 
 
 function renderRail(rail, hub, counts) {
   rail.innerHTML = '';
-  if (hub.teams.length > 1) rail.append(teamSelector(hub));
+  rail.append(teamIdentity(hub));
 
   const nav = el('nav', { class: 'hub-rail-nav', 'aria-label': `${hub.team.name} sections` });
   for (const def of SECTION_DEFS) {
@@ -217,76 +223,14 @@ function renderRail(rail, hub, counts) {
   rail.append(nav);
 }
 
-function teamSelector(hub) {
-  const { team, teams } = hub;
-  const wrap = el('div', { class: 'team-select' });
-
-  const btn = el(
-    'button',
-    {
-      type: 'button',
-      class: 'team-select-btn',
-      'aria-haspopup': 'listbox',
-      'aria-expanded': 'false',
-      'aria-label': `${team.name}, switch team`,
-    },
-    [
+function teamIdentity(hub) {
+  const { team } = hub;
+  return el('div', { class: 'team-select' }, [
+    el('div', { class: 'team-select-static', 'aria-label': team.name }, [
       teamMark(team, { class: 'sb-org-logo', style: 'width:28px;height:28px;' }),
-      el('span', { class: 'team-select-chev', html: icon('chevronDown', 14) }),
-    ]
-  );
-
-  wrap.append(btn);
-
-  let menu = null;
-  const close = () => {
-    if (!menu) return;
-    menu.remove();
-    menu = null;
-    btn.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('mousedown', onOutside, true);
-    document.removeEventListener('keydown', onKey, true);
-  };
-  const onOutside = (e) => {
-    if (!wrap.contains(e.target)) close();
-  };
-  const onKey = (e) => {
-    if (e.key === 'Escape') {
-      close();
-      btn.focus();
-    }
-  };
-
-  btn.addEventListener('click', () => {
-    if (menu) return close();
-    menu = el(
-      'div',
-      { class: 'team-menu', role: 'listbox' },
-      teams.map((t) =>
-        el(
-          'button',
-          {
-            type: 'button',
-            role: 'option',
-            'aria-selected': String(t.id === team.id),
-            class: `team-menu-item${t.id === team.id ? ' active' : ''}`,
-            onclick: () => {
-              close();
-              if (t.id !== team.id) hub.goTeam(t.id);
-            },
-          },
-          [t.name, el('span', { class: 'check', html: icon('check', 12) })]
-        )
-      )
-    );
-    wrap.append(menu);
-    btn.setAttribute('aria-expanded', 'true');
-    document.addEventListener('mousedown', onOutside, true);
-    document.addEventListener('keydown', onKey, true);
-    menu.querySelector('.team-menu-item')?.focus();
-  });
-
-  return wrap;
+      el('span', { class: 'team-select-name' }, team.name),
+    ]),
+  ]);
 }
 
 // ---------- Context panel toggle ----------

@@ -125,9 +125,8 @@ function normalizeEventMaps(maps) {
 
 // ---------- Schedule events (Calendar) ----------
 //
-// Coach-created calendar entries. The org Calendar page only surfaces
-// league-match rows (plus logged match history). Other types stay on the
-// team's planner. Older keys (practice, scrim-block, other) still load.
+// Coach-created calendar entries. The org Calendar surfaces every type so
+// staff and creatives share one overview. Older keys still load.
 
 const EVENT_TYPES = [
   'league-match',
