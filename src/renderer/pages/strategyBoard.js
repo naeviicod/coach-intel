@@ -1,9 +1,11 @@
 import { el, icon, fmtDate } from '../utils.js';
 import { shareButton } from '../components/discordShare.js';
+import { openModal } from '../components/modal.js';
 import { resolveMapLayout, modeLayoutKey } from '../lib/maps.js';
 import { paintDrawings, paintOne, hitDrawingIndex, DRAW_COLOR } from './stratBoard/draw.js';
-import { defaultPositions, normalizePos, nextOpponentSlot, renderPiece, MAX_PER_TEAM } from './stratBoard/pieces.js';
+import { defaultPositions, normalizePos, nextOpponentSlot, renderPiece, clampPieceScale, MAX_PER_TEAM, DEFAULT_PIECE_SCALE } from './stratBoard/pieces.js';
 import { toolRail, bindShortcuts } from './stratBoard/tools.js';
+import { paintKeys, spawnLayoutFromObjectives, objectivesSummary } from './stratBoard/objectives.js';
 
 const STATUSES = ['DRAFT', 'READY FOR REVIEW', 'APPROVED', 'IN PRACTICE', 'MATCH READY', 'ARCHIVED'];
 
@@ -43,7 +45,7 @@ async function showPlaybook(root, teamId, team, members, ruleset, ctx) {
       el('div', { class: 'field-hint' }, `${strats.length} saved strat${strats.length === 1 ? '' : 's'} for ${team.name}`),
       el(
         'button',
-        { class: 'btn primary', onclick: () => showBoard(root, teamId, team, members, ruleset, ctx, null) },
+        { class: 'btn primary edit-only', onclick: () => showBoard(root, teamId, team, members, ruleset, ctx, null) },
         '+ New Strat'
       ),
     ])
@@ -81,12 +83,17 @@ async function showPlaybook(root, teamId, team, members, ruleset, ctx) {
 async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
   root.innerHTML = '';
   const existing = stratId ? await window.cci.getStrat(teamId, stratId) : null;
+  const readOnly = !ctx.canEdit;
 
   const state = {
     strategy_id: existing?.strategy_id || null,
     strategy_name: existing?.strategy_name || '',
     map: existing?.map || ruleset?.maps?.find((m) => m.active !== false)?.name || '',
     mode: existing?.mode || ruleset?.modes?.[0] || '',
+    // Optional finer-grained attachment than map+mode alone, e.g. "P3", "A", or
+    // "Carry Route" — never required, so strats saved before this field existed
+    // just show blank here.
+    objective_key: existing?.objective_key || '',
     status: existing?.status || 'DRAFT',
     player_positions: existing
       ? existing.player_positions.map(normalizePos)
@@ -94,6 +101,11 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     drawings: existing ? [...existing.drawings] : [],
     notes: existing?.notes || '',
     versions: existing?.versions || [],
+    piece_scale: DEFAULT_PIECE_SCALE,
+    // Optional named position snapshots (spawn, opening routes, setup, …) for
+    // step-by-step playback. Additive: a strat saved before this existed just
+    // has an empty list and behaves exactly as before.
+    steps: existing?.steps ? JSON.parse(JSON.stringify(existing.steps)) : [],
   };
   let tool = 'select';
   let dirty = false;
@@ -105,24 +117,57 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     value: state.strategy_name,
     placeholder: 'Strat name (auto-numbered if left blank)',
     style: 'font-weight:700;font-size:14px;width:220px;',
+    disabled: readOnly ? 'disabled' : null,
   });
   const mapSelect = el(
     'select',
-    { onchange: (e) => { state.map = e.target.value; dirty = true; applyMap(); } },
+    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.map = e.target.value; dirty = true; applyMap({ reseed: !state.strategy_id }); } },
     (ruleset?.maps || []).filter((m) => m.active !== false).map((m) =>
       el('option', { value: m.name, selected: m.name === state.map ? 'selected' : null }, m.name)
     )
   );
   const modeSelect = el(
     'select',
-    { onchange: (e) => { state.mode = e.target.value; dirty = true; applyMap(); } },
+    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.mode = e.target.value; dirty = true; applyMap({ reseed: !state.strategy_id }); } },
     (ruleset?.modes || []).map((m) => el('option', { value: m, selected: m === state.mode ? 'selected' : null }, m))
   );
   const statusSelect = el(
     'select',
-    { onchange: (e) => { state.status = e.target.value; dirty = true; } },
+    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.status = e.target.value; dirty = true; } },
     STATUSES.map((s) => el('option', { value: s, selected: s === state.status ? 'selected' : null }, s))
   );
+  const objectiveInput = el('input', {
+    type: 'text',
+    value: state.objective_key,
+    placeholder: 'Hill / Site (optional)',
+    style: 'width:132px;',
+    disabled: readOnly ? 'disabled' : null,
+    title: 'Attach this strat to a specific hill, bombsite or lane — e.g. "P3", "A", "Carry Route"',
+    oninput: (e) => { state.objective_key = e.target.value; dirty = true; },
+  });
+  const sizeValue = el('span', { class: 'board-size-val' }, `${Math.round(state.piece_scale * 100)}%`);
+  const sizeInput = el('input', {
+    type: 'range',
+    class: 'board-size-range',
+    min: '40',
+    max: '140',
+    step: '5',
+    value: String(Math.round(state.piece_scale * 100)),
+    disabled: readOnly ? 'disabled' : null,
+    'aria-label': 'Player size',
+    title: 'Player size',
+    oninput: (e) => {
+      state.piece_scale = clampPieceScale(Number(e.target.value) / 100);
+      sizeValue.textContent = `${e.target.value}%`;
+      dirty = true;
+      applyPieceScale();
+    },
+  });
+  const sizeControl = el('label', { class: 'board-size edit-only' }, [
+    el('span', {}, 'Players'),
+    sizeInput,
+    sizeValue,
+  ]);
 
   function setTool(next) {
     tool = next;
@@ -138,21 +183,62 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
   const bgLabel = el('div', { class: 'board-bg-label' }, state.map || 'Select a map');
   bg.append(bgImg, bgLabel);
   const markersLayer = el('div', { class: 'board-markers' });
-  boardWrap.append(bg, canvas, markersLayer);
+  const keysLayer = el('div', { class: 'board-keys' });
+  // Shown only when resolveMapLayout had to fall back to a plain reference
+  // photo (no mode-specific tactical blueprint exists yet for this map/mode) —
+  // a coach should never mistake a photo for an annotated diagram.
+  const bgWarning = el(
+    'div',
+    {
+      style:
+        'display:none;position:absolute;top:10px;left:10px;background:var(--loss);color:#fff;font-size:10.5px;' +
+        'font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 9px;border-radius:6px;z-index:5;pointer-events:none;',
+    },
+    'Reference photo — not a tactical diagram'
+  );
+  const objectivesPanel = el('div', {
+    style:
+      'display:none;position:absolute;top:10px;right:10px;max-width:250px;max-height:70%;overflow-y:auto;' +
+      'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11.5px;line-height:1.6;z-index:6;',
+  });
+  boardWrap.append(bg, keysLayer, canvas, markersLayer, bgWarning, objectivesPanel);
 
-  async function applyMap() {
+  const layers = { players: true, drawings: true, objectives: true };
+  let spawnLayout = null;
+
+  function applyLayers() {
+    markersLayer.style.display = layers.players ? '' : 'none';
+    canvas.style.display = layers.drawings ? '' : 'none';
+    objectivesPanel.style.display = layers.objectives ? '' : 'none';
+  }
+
+  async function applyMap({ reseed = !state.strategy_id } = {}) {
     const key = modeLayoutKey(state.mode);
     bgLabel.textContent = state.map || 'Select a map';
     bg.dataset.layout = key || 'cover';
     bgImg.onload = () => bg.classList.add('has-map');
     bgImg.onerror = () => bg.classList.remove('has-map');
-    const src = await resolveMapLayout(state.map, state.mode);
+    const { src, isLayout } = await resolveMapLayout(state.map, state.mode);
+    bgWarning.style.display = src && !isLayout ? '' : 'none';
     if (src) {
-      bgImg.alt = key ? `${state.map} ${state.mode} layout` : state.map;
+      bgImg.alt = isLayout ? `${state.map} ${state.mode} layout` : state.map;
       bgImg.src = src;
     } else {
       bgImg.removeAttribute('src');
       bg.classList.remove('has-map');
+    }
+    const map = (ruleset?.maps || []).find((m) => m.name === state.map);
+    const data = map && state.mode ? await window.cci.getMapObjectives(map.map_id, map.name, state.mode) : null;
+    spawnLayout = spawnLayoutFromObjectives(data);
+    paintKeys(keysLayer, data);
+    objectivesPanel.innerHTML = '';
+    objectivesPanel.append(data
+      ? objectivesSummary(data)
+      : el('div', { style: 'opacity:.7;' }, 'Select a map and mode to see recorded objectives.'));
+    if (reseed && !readOnly) {
+      state.player_positions = defaultPositions(members, spawnLayout);
+      redrawMarkers();
+      renderBench();
     }
   }
 
@@ -162,6 +248,10 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
 
   function markDirty() {
     dirty = true;
+  }
+
+  function applyPieceScale() {
+    markersLayer.style.setProperty('--piece-scale', String(state.piece_scale));
   }
 
   function removePos(pos) {
@@ -184,6 +274,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
           board: boardWrap,
           number,
           selected: selected === pos,
+          locked: readOnly,
           onChange: markDirty,
           onSelect: (pieceEl) => {
             selected = pos;
@@ -210,28 +301,28 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
       const member = memberById(pos.member_id);
       bench.append(rosterRow(`${i + 1}  ${member?.gamertag || 'Player'}`, {
         onBoard: true,
-        onDelete: () => removePos(pos),
+        onDelete: readOnly ? null : () => removePos(pos),
       }));
     });
     for (const member of members.filter((m) => !placed.has(m.id))) {
       bench.append(rosterRow(member.gamertag, {
-        draggable: true,
-        onDrag: (e) => e.dataTransfer.setData('text/member-id', member.id),
+        draggable: !readOnly,
+        onDrag: readOnly ? null : (e) => e.dataTransfer.setData('text/member-id', member.id),
       }));
     }
 
     bench.append(el('div', { class: 'board-roster-kicker' }, `Opponent · ${them.length}/${MAX_PER_TEAM}`));
     them.forEach((pos, i) => {
-      bench.append(rosterRow(`${i + 5}  Opponent`, { onBoard: true, opponent: true, onDelete: () => removePos(pos) }));
+      bench.append(rosterRow(`${i + 5}  Opponent`, { onBoard: true, opponent: true, onDelete: readOnly ? null : () => removePos(pos) }));
     });
-    if (them.length < MAX_PER_TEAM) {
+    if (!readOnly && them.length < MAX_PER_TEAM) {
       bench.append(
         el('button', {
           type: 'button',
           class: 'btn subtle',
           style: 'width:100%;margin-top:8px;',
           onclick: () => {
-            const slot = nextOpponentSlot(state.player_positions);
+            const slot = nextOpponentSlot(state.player_positions, spawnLayout);
             if (!slot) return;
             state.player_positions.push(slot);
             dirty = true;
@@ -241,6 +332,115 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
         }, '+ Opponent')
       );
     }
+  }
+
+  // ---------- Step-by-step playback ----------
+  //
+  // A step is just a named snapshot of player_positions (spawn, opening
+  // routes, setup, rotation, …). Playback fades the board out, swaps in the
+  // next step's positions, and fades back in — simpler and more robust than
+  // trying to smoothly slide individually-tracked pieces across DOM rebuilds,
+  // and it still gives a real "watch the rotation unfold" view. Non-destructive:
+  // whatever was being edited live is restored once playback finishes.
+  const stepsCard = el('div', { class: 'card board-roster', style: 'margin-top:14px;' });
+  let playing = false;
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function snapshotPositions() {
+    return state.player_positions.map(({ _slot, ...pos }) => ({ ...pos }));
+  }
+
+  function renderSteps() {
+    stepsCard.innerHTML = '';
+    stepsCard.append(
+      el('div', { class: 'section-title', style: 'display:flex;align-items:center;justify-content:space-between;' }, [
+        'Steps',
+        el('span', { class: 'field-hint' }, `${state.steps.length}`),
+      ])
+    );
+    if (!state.steps.length) {
+      stepsCard.append(el('div', { class: 'field-hint', style: 'padding:4px 0 8px;' }, 'Save the current positions as a step to build a playable sequence — spawn, opening routes, setup, rotation…'));
+    }
+    state.steps.forEach((step, i) => {
+      const row = el('div', { class: 'roster-row board-roster-row' }, [
+        el('div', { class: 'board-roster-copy' }, [
+          el('div', { class: 'gamertag board-roster-name' }, `${i + 1}. ${step.label}`),
+        ]),
+        el('button', {
+          type: 'button',
+          class: 'btn subtle sm',
+          title: 'Jump to this step',
+          onclick: () => jumpToStep(i),
+        }, '↦'),
+        !readOnly
+          ? el('button', {
+              type: 'button',
+              class: 'btn subtle sm board-roster-del',
+              'aria-label': `Delete ${step.label}`,
+              title: 'Delete step',
+              html: icon('trash', 12),
+              onclick: (e) => { e.stopPropagation(); state.steps.splice(i, 1); dirty = true; renderSteps(); },
+            })
+          : null,
+      ]);
+      stepsCard.append(row);
+    });
+    const actions = el('div', { style: 'display:flex;gap:8px;margin-top:8px;' }, [
+      !readOnly
+        ? el('button', { type: 'button', class: 'btn subtle', style: 'flex:1;', onclick: saveStep }, '+ Save Step')
+        : null,
+      el('button', {
+        type: 'button',
+        class: 'btn subtle',
+        style: 'flex:1;',
+        disabled: state.steps.length < 2 || playing ? 'disabled' : null,
+        onclick: playSteps,
+      }, playing ? 'Playing…' : '▶ Play'),
+    ]);
+    stepsCard.append(actions);
+  }
+
+  function saveStep() {
+    const label = prompt('Step label (e.g. Spawn, Opening Routes, Setup, Rotation):', `Step ${state.steps.length + 1}`);
+    if (label === null) return;
+    state.steps.push({ label: label.trim() || `Step ${state.steps.length + 1}`, player_positions: snapshotPositions() });
+    dirty = true;
+    renderSteps();
+  }
+
+  function jumpToStep(index) {
+    const step = state.steps[index];
+    if (!step) return;
+    state.player_positions = step.player_positions.map(normalizePos);
+    dirty = true;
+    redrawMarkers();
+    renderBench();
+  }
+
+  async function playSteps() {
+    if (playing || state.steps.length < 2) return;
+    playing = true;
+    renderSteps();
+    const original = snapshotPositions();
+    for (const step of state.steps) {
+      markersLayer.style.transition = 'opacity 200ms ease';
+      markersLayer.style.opacity = '0.15';
+      await wait(220);
+      state.player_positions = step.player_positions.map(normalizePos);
+      redrawMarkers();
+      markersLayer.style.opacity = '1';
+      await wait(1100);
+    }
+    state.player_positions = original.map(normalizePos);
+    redrawMarkers();
+    renderBench();
+    markersLayer.style.transition = '';
+    markersLayer.style.opacity = '';
+    playing = false;
+    renderSteps();
   }
 
   function resizeCanvas() {
@@ -278,6 +478,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
   }
 
   let stroke = null;
+  if (!readOnly) {
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     const { x, y } = norm(e, canvas);
@@ -295,6 +496,14 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
       const text = prompt('Label text:');
       if (text) {
         state.drawings.push({ type: 'text', color: DRAW_COLOR, x, y, text });
+        dirty = true;
+        commitDraw();
+        redrawDrawings();
+      }
+    } else if (tool === 'pin') {
+      const text = prompt('Pin label (optional):');
+      if (text !== null) {
+        state.drawings.push({ type: 'pin', color: DRAW_COLOR, x, y, text });
         dirty = true;
         commitDraw();
         redrawDrawings();
@@ -335,7 +544,9 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     stroke = null;
     redrawDrawings();
   });
+  }
 
+  if (!readOnly) {
   boardWrap.addEventListener('dragover', (e) => e.preventDefault());
   boardWrap.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -356,13 +567,37 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     redrawMarkers();
     renderBench();
   });
+  }
+
+  function layerToggle(key, label) {
+    const btn = el(
+      'button',
+      {
+        type: 'button',
+        class: `mode-chip${layers[key] ? ' active' : ''}`,
+        'aria-pressed': String(layers[key]),
+        onclick: () => {
+          layers[key] = !layers[key];
+          btn.classList.toggle('active', layers[key]);
+          applyLayers();
+        },
+      },
+      label
+    );
+    return btn;
+  }
+  const layerBar = el('div', { style: 'display:flex;gap:6px;padding:8px 0 0;' }, [
+    layerToggle('objectives', 'Objectives'),
+    layerToggle('players', 'Players'),
+    layerToggle('drawings', 'Drawings'),
+  ]);
 
   const railApi = toolRail({ getTool: () => tool, setTool, onUndo: undo, onRedo: redo });
   const stage = el('div', { class: 'board-stage' }, [
-    railApi.rail,
+    readOnly ? null : railApi.rail,
     boardWrap,
   ]);
-  bindShortcuts(stage, {
+  if (!readOnly) bindShortcuts(stage, {
     setTool,
     getTool: () => tool,
     undo,
@@ -376,7 +611,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
   });
   boardWrap.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  const saveBtn = el('button', { class: 'btn primary', onclick: async () => {
+  const saveBtn = el('button', { class: 'btn primary edit-only', onclick: async () => {
     const saved = await window.cci.saveStrat(teamId, {
       ...state,
       strategy_name: nameInput.value.trim() || undefined,
@@ -391,32 +626,39 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     el('div', { class: 'board-studio-bar' }, [
       el('button', { class: 'btn subtle', onclick: () => {
         if (dirty && !confirm('Discard unsaved changes?')) return;
+        const onExit = exitHandlers.get(root);
+        if (onExit) return onExit();
         showPlaybook(root, teamId, team, members, ruleset, ctx);
       } }, '← Playbook'),
       nameInput,
       mapSelect,
       modeSelect,
+      objectiveInput,
       statusSelect,
+      sizeControl,
+      layerBar,
       existing
         ? el('button', { class: 'btn subtle', onclick: () => openVersions(root, teamId, team, members, ruleset, ctx, state) }, `Versions (${state.versions.length})`)
         : null,
-      existing ? el('button', { class: 'btn subtle', onclick: async () => {
+      existing ? el('button', { class: 'btn subtle edit-only', onclick: async () => {
         const dup = await window.cci.duplicateStrat(teamId, existing.strategy_id);
         showBoard(root, teamId, team, members, ruleset, ctx, dup.strategy_id);
       } }, 'Duplicate') : null,
       existing
-        ? shareButton(() => ({
-            kind: 'Strat',
-            title: [state.map, state.mode].filter(Boolean).join(' · ') || state.strategy_name,
-            subtitle: state.strategy_name,
-            summary: state.notes,
-            status: state.status,
-            team,
-            route: `team-hub/${teamId}/strats/edit/${existing.strategy_id}`,
-            defaultPurpose: 'strats',
-          }))
+        ? el('span', { class: 'edit-only' }, [
+            shareButton(() => ({
+              kind: 'Strat',
+              title: [state.map, state.mode].filter(Boolean).join(' · ') || state.strategy_name,
+              subtitle: state.strategy_name,
+              summary: state.notes,
+              status: state.status,
+              team,
+              route: `playbooks/${teamId}/edit/${existing.strategy_id}`,
+              defaultPurpose: 'strats',
+            })),
+          ])
         : null,
-      existing ? el('button', { class: 'btn subtle danger', onclick: async () => {
+      existing ? el('button', { class: 'btn subtle danger edit-only', onclick: async () => {
         if (!confirm(`Delete "${state.strategy_name}"? This cannot be undone.`)) return;
         await window.cci.deleteStrat(teamId, existing.strategy_id);
         showPlaybook(root, teamId, team, members, ruleset, ctx);
@@ -425,11 +667,17 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
       saveBtn,
     ])
   );
-  root.append(el('div', { class: 'board-hint' }, 'S select · D draw · A arrow · R rect · C circle · T text · E erase · right-click rotate · Del remove'));
-  root.append(el('div', { class: 'board-studio-body' }, [bench, stage]));
+  if (!readOnly) {
+    root.append(el('div', { class: 'board-hint' }, 'S select · D draw · A arrow · L line · R rect · C circle · T text · P pin · E erase · right-click rotate · Del remove'));
+  }
+  const sidebarCol = el('div', { style: 'display:flex;flex-direction:column;gap:10px;width:196px;flex-shrink:0;' }, [bench, stepsCard]);
+  root.append(el('div', { class: 'board-studio-body' }, [sidebarCol, stage]));
 
   applyMap();
   renderBench();
+  renderSteps();
+  applyPieceScale();
+  applyLayers();
   redrawMarkers();
   requestAnimationFrame(resizeCanvas);
   if (typeof ResizeObserver !== 'undefined') {
@@ -471,7 +719,6 @@ function norm(e, canvas) {
 }
 
 function openVersions(root, teamId, team, members, ruleset, ctx, state) {
-  const overlay = el('div', { class: 'modal-overlay', onclick: (e) => { if (e.target === overlay) overlay.remove(); } });
   const body = el('div', {}, [
     el('h3', {}, `${state.strategy_name} — Version History`),
     ...[...state.versions].reverse().map((v) =>
@@ -480,7 +727,7 @@ function openVersions(root, teamId, team, members, ruleset, ctx, state) {
           el('div', { style: 'font-weight:700;font-size:12.5px;' }, `v${v.version}`),
           el('div', { class: 'field-hint' }, `${v.label} · ${fmtDate(v.created_at)}`),
         ]),
-        el('button', { class: 'btn subtle', onclick: async () => {
+        el('button', { class: 'btn subtle edit-only', onclick: async () => {
           await window.cci.restoreStratVersion(teamId, state.strategy_id, v.version);
           overlay.remove();
           showBoard(root, teamId, team, members, ruleset, ctx, state.strategy_id);
@@ -488,6 +735,5 @@ function openVersions(root, teamId, team, members, ruleset, ctx, state) {
       ])
     ),
   ]);
-  overlay.append(el('div', { class: 'modal' }, body));
-  document.body.append(overlay);
+  const overlay = openModal(body);
 }

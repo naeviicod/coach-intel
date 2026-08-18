@@ -49,6 +49,21 @@ test('calendar event types include league match, scrim and vod review', async ()
   await planning.deleteEvent(TEAM, vod.event_id);
 });
 
+test('league-match events persist opponent, maps and time', async () => {
+  const saved = await planning.saveEvent(TEAM, {
+    title: 'vs FaZe',
+    type: 'league-match',
+    date: '2026-08-22',
+    time: '18:00',
+    opponent: 'Atlanta FaZe',
+    maps: 'Den, Raid, Scar',
+  });
+  assert.equal(saved.opponent, 'Atlanta FaZe');
+  assert.deepEqual(saved.maps, ['Den', 'Raid', 'Scar']);
+  assert.equal(saved.time, '18:00');
+  await planning.deleteEvent(TEAM, saved.event_id);
+});
+
 // ---------- Scrims ----------
 
 test('scrims normalize map results and scores', async () => {
@@ -70,6 +85,18 @@ test('scrims normalize map results and scores', async () => {
 
   await planning.deleteScrim(TEAM, saved.scrim_id);
   assert.equal((await planning.getScrims(TEAM)).length, 0);
+});
+
+test('scrims persist a playing lineup and drop duplicate ids', async () => {
+  const saved = await planning.saveScrim(TEAM, {
+    opponent: 'Rivals',
+    date: '2026-08-19',
+    lineup: ['p1', 'p2', 'p3', 'p4', 'p4', 'p5'],
+  });
+  assert.deepEqual(saved.lineup, ['p1', 'p2', 'p3', 'p4', 'p5']);
+  const again = await planning.saveScrim(TEAM, { ...saved, notes: 'focus HP' });
+  assert.deepEqual(again.lineup, ['p1', 'p2', 'p3', 'p4', 'p5']);
+  await planning.deleteScrim(TEAM, saved.scrim_id);
 });
 
 // ---------- VODs ----------
@@ -159,6 +186,12 @@ test('rankings default empty and normalize saved teams', async () => {
   assert.equal(saved.teams[0].points, 15);
   assert.ok(saved.teams[0].id, 'each standings row gets an id');
   assert.ok(saved.updated_at);
+
+  const removed = await planning.saveRankings({
+    region: saved.region,
+    teams: saved.teams.filter((t) => t.id !== saved.teams[0].id),
+  });
+  assert.equal(removed.teams.length, 0);
 });
 
 // ---------- Security ----------

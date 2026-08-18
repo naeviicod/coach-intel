@@ -1,24 +1,58 @@
-import { el, initials } from '../../../utils.js';
+import { el, faceMark, orgMark } from '../../../utils.js';
 import { ACCENT_PRESETS, DEFAULT_ACCENT, applyAccent, normalizeHex } from '../../../lib/accent.js';
+import { TITLE_SUGGESTIONS, chipIdentity, isNaevii } from '../../../lib/profile.js';
+import { toast } from '../../../components/modal.js';
 
 export async function render(panel, ctx) {
   const org = await window.cci.getOrg();
+  const chip = chipIdentity(org, ctx.access);
+  const defaultTitle = org.profileTitle
+    || (isNaevii(chip.name) || isNaevii(ctx.access?.me?.discord_username) ? 'Developer' : '')
+    || (ctx.access?.local ? 'Local' : '');
 
   const nameInput = el('input', { type: 'text', id: 'org-name-input', value: org.name || '' });
   const tagInput = el('input', { type: 'text', id: 'org-tag-input', value: org.tag || '' });
-  const coachInput = el('input', { type: 'text', id: 'org-coach-input', value: org.coachName || 'Coach' });
+  const profileNameInput = el('input', {
+    type: 'text',
+    id: 'org-profile-name',
+    value: org.profileName || ctx.access?.me?.discord_username || org.coachName || '',
+    placeholder: 'Your name',
+  });
+  const profileTitleInput = el('input', {
+    type: 'text',
+    id: 'org-profile-title',
+    value: defaultTitle,
+    list: 'org-title-suggestions',
+    placeholder: 'Head Coach',
+  });
+  const titleList = el(
+    'datalist',
+    { id: 'org-title-suggestions' },
+    TITLE_SUGGESTIONS.map((title) => el('option', { value: title }))
+  );
 
   const save = async (extra = {}) => {
-    await window.cci.saveOrg({
-      name: nameInput.value.trim() || 'My Organization',
-      tag: tagInput.value.trim() || null,
-      coachName: coachInput.value.trim() || 'Coach',
-      logo: org.logo,
-      accent: org.accent || DEFAULT_ACCENT,
-      ...extra,
-    });
-    await ctx.refreshShell();
-    ctx.reload();
+    const profileName = String(profileNameInput.value || '').trim();
+    const profileTitle = String(profileTitleInput.value || '').trim();
+    try {
+      await window.cci.saveOrg({
+        name: nameInput.value.trim() || 'My Organization',
+        tag: tagInput.value.trim() || null,
+        coachName: profileName || org.coachName || 'Coach',
+        profileName,
+        profileTitle,
+        profilePhoto: extra.profilePhoto !== undefined ? extra.profilePhoto : org.profilePhoto,
+        logo: extra.logo !== undefined ? extra.logo : org.logo,
+        accent: extra.accent !== undefined ? extra.accent : org.accent || DEFAULT_ACCENT,
+        ...extra,
+      });
+      await ctx.refreshShell();
+      ctx.reload();
+      toast('Saved.');
+    } catch (err) {
+      console.error('[settings] save org failed', err);
+      toast(err?.message || 'Could not save profile.', 'error');
+    }
   };
 
   panel.append(
@@ -28,13 +62,48 @@ export async function render(panel, ctx) {
         el('div', { class: 'field' }, [el('label', {}, 'Org Name'), nameInput]),
         el('div', { class: 'field' }, [el('label', {}, 'Tag / Abbreviation'), tagInput]),
       ]),
-      el('div', { class: 'field' }, [
-        el('label', {}, 'Coach Display Name'),
-        coachInput,
-        el('div', { class: 'field-hint' }, 'Shown in the top bar profile chip.'),
+      el('div', { class: 'settings-actions' }, [
+        el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Changes'),
+      ]),
+    ])
+  );
+
+  panel.append(
+    el('div', { class: 'card section' }, [
+      el('div', { class: 'section-title' }, 'Your Profile'),
+      el('div', { class: 'field-hint', style: 'margin-bottom:14px;max-width:620px;line-height:1.5;' },
+        'This is the person signed in on this Mac — name, title, and photo in the top-right chip.'),
+      el('div', { class: 'profile-photo-row' }, [
+        faceMark({ photo: org.profilePhoto, avatarUrl: ctx.access?.me?.avatar_url, name: chip.name, size: 52 }),
+        el('div', { style: 'flex:1;' }, [
+          el('div', { class: 'settings-row-title' }, 'Profile photo'),
+          el('div', { class: 'field-hint' }, 'Square PNG or JPG. Falls back to your Discord avatar when signed in.'),
+        ]),
+        el('button', {
+          class: 'btn',
+          onclick: async () => {
+            const src = await window.cci.pickImage();
+            if (!src) return;
+            const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+            const rel = await window.cci.copyImage(src, `org/profile-photo.${ext}`);
+            if (!rel) return;
+            await save({ profilePhoto: rel });
+          },
+        }, org.profilePhoto ? 'Change Photo' : 'Upload Photo'),
+      ]),
+      el('div', { class: 'inline-fields' }, [
+        el('div', { class: 'field' }, [
+          el('label', { for: 'org-profile-name' }, 'Your Name'),
+          profileNameInput,
+        ]),
+        el('div', { class: 'field' }, [
+          el('label', { for: 'org-profile-title' }, 'Title'),
+          profileTitleInput,
+          titleList,
+        ]),
       ]),
       el('div', { class: 'settings-actions' }, [
-        el('button', { class: 'btn primary', onclick: () => save() }, 'Save Changes'),
+        el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Profile'),
       ]),
     ])
   );
@@ -44,7 +113,7 @@ export async function render(panel, ctx) {
       el('div', { class: 'section-title' }, 'Logo'),
       el('div', { class: 'list-item-row' }, [
         el('div', { style: 'display:flex;align-items:center;gap:12px;' }, [
-          el('div', { class: 'avatar', style: 'width:44px;height:44px;' }, initials(org.name || 'CI')),
+          orgMark(org, { class: 'avatar', style: 'width:44px;height:44px;' }),
           el('div', {}, [
             el('div', { class: 'settings-row-title' }, 'Organization logo'),
             el('div', { class: 'field-hint' }, 'Square PNG or JPG works best. Used in the sidebar and on reports.'),
@@ -105,7 +174,7 @@ function accentCard(org, save) {
   return el('div', { class: 'card section' }, [
     el('div', { class: 'section-title' }, 'Highlight Color'),
     el('div', { class: 'field-hint', style: 'margin-bottom:12px;max-width:620px;line-height:1.5;' },
-      'Used on Continue, Save, and other primary buttons, plus the active sidebar mark.'),
+      'First launch is Intel Lime. Invited teammates pick up this color the next time they open Coach Intel.'),
     swatches,
     el('div', { class: 'inline-fields', style: 'margin-top:12px;align-items:end;' }, [
       el('div', { class: 'field' }, [el('label', {}, 'Color Picker'), picker]),

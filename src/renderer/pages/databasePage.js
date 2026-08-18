@@ -1,11 +1,13 @@
-import { el, roleClass, statsForMember, aggregate } from '../utils.js';
+import { el, roleBadge, statsForMember, aggregate } from '../utils.js';
+import { memberStaffTitle } from '../lib/profile.js';
+import { isStaffMember } from '../lib/roster.js';
 
 export async function render(container, ctx) {
   container.append(
     el('div', { class: 'page-header' }, [
       el('div', {}, [
-        el('div', { class: 'page-title' }, 'Player Database'),
-        el('div', { class: 'page-subtitle' }, 'Searchable record of every player tracked in the organization'),
+        el('div', { class: 'page-title' }, 'Member Database'),
+        el('div', { class: 'page-subtitle' }, 'Everyone in the organization — players, staff, and creatives — and their org role'),
       ]),
     ])
   );
@@ -16,12 +18,13 @@ export async function render(container, ctx) {
     const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
     for (const member of members) {
       const totals = aggregate(statsForMember(matches, member.id));
-      rows.push({ team, member, totals });
+      const orgRole = memberStaffTitle(member) || (isStaffMember(member) ? 'Staff' : 'Player');
+      rows.push({ team, member, totals, orgRole });
     }
   }
 
   const searchBar = el('div', { class: 'filter-bar' }, [
-    el('input', { type: 'text', id: 'db-search', placeholder: 'Search gamertag, name, team, role…', style: 'width:280px;' }),
+    el('input', { type: 'text', id: 'db-search', placeholder: 'Search name, team, org role…', style: 'width:280px;' }),
   ]);
   container.append(searchBar);
 
@@ -32,7 +35,10 @@ export async function render(container, ctx) {
     const q = searchBar.querySelector('#db-search').value.trim().toLowerCase();
     const filtered = q
       ? rows.filter((r) =>
-          [r.member.gamertag, r.member.name, r.team.name, r.member.role].join(' ').toLowerCase().includes(q)
+          [r.member.gamertag, r.member.name, r.team.name, r.orgRole, r.member.role, r.member.title]
+            .join(' ')
+            .toLowerCase()
+            .includes(q)
         )
       : rows;
 
@@ -46,10 +52,10 @@ export async function render(container, ctx) {
       el('table', {}, [
         el('thead', {}, [
           el('tr', {}, [
-            el('th', {}, 'Gamertag'),
             el('th', {}, 'Name'),
             el('th', {}, 'Team'),
-            el('th', {}, 'Role'),
+            el('th', {}, 'Org Role'),
+            el('th', {}, 'In-game'),
             el('th', {}, 'Matches'),
             el('th', {}, 'K/D'),
             el('th', {}, 'Avg Damage'),
@@ -60,20 +66,31 @@ export async function render(container, ctx) {
           'tbody',
           {},
           filtered
-            .sort((a, b) => b.totals.kd - a.totals.kd)
+            .sort((a, b) => {
+              const team = String(a.team.name).localeCompare(String(b.team.name));
+              if (team) return team;
+              const role = String(a.orgRole).localeCompare(String(b.orgRole));
+              if (role) return role;
+              return String(a.member.gamertag).localeCompare(String(b.member.gamertag));
+            })
             .map((r) =>
               el(
                 'tr',
                 { class: 'clickable-row', onclick: () => ctx.navigate('member', `${r.team.id}/${r.member.id}`) },
                 [
-                  el('td', {}, r.member.gamertag),
-                  el('td', {}, r.member.name),
+                  el('td', {}, [
+                    el('div', { class: 'gamertag' }, r.member.gamertag),
+                    r.member.name && r.member.name !== r.member.gamertag
+                      ? el('div', { class: 'member-name' }, r.member.name)
+                      : null,
+                  ]),
                   el('td', {}, r.team.name),
-                  el('td', {}, el('span', { class: `role-badge ${roleClass(r.member.role)}` }, r.member.role)),
+                  el('td', {}, el('span', { class: `role-badge org ${roleClassSafe(r.orgRole)}` }, r.orgRole)),
+                  el('td', {}, isStaffMember(r.member) ? el('span', { class: 'field-hint' }, '—') : roleBadge(r.member.role)),
                   el('td', {}, r.totals.matches),
-                  el('td', {}, r.totals.kd),
-                  el('td', {}, r.totals.matches ? Math.round(r.totals.damage / r.totals.matches) : 0),
-                  el('td', {}, `${r.totals.winRate}%`),
+                  el('td', {}, r.totals.matches ? r.totals.kd : '—'),
+                  el('td', {}, r.totals.matches ? Math.round(r.totals.damage / r.totals.matches) : '—'),
+                  el('td', {}, r.totals.matches ? `${r.totals.winRate}%` : '—'),
                 ]
               )
             )
@@ -84,4 +101,8 @@ export async function render(container, ctx) {
 
   searchBar.querySelector('#db-search').addEventListener('input', draw);
   draw();
+}
+
+function roleClassSafe(role) {
+  return String(role || 'Player').replace(/\s+/g, '-');
 }

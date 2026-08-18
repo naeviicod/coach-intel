@@ -13,8 +13,15 @@ contextBridge.exposeInMainWorld('cci', {
   getMember: (teamId, memberId) => ipcRenderer.invoke('cci:getMember', teamId, memberId),
   saveMember: (teamId, member) => ipcRenderer.invoke('cci:saveMember', teamId, member),
   deleteMember: (teamId, memberId) => ipcRenderer.invoke('cci:deleteMember', teamId, memberId),
+  transferMember: (fromTeamId, toTeamId, memberId, opts) =>
+    ipcRenderer.invoke('cci:transferMember', fromTeamId, toTeamId, memberId, opts),
+  transferMembers: (fromTeamId, toTeamId, memberIds, opts) =>
+    ipcRenderer.invoke('cci:transferMembers', fromTeamId, toTeamId, memberIds, opts),
+  syncRoster: () => ipcRenderer.invoke('cci:syncRoster'),
 
   getMatches: (teamId) => ipcRenderer.invoke('cci:getMatches', teamId),
+  saveMatch: (teamId, match) => ipcRenderer.invoke('cci:saveMatch', teamId, match),
+  deleteMatch: (teamId, matchId) => ipcRenderer.invoke('cci:deleteMatch', teamId, matchId),
 
   getStrats: (teamId) => ipcRenderer.invoke('cci:getStrats', teamId),
   getStrat: (teamId, stratId) => ipcRenderer.invoke('cci:getStrat', teamId, stratId),
@@ -30,6 +37,9 @@ contextBridge.exposeInMainWorld('cci', {
   getTasks: (teamId) => ipcRenderer.invoke('cci:getTasks', teamId),
   saveTask: (teamId, task) => ipcRenderer.invoke('cci:saveTask', teamId, task),
   deleteTask: (teamId, taskId) => ipcRenderer.invoke('cci:deleteTask', teamId, taskId),
+
+  getNotifications: (teamId) => ipcRenderer.invoke('cci:getNotifications', teamId),
+  deleteNotification: (teamId, id) => ipcRenderer.invoke('cci:deleteNotification', teamId, id),
 
   // Planning & prep (Calendar, Scrim Hub, VOD Library, Veto Lab).
   getEvents: (teamId) => ipcRenderer.invoke('cci:getEvents', teamId),
@@ -76,6 +86,8 @@ contextBridge.exposeInMainWorld('cci', {
   restoreCdlMap: (mapId) => ipcRenderer.invoke('cci:restoreCdlMap', mapId),
   removeCdlMap: (mapId, opts) => ipcRenderer.invoke('cci:removeCdlMap', mapId, opts),
   updateCdlMapModes: (mapId, activeModes) => ipcRenderer.invoke('cci:updateCdlMapModes', mapId, activeModes),
+  getMapObjectives: (mapSlug, mapName, mode) => ipcRenderer.invoke('cci:getMapObjectives', mapSlug, mapName, mode),
+  saveMapObjectives: (mapSlug, mapName, mode, data) => ipcRenderer.invoke('cci:saveMapObjectives', mapSlug, mapName, mode, data),
 
   pickImage: () => ipcRenderer.invoke('cci:pickImage'),
   copyImage: (sourcePath, destRelative) => ipcRenderer.invoke('cci:copyImage', sourcePath, destRelative),
@@ -99,14 +111,26 @@ contextBridge.exposeInMainWorld('cci', {
     verify: (payload) => ipcRenderer.invoke('cci:discordVerify', payload),
     disconnect: (payload) => ipcRenderer.invoke('cci:discordDisconnect', payload),
     audit: (payload) => ipcRenderer.invoke('cci:discordAudit', payload),
+    listMessages: () => ipcRenderer.invoke('cci:discordListMessages'),
+    sendChatMessage: (payload) => ipcRenderer.invoke('cci:discordSendChatMessage', payload),
   },
 
   openExternal: (url) => ipcRenderer.invoke('cci:openExternal', url),
+  openMedia: (url) => ipcRenderer.invoke('cci:openMedia', url),
 
   onDeepLink: (callback) => {
     const listener = (_event, route) => callback(route);
     ipcRenderer.on('cci:deepLink', listener);
     return () => ipcRenderer.removeListener('cci:deepLink', listener);
+  },
+
+  // Fires with { table } whenever any signed-in teammate changes shared data
+  // — main.js relays it from a Supabase Realtime subscription so every open
+  // window can refresh without a manual reload.
+  onDataChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('cci:dataChanged', listener);
+    return () => ipcRenderer.removeListener('cci:dataChanged', listener);
   },
 
   // Auth (Supabase, sign in with Discord).
@@ -125,4 +149,24 @@ contextBridge.exposeInMainWorld('cci', {
       return () => ipcRenderer.removeListener('cci:authStateChanged', listener);
     },
   },
+
+  invites: {
+    create: (payload) => ipcRenderer.invoke('cci:inviteCreate', payload),
+    status: (teamId, memberId) => ipcRenderer.invoke('cci:inviteStatus', teamId, memberId),
+    revoke: (teamId, memberId) => ipcRenderer.invoke('cci:inviteRevoke', teamId, memberId),
+    pending: () => ipcRenderer.invoke('cci:invitePending'),
+    redeem: (token) => ipcRenderer.invoke('cci:inviteRedeem', token),
+    onPending: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('cci:invitePending', listener);
+      return () => ipcRenderer.removeListener('cci:invitePending', listener);
+    },
+    onResult: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('cci:inviteResult', listener);
+      return () => ipcRenderer.removeListener('cci:inviteResult', listener);
+    },
+  },
+
+  copyText: (text) => ipcRenderer.invoke('cci:copyText', text),
 });

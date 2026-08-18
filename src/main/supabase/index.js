@@ -4,9 +4,12 @@
 // other module talks to the Supabase client directly.
 
 const { createSessionStore, electronSecretStore } = require('./store');
-const { createSupabaseClient, isConfigured } = require('./client');
+const { createSupabaseClient } = require('./client');
 const { createAuthService } = require('./auth');
 const { createProfilesService } = require('./profiles');
+const { createTeamsService } = require('./teams');
+const { createInviteService } = require('./invites');
+const { createRecordsService } = require('./records');
 
 let service = null;
 
@@ -15,19 +18,50 @@ function createService({ dataRoot, secretStore }) {
   const client = createSupabaseClient(sessionStore);
   const auth = createAuthService({ client });
   const profiles = createProfilesService({ client });
+  const teams = createTeamsService({ client });
+  const invites = createInviteService({ client, dataRoot });
+  const records = createRecordsService({ client });
 
   async function getState() {
-    const session = await auth.getSession();
-    return { configured: isConfigured(), session };
+    if (!client) return { configured: false, session: null };
+    try {
+      const session = await Promise.race([
+        auth.getSession(),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('auth getSession timed out')), 2500);
+        }),
+      ]);
+      return { configured: true, session };
+    } catch (err) {
+      console.warn('[supabase] getState failed:', err?.message || err);
+      return { configured: true, session: null };
+    }
+  }
+
+  // Live roster + shared docs: any teammate's write refreshes every open window.
+  function subscribeRealtime(onChange) {
+    if (!client) return () => {};
+    const channel = client
+      .channel('org-data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => onChange('teams'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => onChange('members'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_docs' }, () => onChange('shared_docs'))
+      .subscribe();
+    return () => client.removeChannel(channel);
   }
 
   return {
-    configured: isConfigured(),
+    configured: Boolean(client),
     client,
     getState,
     listProfiles: profiles.list,
     updateProfileRole: profiles.updateRole,
+    ensureProfile: profiles.ensure,
+    subscribeRealtime,
+    ...teams,
     ...auth,
+    ...invites,
+    ...records,
   };
 }
 

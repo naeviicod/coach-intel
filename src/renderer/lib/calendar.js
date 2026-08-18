@@ -61,3 +61,110 @@ export function bucketByDate(items = []) {
   }
   return map;
 }
+
+export function normOpponent(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function parseMaps(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/[,;\n]+/)
+      : [];
+  const out = [];
+  for (const entry of raw) {
+    const name = typeof entry === 'string'
+      ? entry.trim()
+      : String(entry?.map || entry?.name || '').trim();
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+export function formatMaps(maps) {
+  return parseMaps(maps).join(', ');
+}
+
+export function leagueKey(teamId, date, opponent) {
+  return `${teamId || ''}|${String(date || '').slice(0, 10)}|${normOpponent(opponent)}`;
+}
+
+function chipLabel(team, opponent) {
+  const who = team?.tag || team?.name || 'Team';
+  return `${who} vs ${opponent || 'TBD'}`;
+}
+
+/**
+ * Org Calendar items: league-match events plus logged matches for one team.
+ * Same-day / same-opponent map-log rows collapse into a single series.
+ */
+export function leagueItemsForTeam(team, { events = [], matches = [] } = {}) {
+  const byKey = new Map();
+
+  function upsert(partial) {
+    const key = leagueKey(partial.teamId, partial.date, partial.opponent);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, partial);
+      return partial;
+    }
+    if (!existing.time && partial.time) existing.time = partial.time;
+    if (partial.event && !existing.event) existing.event = partial.event;
+    if (partial.result && !existing.result) existing.result = partial.result;
+    if (partial.route && !existing.route) {
+      existing.route = partial.route;
+      existing.param = partial.param;
+    }
+    for (const name of partial.maps || []) {
+      if (!existing.maps.includes(name)) existing.maps.push(name);
+    }
+    return existing;
+  }
+
+  for (const event of events) {
+    if (!event || event.type !== 'league-match') continue;
+    upsert({
+      type: 'league-match',
+      date: event.date,
+      time: event.time || '',
+      teamId: team.id,
+      teamName: team.name || 'Team',
+      teamTag: team.tag || '',
+      opponent: event.opponent || '',
+      maps: parseMaps(event.maps),
+      title: chipLabel(team, event.opponent),
+      event,
+      source: 'event',
+    });
+  }
+
+  for (const match of matches) {
+    if (!match) continue;
+    upsert({
+      type: 'league-match',
+      date: match.date,
+      time: match.time || '',
+      teamId: team.id,
+      teamName: team.name || 'Team',
+      teamTag: team.tag || '',
+      opponent: match.opponent || '',
+      maps: parseMaps(match.map),
+      result: match.result || '',
+      title: chipLabel(team, match.opponent),
+      route: 'matches',
+      source: 'match',
+    });
+  }
+
+  const items = [...byKey.values()];
+  for (const item of items) {
+    const maps = formatMaps(item.maps);
+    item.title = chipLabel({ name: item.teamName, tag: item.teamTag }, item.opponent);
+    item.sub = [maps, item.time, item.result].filter(Boolean).join(' · ');
+  }
+  return items.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return (a.time || '').localeCompare(b.time || '');
+  });
+}

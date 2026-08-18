@@ -1,0 +1,23 @@
+{
+  "name": "coach-intel-discord-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "pretest": "tsc --project tsconfig.build.json",
+    "test": "node --test dist/tests/*.test.js",
+    "register-commands": "node scripts/register-commands.mjs"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}

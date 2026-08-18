@@ -19,7 +19,8 @@ const { createStore, electronSecretStore } = require('./store');
 const { createAuditLog } = require('./audit');
 const guildApi = require('./guild');
 const messages = require('./messages');
-const { DiscordProvider, NotificationRouter, OUTCOME } = require('./notifications');
+const { DiscordProvider, InAppProvider, NotificationRouter, OUTCOME } = require('./notifications');
+const notificationStore = require('../notificationStore');
 
 // A pasted token is held in memory only until the admin picks a server.
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -43,7 +44,8 @@ function createService({ dataRoot, secretStore, getOrgName = async () => null, f
   });
 
   const provider = new DiscordProvider({ client, store, audit });
-  const router = new NotificationRouter({ providers: [provider] });
+  const inAppProvider = new InAppProvider({ store: notificationStore });
+  const router = new NotificationRouter({ providers: [provider, inAppProvider] });
 
   async function orgName() {
     try {
@@ -327,6 +329,55 @@ function createService({ dataRoot, secretStore, getOrgName = async () => null, f
     return audit.recent(limit);
   }
 
+  // ---------- Team Chat ----------
+  //
+  // The one purpose Coach Intel actually reads from (see constants.js) — every
+  // other channel mapping stays post-only, matching what the Integrations page
+  // tells the coach. Requires the bot's "Message Content Intent" to be turned
+  // on in the Discord Developer Portal, or message content comes back empty.
+
+  function chatChannelMapping(integration) {
+    return (integration.channels || []).find((c) => c.purpose === 'team_chat' && c.enabled && c.discord_channel_id) || null;
+  }
+
+  async function listRecentMessages() {
+    const integration = await store.requireIntegration();
+    const mapping = chatChannelMapping(integration);
+    if (!mapping) throw new DiscordError(CODES.NOT_CONFIGURED);
+    const rows = await client.get(`/channels/${mapping.discord_channel_id}/messages?limit=50`);
+    return {
+      channelName: mapping.discord_channel_name,
+      messages: (rows || [])
+        .map((m) => ({
+          id: m.id,
+          author: m.author?.global_name || m.author?.username || 'Unknown',
+          avatar: m.author?.avatar
+            ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64`
+            : null,
+          content: m.content || (m.embeds?.length ? '[embed]' : m.attachments?.length ? '[attachment]' : ''),
+          timestamp: m.timestamp,
+        }))
+        .reverse(),
+    };
+  }
+
+  async function sendChatMessage({ content, actor } = {}) {
+    const integration = await store.requireIntegration();
+    const mapping = chatChannelMapping(integration);
+    if (!mapping) throw new DiscordError(CODES.NOT_CONFIGURED);
+    const text = String(content || '').trim().slice(0, 2000);
+    if (!text) throw new Error('Message is empty');
+    await client.post(`/channels/${mapping.discord_channel_id}/messages`, { content: text });
+    await audit.record({
+      action: AUDIT_ACTIONS.SHARED,
+      actor: actor || 'Coach',
+      organization: await orgName(),
+      target: `team chat → #${mapping.discord_channel_name}`,
+      result: 'SUCCESS',
+    });
+    return true;
+  }
+
   return {
     store,
     audit,
@@ -347,6 +398,8 @@ function createService({ dataRoot, secretStore, getOrgName = async () => null, f
     verify,
     disconnect,
     auditRecent,
+    listRecentMessages,
+    sendChatMessage,
     botInviteUrl: guildApi.botInviteUrl,
   };
 }

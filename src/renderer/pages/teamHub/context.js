@@ -96,7 +96,7 @@ function attention(hub, review, strats) {
 
   for (const strat of drafts.slice(0, 4)) {
     items.push(
-      el('button', { class: 'ctx-row link', onclick: () => hub.go('strats', 'edit', strat.strategy_id) }, [
+      el('button', { class: 'ctx-row link', onclick: () => hub.openPlaybooks('edit', strat.strategy_id) }, [
         el('div', { class: 'ctx-row-name' }, strat.strategy_name),
         statusPill(strat.status),
       ])

@@ -1,0 +1,220 @@
+{
+  "source": "GamesAtlas hill lists, official Overload rules (center device + two scoring sides), Breaking Point spawn/site diagrams, and classic remake callouts for Raid / Fringe / Hacienda / Gridlock.",
+  "maps": {
+    "den": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Courtyard", "x": 0.50, "y": 0.48 },
+          { "order": 2, "label": "P2", "location": "Balcony", "x": 0.70, "y": 0.46 },
+          { "order": 3, "label": "P3", "location": "Helipad", "x": 0.28, "y": 0.50 },
+          { "order": 4, "label": "P4", "location": "Terrace", "x": 0.68, "y": 0.76 }
+        ],
+        "keys": {
+          "blue": [{ "x": 0.16, "y": 0.14, "label": "Blue" }, { "x": 0.84, "y": 0.14, "label": "Blue" }],
+          "red": [{ "x": 0.22, "y": 0.80, "label": "Red" }, { "x": 0.78, "y": 0.80, "label": "Red" }]
+        }
+      },
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "South-east interior (Terrace / lounge)", "x": 0.72, "y": 0.68 },
+          { "label": "B", "location": "West interior (Helipad wing)", "x": 0.18, "y": 0.42 }
+        ],
+        "bomb_spawn": "Mid courtyard",
+        "offense_spawn": "South terrace",
+        "defense_spawn": "North club / balcony",
+        "keys": {
+          "blue": [{ "x": 0.50, "y": 0.88, "label": "Offense" }],
+          "red": [{ "x": 0.50, "y": 0.10, "label": "Defense" }]
+        }
+      },
+      "overload": {
+        "device_spawns": [
+          { "label": "Device 1", "location": "Mid courtyard", "x": 0.50, "y": 0.50 },
+          { "label": "Device 2", "location": "Mid-west cut", "x": 0.36, "y": 0.50 },
+          { "label": "Device 3", "location": "Mid-east cut", "x": 0.64, "y": 0.50 }
+        ],
+        "team_a_zone": "Blue side — north club / balcony (two detonation pads)",
+        "team_b_zone": "Red side — south terrace (two detonation pads)",
+        "keys": {
+          "blue": [{ "x": 0.16, "y": 0.14, "label": "Blue" }, { "x": 0.84, "y": 0.14, "label": "Blue" }],
+          "red": [{ "x": 0.22, "y": 0.80, "label": "Red" }, { "x": 0.78, "y": 0.80, "label": "Red" }]
+        }
+      }
+    },
+    "scar": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Main Street", "x": 0.50, "y": 0.50 },
+          { "order": 2, "label": "P2", "location": "Motel", "x": 0.28, "y": 0.72 },
+          { "order": 3, "label": "P3", "location": "Crash Site", "x": 0.50, "y": 0.18 },
+          { "order": 4, "label": "P4", "location": "Post Office", "x": 0.78, "y": 0.48 },
+          { "order": 5, "label": "P5", "location": "Wood Shop", "x": 0.22, "y": 0.22 }
+        ],
+        "keys": {
+          "blue": [{ "x": 0.80, "y": 0.42, "label": "Blue" }, { "x": 0.82, "y": 0.78, "label": "Blue" }],
+          "red": [{ "x": 0.18, "y": 0.28, "label": "Red" }, { "x": 0.20, "y": 0.72, "label": "Red" }]
+        }
+      },
+      "overload": {
+        "device_spawns": [
+          { "label": "Device 1", "location": "Mid Main Street", "x": 0.50, "y": 0.50 },
+          { "label": "Device 2", "location": "Mid-north cut", "x": 0.50, "y": 0.38 },
+          { "label": "Device 3", "location": "Mid-south cut", "x": 0.50, "y": 0.62 }
+        ],
+        "team_a_zone": "Blue side — east (Post Office / motel wing, two pads)",
+        "team_b_zone": "Red side — west (Wood Shop / crash wing, two pads)",
+        "keys": {
+          "blue": [{ "x": 0.80, "y": 0.42, "label": "Blue" }, { "x": 0.82, "y": 0.78, "label": "Blue" }],
+          "red": [{ "x": 0.18, "y": 0.28, "label": "Red" }, { "x": 0.20, "y": 0.72, "label": "Red" }]
+        }
+      }
+    },
+    "raid": {
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "Kitchen", "x": 0.50, "y": 0.78 },
+          { "label": "B", "location": "Basketball court", "x": 0.50, "y": 0.22 }
+        ],
+        "bomb_spawn": "Mid mansion / hallway",
+        "offense_spawn": "Circle Drive",
+        "defense_spawn": "Back courtyard",
+        "keys": {
+          "blue": [{ "x": 0.50, "y": 0.90, "label": "Offense" }],
+          "red": [{ "x": 0.50, "y": 0.10, "label": "Defense" }]
+        }
+      }
+    },
+    "colossus": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Overlook" },
+          { "order": 2, "label": "P2", "location": "Bar" },
+          { "order": 3, "label": "P3", "location": "Lifeboat" },
+          { "order": 4, "label": "P4", "location": "Lounge" }
+        ],
+        "keys": {
+          "blue": [{ "x": 0.22, "y": 0.78, "label": "Blue" }, { "x": 0.32, "y": 0.86, "label": "Blue" }],
+          "red": [{ "x": 0.78, "y": 0.22, "label": "Red" }, { "x": 0.68, "y": 0.14, "label": "Red" }]
+        }
+      }
+    },
+    "exposure": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Tower" },
+          { "order": 2, "label": "P2", "location": "Solar Panels" },
+          { "order": 3, "label": "P3", "location": "Control Room" },
+          { "order": 4, "label": "P4", "location": "Salt Storage" },
+          { "order": 5, "label": "P5", "location": "Drone" }
+        ]
+      },
+      "overload": {
+        "device_spawns": [
+          { "label": "Device 1", "location": "Mid (first appearance)" },
+          { "label": "Device 2", "location": "Center-line reset" },
+          { "label": "Device 3", "location": "Center-line reset" }
+        ],
+        "team_a_zone": "Blue side — Tower / solar wing (two detonation pads)",
+        "team_b_zone": "Red side — Drone / salt-storage wing (two detonation pads)",
+        "keys": {
+          "blue": [{ "x": 0.22, "y": 0.78, "label": "Blue" }, { "x": 0.32, "y": 0.86, "label": "Blue" }],
+          "red": [{ "x": 0.78, "y": 0.22, "label": "Red" }, { "x": 0.68, "y": 0.14, "label": "Red" }]
+        }
+      }
+    },
+    "blackheart": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Drill" },
+          { "order": 2, "label": "P2", "location": "Repair Bay" },
+          { "order": 3, "label": "P3", "location": "Hydro Pump Arm" },
+          { "order": 4, "label": "P4", "location": "Sub Bay" },
+          { "order": 5, "label": "P5", "location": "Grinder Pit" }
+        ]
+      }
+    },
+    "fringe": {
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "Farm" },
+          { "label": "B", "location": "Train" }
+        ],
+        "bomb_spawn": "Mid",
+        "offense_spawn": "Lookout / south",
+        "defense_spawn": "Factory / north",
+        "keys": {
+          "blue": [{ "x": 0.50, "y": 0.88, "label": "Offense" }],
+          "red": [{ "x": 0.50, "y": 0.12, "label": "Defense" }]
+        }
+      }
+    },
+    "hacienda": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Fountain" },
+          { "order": 2, "label": "P2", "location": "Dining" },
+          { "order": 3, "label": "P3", "location": "Garage" },
+          { "order": 4, "label": "P4", "location": "Garden" },
+          { "order": 5, "label": "P5", "location": "Wine Cellar" }
+        ]
+      },
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "Garden" },
+          { "label": "B", "location": "Wine Cellar" }
+        ],
+        "bomb_spawn": "Mid courtyard / fountain",
+        "offense_spawn": "Front drive",
+        "defense_spawn": "Back cellar wing"
+      }
+    },
+    "gridlock": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Construction" },
+          { "order": 2, "label": "P2", "location": "Bus" },
+          { "order": 3, "label": "P3", "location": "Park" },
+          { "order": 4, "label": "P4", "location": "Statue" },
+          { "order": 5, "label": "P5", "location": "Roof" }
+        ]
+      },
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "Construction" },
+          { "label": "B", "location": "Park" }
+        ],
+        "bomb_spawn": "Mid street",
+        "offense_spawn": "Gas / south",
+        "defense_spawn": "Construction / north"
+      },
+      "overload": {
+        "device_spawns": [
+          { "label": "Device 1", "location": "Mid street" },
+          { "label": "Device 2", "location": "Center-line reset" },
+          { "label": "Device 3", "location": "Center-line reset" }
+        ],
+        "team_a_zone": "Blue side — Park (two detonation pads)",
+        "team_b_zone": "Red side — Construction (two detonation pads)"
+      }
+    },
+    "sake": {
+      "hardpoint": {
+        "hills": [
+          { "order": 1, "label": "P1", "location": "Bar" },
+          { "order": 2, "label": "P2", "location": "Bridge" },
+          { "order": 3, "label": "P3", "location": "Production" },
+          { "order": 4, "label": "P4", "location": "Zen Garden" }
+        ]
+      },
+      "snd": {
+        "bombsites": [
+          { "label": "A", "location": "Bar / steaming room" },
+          { "label": "B", "location": "Shrine / loading dock" }
+        ],
+        "bomb_spawn": "Mid roundabout",
+        "offense_spawn": "Loading dock",
+        "defense_spawn": "Steaming room / west"
+      }
+    }
+  }
+}

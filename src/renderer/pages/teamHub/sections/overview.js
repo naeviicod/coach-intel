@@ -1,7 +1,7 @@
 import {
-  el, icon, fmtStamp, teamWinRate, teamKD, statsByKey, pctDelta, round,
+  el, icon, fmtStamp, teamWinRate, teamKD, statsByKey, pctDelta, round, advancedMetricsForMode,
 } from '../../../utils.js';
-import { hubHead, kpi, metricRow, miniEmpty, MODES, modeKeyFor } from '../parts.js';
+import { kpi, metricRow, miniEmpty, MODES, modeKeyFor } from '../parts.js';
 import { scoreboardDrop } from '../../../components/scoreboardDrop.js';
 
 const RECENT_WINDOW = 5;
@@ -17,7 +17,7 @@ export async function render(root, hub) {
 
   const activeMaps = (ruleset?.maps || []).filter((m) => m.active !== false);
 
-  root.append(hubHead('Team Hub', 'Everything about your team in one place.', [hub.ctxToggle]));
+  root.append(el('div', { class: 'hub-head', style: 'justify-content:flex-end;' }, [hub.ctxToggle]));
   root.append(kpiRow(hub, { matches, strats, activeMaps }));
   root.append(scoreboardCard(hub, boards));
 
@@ -27,6 +27,87 @@ export async function render(root, hub) {
   root.append(grid);
 
   root.append(mapPoolCard(hub, { activeMaps, matches, strats, ruleset }));
+  root.append(advancedStatsCard(matches, ruleset));
+}
+
+function metricRowsFor(mode, m) {
+  if (mode === 'Hardpoint') return [['Hold %', m.hold_pct], ['Break %', m.break_pct], ['Rotation %', m.rotation_pct]];
+  if (mode === 'Search & Destroy') {
+    return [
+      ['Offense Win %', m.offense_win_pct],
+      ['Defense Win %', m.defense_win_pct],
+      ['First Blood Conv. %', m.first_blood_conversion_pct],
+      ['First Death Rec. %', m.first_death_recovery_pct],
+      ['Plant %', m.plant_pct],
+      ['Post-Plant Win %', m.post_plant_win_pct],
+      ['Retake %', m.retake_pct],
+    ];
+  }
+  if (mode === 'Overload') return [['Scoring Efficiency %', m.scoring_efficiency_pct], ['Defensive Stop %', m.defensive_stop_pct]];
+  return [];
+}
+
+function advancedStatsCard(matches, ruleset) {
+  const card = el('div', { class: 'card compact', style: 'margin-top:14px;' });
+  card.append(el('div', { class: 'card-head' }, [el('h2', {}, 'Advanced Stats')]));
+
+  const rulesetModes = ruleset?.modes || ['Hardpoint', 'Search & Destroy', 'Overload'];
+  const availableModes = rulesetModes.filter((mode) => advancedMetricsForMode(matches, mode));
+  if (!availableModes.length) {
+    card.append(
+      miniEmpty(
+        'No advanced stats yet',
+        'Open a match and add hold/break/rotation, opening-duel, or scoring detail under "Advanced Stats" to see hold %, break %, retake %, and more here.'
+      )
+    );
+    return card;
+  }
+
+  const tabs = el('div', { class: 'filter-bar' });
+  const body = el('div', {});
+  card.append(tabs, body);
+  let active = availableModes[0];
+
+  function drawTabs() {
+    tabs.innerHTML = '';
+    for (const mode of availableModes) {
+      tabs.append(
+        el(
+          'button',
+          {
+            type: 'button',
+            class: `mode-chip${mode === active ? ' active' : ''}`,
+            'aria-pressed': String(mode === active),
+            onclick: () => { active = mode; drawTabs(); drawBody(); },
+          },
+          mode
+        )
+      );
+    }
+  }
+
+  function drawBody() {
+    body.innerHTML = '';
+    const m = advancedMetricsForMode(matches, active);
+    const rows = metricRowsFor(active, m).filter(([, value]) => value !== undefined);
+    body.append(
+      el(
+        'div',
+        { class: 'grid cols-3' },
+        rows.map(([label, value]) =>
+          el('div', { class: 'card stat-card', style: 'padding:12px 14px;' }, [
+            el('div', { class: 'stat-label' }, label),
+            el('div', { class: 'stat-value', style: 'font-size:17px;' }, value === null ? '—' : `${value}%`),
+          ])
+        )
+      ),
+      el('div', { class: 'field-hint', style: 'margin-top:8px;' }, `From ${m.sample} match${m.sample === 1 ? '' : 'es'} with advanced stats recorded.`)
+    );
+  }
+
+  drawTabs();
+  drawBody();
+  return card;
 }
 
 function kpiRow(hub, { matches, strats, activeMaps }) {
@@ -37,13 +118,13 @@ function kpiRow(hub, { matches, strats, activeMaps }) {
       value: liveStrats.length,
       meta: strats.length === liveStrats.length ? 'Active playbook' : `${strats.length - liveStrats.length} archived`,
       accent: true,
-      onClick: () => hub.go('strats'),
+      onClick: () => hub.openPlaybooks(),
     }),
     kpi({
       label: 'Maps',
       value: activeMaps.length,
       meta: 'CDL pool',
-      onClick: () => hub.navigate('maps-modes', hub.team.id),
+      onClick: hub.canEdit ? () => hub.navigate('maps-modes', hub.team.id) : undefined,
     }),
     kpi({
       label: 'Matches',
@@ -113,7 +194,7 @@ function notesCard(hub, notes) {
   const card = el('div', { class: 'card compact' }, [
     el('div', { class: 'card-head' }, [
       el('h2', {}, 'Team Notes'),
-      el('button', { class: 'btn subtle sm', onclick: () => hub.go('notes', 'new') }, '+ New note'),
+      el('button', { class: 'btn subtle sm edit-only', onclick: () => hub.go('notes', 'new') }, '+ New note'),
     ]),
   ]);
 
@@ -122,7 +203,7 @@ function notesCard(hub, notes) {
       miniEmpty(
         'No notes yet',
         'Capture practice focus, scrim takeaways and map issues so they survive the week.',
-        el('button', { class: 'btn primary sm', onclick: () => hub.go('notes', 'new') }, 'Write first note')
+        el('button', { class: 'btn primary sm edit-only', onclick: () => hub.go('notes', 'new') }, 'Write first note')
       )
     );
     return card;
@@ -149,7 +230,7 @@ function mapPoolCard(hub, { activeMaps, matches, strats, ruleset }) {
   const card = el('div', { class: 'card compact' });
   const head = el('div', { class: 'card-head' }, [
     el('h2', {}, 'Map Pool'),
-    el('button', { class: 'btn subtle sm', onclick: () => hub.navigate('maps-modes', hub.team.id) }, 'Manage maps →'),
+    el('button', { class: 'btn subtle sm edit-only', onclick: () => hub.navigate('maps-modes', hub.team.id) }, 'Manage maps →'),
   ]);
   card.append(head);
 
@@ -209,7 +290,10 @@ function mapPoolCard(hub, { activeMaps, matches, strats, ruleset }) {
             type: 'button',
             class: 'pool-tile',
             title: `${map.name} — ${active}`,
-            onclick: () => hub.go('strats', 'mode', modeKeyFor(active) || 'all'),
+            onclick: () => {
+              const key = modeKeyFor(active);
+              return key ? hub.openPlaybooks('mode', key) : hub.openPlaybooks();
+            },
           },
           [
             el('div', { class: 'pool-name' }, map.name),

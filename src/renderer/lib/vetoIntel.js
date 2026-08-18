@@ -124,6 +124,54 @@ export function suggestForStep(intel, step, available = []) {
   return [];
 }
 
+// ---------- Win-rate-based recommendation ----------
+//
+// Deliberately separate from the habit-frequency hints above, which answer
+// "what does this opponent tend to ban/pick". This answers "how would we
+// likely fare" — from OUR real match record on the map, plus the opponent's
+// coach-entered threat rating (there is no real opponent win-rate data
+// source in this app, so one is never invented). Every claim traces back to
+// a real number or an explicit "no data" — never a black-box verdict.
+
+export function mapRecommendation({ map, mode, matches = [], opponent = null }) {
+  const modeMatches = matches.filter((m) => m.map === map && m.mode === mode);
+  const wins = modeMatches.filter((m) => m.result === 'Win').length;
+  const total = modeMatches.length;
+  const winRate = total ? Math.round((wins / total) * 100) : null;
+
+  const note = opponent?.map_notes?.find((n) => n.map === map && n.mode === mode) || null;
+  const threat = note?.threat || null;
+
+  let confidence = 'INSUFFICIENT DATA';
+  if (total >= 5) confidence = 'HIGH';
+  else if (total >= 2) confidence = 'MEDIUM';
+  else if (total >= 1) confidence = 'LOW';
+
+  const reasons = [];
+  let lean = null;
+
+  if (winRate !== null) {
+    reasons.push(`Our record: ${wins}-${total - wins} (${winRate}%) over ${total} match${total === 1 ? '' : 'es'}.`);
+    if (total >= 2 && winRate >= 60) lean = 'pick';
+    else if (total >= 2 && winRate <= 40) lean = 'ban';
+  } else {
+    reasons.push('No matches logged yet on this map/mode.');
+  }
+
+  if (threat === 'high') {
+    reasons.push(`Opponent threat rated HIGH${note.note ? ` — ${note.note}` : ''}.`);
+    if (lean === 'pick') reasons.push('Our win rate says pick, but the opponent threat rating says be careful here.');
+    else if (!lean) lean = 'ban';
+  } else if (threat === 'low') {
+    reasons.push(`Opponent threat rated LOW${note.note ? ` — ${note.note}` : ''}.`);
+    if (!lean && (winRate === null || winRate >= 50)) lean = 'pick';
+  } else if (threat === 'medium' && note?.note) {
+    reasons.push(`Opponent threat rated MEDIUM — ${note.note}.`);
+  }
+
+  return { map, mode, winRate, total, threat, confidence, lean, reasons };
+}
+
 export function summaryLines(intel, limit = 3) {
   if (!intel) return [];
   const lines = [];

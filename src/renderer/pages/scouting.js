@@ -6,6 +6,22 @@ import { shortMode } from '../lib/veto.js';
 
 const ROLES = ['IGL', 'AR', 'SMG', 'Sniper', 'Flex', 'Main Sub', 'Main AR'];
 const THREATS = [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']];
+// Matches planningStore.js's INTEL_CONFIDENCE — duplicated locally rather than
+// fetched, since it's a fixed, tiny list (same pattern as ROLES/THREATS above).
+const CONFIDENCE_OPTIONS = ['CONFIRMED', 'LIKELY', 'OLD DATA', 'UNVERIFIED'];
+const CONFIDENCE_COLORS = { CONFIRMED: 'var(--win)', LIKELY: 'var(--accent)', 'OLD DATA': '#ffb870', UNVERIFIED: 'var(--loss)' };
+
+function confidenceBadge(confidence) {
+  const c = CONFIDENCE_OPTIONS.includes(confidence) ? confidence : 'UNVERIFIED';
+  const color = CONFIDENCE_COLORS[c];
+  return el(
+    'span',
+    {
+      style: `font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:${color}22;color:${color};flex-shrink:0;white-space:nowrap;`,
+    },
+    c
+  );
+}
 
 async function loadAllMatches() {
   const teams = await window.cci.getTeams();
@@ -177,12 +193,17 @@ async function renderDetail(container, ctx, opp, allMatches, ruleset, reload) {
   if (!(opp.map_notes || []).length) notes.append(el('div', { class: 'field-hint', style: 'padding:6px 2px;' }, 'No map notes yet.'));
   for (let i = 0; i < (opp.map_notes || []).length; i++) {
     const m = opp.map_notes[i];
+    const provenance = [m.source, m.date ? fmtDate(m.date) : null].filter(Boolean).join(' · ');
     notes.append(
       el('div', { class: 'crow', style: 'cursor:default;align-items:flex-start;' }, [
         el('span', { class: `veto-turn ${m.threat === 'high' ? 'them' : 'us'}`, style: m.threat === 'medium' ? 'background:#5c3d1f33;color:#ffb870;' : null }, (m.threat || 'med').slice(0, 1).toUpperCase()),
         el('div', { class: 'crow-main' }, [
-          el('div', { class: 'crow-title' }, `${m.map}${m.mode ? ` · ${m.mode}` : ''}`),
+          el('div', { style: 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;' }, [
+            el('div', { class: 'crow-title' }, `${m.map}${m.mode ? ` · ${m.mode}` : ''}`),
+            confidenceBadge(m.confidence),
+          ]),
           m.note ? el('div', { class: 'field-hint', style: 'margin-top:2px;line-height:1.5;' }, m.note) : null,
+          provenance ? el('div', { class: 'field-hint', style: 'margin-top:2px;opacity:.75;' }, provenance) : null,
         ]),
         el('div', { class: 'crow-actions' }, [
           iconBtn('edit', 'Edit note', () => editMapNote(opp, i, mapNames, modeNames, reload)),
@@ -198,6 +219,43 @@ async function renderDetail(container, ctx, opp, allMatches, ruleset, reload) {
   }
   cols.append(notes);
   container.append(cols);
+
+  // Discrete, confidence-rated intel items — veto reads, rotations, player
+  // tendencies — separate from the single tendencies/notes free-text blocks
+  // below, which stay as a general catch-all.
+  const intelCard = sectionCard('Opponent Intel', () => addIntel(opp, reload));
+  const intelItems = [...(opp.intel || [])].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  if (!intelItems.length) {
+    intelCard.append(
+      el('div', { class: 'field-hint', style: 'padding:6px 2px;' },
+        'No rated intel yet — HP rotations, common breaks, opening routes, plant preferences, player reads…')
+    );
+  }
+  for (const item of intelItems) {
+    const idx = (opp.intel || []).findIndex((i) => i.intel_id === item.intel_id);
+    const provenance = [item.source, item.date ? fmtDate(item.date) : null].filter(Boolean).join(' · ');
+    intelCard.append(
+      el('div', { class: 'crow', style: 'cursor:default;align-items:flex-start;' }, [
+        el('div', { class: 'crow-main' }, [
+          el('div', { style: 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;' }, [
+            el('span', { class: 'role-badge' }, item.category || 'General'),
+            confidenceBadge(item.confidence),
+          ]),
+          el('div', { style: 'margin-top:4px;line-height:1.5;' }, item.text),
+          provenance ? el('div', { class: 'field-hint', style: 'margin-top:2px;opacity:.75;' }, provenance) : null,
+        ]),
+        el('div', { class: 'crow-actions' }, [
+          iconBtn('edit', 'Edit intel', () => editIntel(opp, idx, reload)),
+          iconBtn('trash', 'Remove intel', async () => {
+            const intel = (opp.intel || []).filter((i) => i.intel_id !== item.intel_id);
+            await window.cci.saveOpponent({ ...opp, intel });
+            reload();
+          }),
+        ]),
+      ])
+    );
+  }
+  container.append(intelCard);
 
   const history = opp.veto_history || [];
   if (history.length) {
@@ -329,8 +387,16 @@ function mapNoteFields(mapNames, modeNames) {
       { key: 'map', label: 'Map', type: 'select', options: ['', ...mapNames] },
       { key: 'mode', label: 'Mode', type: 'select', options: ['', ...modeNames] },
     ],
-    { key: 'threat', label: 'Threat', type: 'select', options: THREATS },
+    [
+      { key: 'threat', label: 'Threat', type: 'select', options: THREATS },
+      { key: 'confidence', label: 'Confidence', type: 'select', options: CONFIDENCE_OPTIONS },
+    ],
     { key: 'note', label: 'Note', type: 'textarea', placeholder: 'What they do well / how to punish it' },
+    [
+      { key: 'source', label: 'Source', placeholder: 'e.g. Scrim vs them, VOD review' },
+      { key: 'date', label: 'Date', type: 'date' },
+    ],
+    { key: 'vod_timestamp', label: 'VOD Reference', placeholder: 'Link or timestamp (optional)' },
   ];
 }
 
@@ -338,7 +404,7 @@ function addMapNote(opp, mapNames, modeNames, reload) {
   openForm({
     title: 'Add Map Note',
     fields: mapNoteFields(mapNames, modeNames),
-    values: { threat: 'medium', mode: modeNames[0] },
+    values: { threat: 'medium', confidence: 'UNVERIFIED', mode: modeNames[0] },
     onSubmit: async (values) => {
       const map_notes = [...(opp.map_notes || []), values];
       await window.cci.saveOpponent({ ...opp, map_notes });
@@ -356,6 +422,52 @@ function editMapNote(opp, index, mapNames, modeNames, reload) {
       const map_notes = opp.map_notes.slice();
       map_notes[index] = values;
       await window.cci.saveOpponent({ ...opp, map_notes });
+      reload();
+    },
+  });
+}
+
+const INTEL_CATEGORIES = ['General', 'Veto', 'Hardpoint', 'Search & Destroy', 'Overload', 'Player'];
+
+function intelFields() {
+  return [
+    { key: 'text', label: 'Intel', type: 'textarea', required: true, placeholder: 'e.g. Rotates P2→P3 early on Den, weak to a fast pinch' },
+    [
+      { key: 'category', label: 'Category', type: 'select', options: INTEL_CATEGORIES },
+      { key: 'confidence', label: 'Confidence', type: 'select', options: CONFIDENCE_OPTIONS },
+    ],
+    [
+      { key: 'source', label: 'Source', placeholder: 'e.g. Scrim, VOD review, teammate' },
+      { key: 'date', label: 'Date', type: 'date' },
+    ],
+    { key: 'vod_timestamp', label: 'VOD Reference', placeholder: 'Link or timestamp (optional)' },
+  ];
+}
+
+function addIntel(opp, reload) {
+  openForm({
+    title: 'Add Intel',
+    fields: intelFields(),
+    values: { category: 'General', confidence: 'UNVERIFIED', date: new Date().toISOString().slice(0, 10) },
+    onSubmit: async (values) => {
+      const intel = [...(opp.intel || []), values];
+      await window.cci.saveOpponent({ ...opp, intel });
+      toast('Intel added', 'ok');
+      reload();
+    },
+  });
+}
+
+function editIntel(opp, index, reload) {
+  openForm({
+    title: 'Edit Intel',
+    fields: intelFields(),
+    values: opp.intel[index],
+    onSubmit: async (values) => {
+      const intel = opp.intel.slice();
+      intel[index] = { ...intel[index], ...values };
+      await window.cci.saveOpponent({ ...opp, intel });
+      toast('Intel updated', 'ok');
       reload();
     },
   });

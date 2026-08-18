@@ -47,7 +47,7 @@ function handleAssetProtocol() {
       const data = await fs.promises.readFile(file);
       const mime = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
       return new Response(data, {
-        headers: { 'content-type': mime, 'cache-control': 'public, max-age=31536000' },
+        headers: { 'content-type': mime, 'cache-control': 'no-cache' },
       });
     } catch {
       return new Response('Not found', { status: 404 });

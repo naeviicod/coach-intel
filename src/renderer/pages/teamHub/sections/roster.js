@@ -1,5 +1,7 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../../../utils.js';
 import { uploadTeamLogo } from '../../../lib/teamManage.js';
+import { splitRoster, isStaffMember } from '../../../lib/roster.js';
+import { memberStaffTitle, orgTitles } from '../../../lib/profile.js';
 import { miniEmpty } from '../parts.js';
 
 export async function render(root, hub) {
@@ -8,20 +10,7 @@ export async function render(root, hub) {
     window.cci.getMatches(hub.team.id),
   ]);
 
-  root.append(
-    el('div', { class: 'hub-head team-identity' }, [
-      teamMark(hub.team, { class: 'team-logo lg' }),
-      el('div', { style: 'flex:1;min-width:0;' }, [
-        el('div', { class: 'team-identity-kicker' }, hub.team.tag ? `${hub.team.tag} · Call of Duty` : 'Call of Duty'),
-        el('h1', { class: 'hub-title team-identity-name' }, `${hub.team.name} Roster`),
-        el('div', { class: 'hub-sub' }, `${members.length} member${members.length === 1 ? '' : 's'}`),
-      ]),
-      el('button', { class: 'btn subtle', onclick: () => hub.navigate('players') }, 'Add / Edit Players'),
-      hub.ctxToggle,
-    ])
-  );
-
-  root.append(logoSection(hub));
+  root.append(logoSection(hub, members.length));
 
   if (!members.length) {
     root.append(
@@ -29,30 +18,37 @@ export async function render(root, hub) {
         miniEmpty(
           'No members yet',
           'Add players on the Players page. They show here with match stats.',
-          el('button', { class: 'btn primary sm', onclick: () => hub.navigate('players') }, 'Add Player')
+          el('button', { class: 'btn primary sm edit-only', onclick: () => hub.navigate('players') }, 'Add Player')
         ),
       ])
     );
     return;
   }
 
-  const players = members.filter((m) => m.role !== 'Coach' && m.role !== 'Analyst');
-  const staff = members.filter((m) => m.role === 'Coach' || m.role === 'Analyst');
+  const { starters, bench, staff } = splitRoster(members);
 
-  root.append(group(hub, 'Players', players, matches));
+  root.append(group(hub, 'Starting lineup', starters, matches, 'No starters yet. Add players from the Players page.'));
+  root.append(group(hub, 'Backup / Bench', bench, matches, starters.length >= 4 ? 'No bench players. Add backups when the starting 4 is full.' : null));
   if (staff.length) root.append(group(hub, 'Staff', staff, matches));
 }
 
-function logoSection(hub) {
+function logoSection(hub, memberCount) {
   return el('div', { class: 'card compact', style: 'margin-bottom:14px;' }, [
-    el('div', { class: 'card-head' }, [el('div', { class: 'card-title' }, 'Team Logo')]),
+    el('div', { class: 'card-head' }, [
+      el('div', { class: 'card-title' }, 'Team Logo'),
+      el('div', { style: 'display:flex;align-items:center;gap:8px;margin-left:auto;' }, [
+        el('div', { class: 'card-meta' }, `${memberCount} member${memberCount === 1 ? '' : 's'}`),
+        el('button', { class: 'btn subtle sm edit-only', onclick: () => hub.navigate('players') }, 'Add / Edit Players'),
+        hub.ctxToggle,
+      ]),
+    ]),
     el('div', { class: 'logo-well' }, [
       teamMark(hub.team, { class: 'team-logo xl' }),
       el('div', { style: 'min-width:0;flex:1;' }, [
         el('div', { class: 'settings-row-title' }, hub.team.logo ? hub.team.name : 'No logo yet'),
         el('div', { class: 'field-hint' }, 'Square PNG or JPG. Shown on Teams, Players, and this roster.'),
         el('button', {
-          class: 'btn sm',
+          class: 'btn sm edit-only',
           style: 'margin-top:10px;',
           onclick: async () => {
             const saved = await uploadTeamLogo(hub.team);
@@ -66,10 +62,19 @@ function logoSection(hub) {
   ]);
 }
 
-function group(hub, title, members, matches) {
+function group(hub, title, members, matches, empty) {
+  if (!members.length && !empty) return null;
   const card = el('div', { class: 'card compact', style: 'margin-bottom:14px;' }, [
-    el('div', { class: 'card-head' }, [el('div', { class: 'card-title' }, title)]),
+    el('div', { class: 'card-head' }, [
+      el('div', { class: 'card-title' }, title),
+      el('div', { class: 'card-meta' }, String(members.length)),
+    ]),
   ]);
+
+  if (!members.length) {
+    card.append(el('div', { class: 'field-hint', style: 'padding:6px 2px;' }, empty));
+    return card;
+  }
 
   for (const member of members) {
     const stats = playerStats(member, matches);
@@ -94,11 +99,18 @@ function group(hub, title, members, matches) {
           playerAvatar(member),
           el('div', { class: 'crow-main' }, [
             el('div', { class: 'crow-title' }, member.gamertag),
-            member.name && member.name !== member.gamertag
-              ? el('div', { class: 'crow-sub' }, member.name)
-              : null,
+            (() => {
+              const sub = [member.name && member.name !== member.gamertag ? member.name : '', memberStaffTitle(member)]
+                .filter(Boolean)
+                .join(' · ');
+              return sub ? el('div', { class: 'crow-sub' }, sub) : null;
+            })(),
           ]),
-          roleBadge(member.role),
+          ...orgTitles(member)
+            .filter((t) => !/^player$/i.test(t))
+            .map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
+          isStaffMember(member) ? null : roleBadge(member.role),
+          member.slot === 'bench' ? el('span', { class: 'pill' }, 'Bench') : null,
           stats
             ? el('div', { class: 'crow-meta' }, `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}`)
             : el('div', { class: 'crow-meta' }, 'No match data'),

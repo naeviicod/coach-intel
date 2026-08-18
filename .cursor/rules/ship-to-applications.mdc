@@ -1,0 +1,9 @@
+---
+description: Always package Coach Intel into /Applications
+alwaysApply: true
+---
+
+# Ship to /Applications
+
+After app or UI changes the user will launch from the Dock, run `npm run dist`.
+That installs `/Applications/Coach Intel.app`. Do not leave them on `npm start` or `$HOME/Applications`.

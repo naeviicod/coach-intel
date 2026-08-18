@@ -1,7 +1,10 @@
 import { el } from '../utils.js';
 import { asset } from '../lib/assets.js';
+import { DEFAULT_ACCENT, applyAccent } from '../lib/accent.js';
+import { toast } from '../components/modal.js';
 
 export async function render(container, ctx) {
+  applyAccent(DEFAULT_ACCENT);
   const state = { step: 1, org: { name: '', tag: '', logo: null }, team: { name: '', tag: '' } };
   draw(container, ctx, state);
 }
@@ -11,7 +14,7 @@ function draw(container, ctx, state) {
   container.append(
     el('div', { class: 'onboarding-screen' }, [
       el('div', { class: 'onboarding-brand-wrap' }, [
-        el('img', { class: 'onboarding-brand brand-tint', src: asset('full-logo.png'), alt: 'Coach Intel' }),
+        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260817b`, alt: 'Coach Intel' }),
       ]),
       state.step === 1 ? orgStep(container, ctx, state) : teamStep(container, ctx, state),
     ])
@@ -29,7 +32,7 @@ function orgStep(container, ctx, state) {
         type: 'text',
         id: 'ob-org-name',
         value: state.org.name,
-        placeholder: 'e.g. Naevii',
+        placeholder: 'e.g. your organization',
         oninput: (e) => { state.org.name = e.target.value; },
       }),
     ]),
@@ -39,7 +42,7 @@ function orgStep(container, ctx, state) {
         type: 'text',
         id: 'ob-org-tag',
         value: state.org.tag,
-        placeholder: 'e.g. NAE',
+        placeholder: 'e.g. TAG',
         oninput: (e) => { state.org.tag = e.target.value; },
       }),
     ]),
@@ -76,7 +79,7 @@ function teamStep(container, ctx, state) {
         type: 'text',
         id: 'ob-team-name',
         value: state.team.name,
-        placeholder: 'e.g. Team Naevii',
+        placeholder: 'e.g. your team',
         oninput: (e) => { state.team.name = e.target.value; },
       }),
     ]),
@@ -86,7 +89,7 @@ function teamStep(container, ctx, state) {
         type: 'text',
         id: 'ob-team-tag',
         value: state.team.tag,
-        placeholder: 'e.g. NAE',
+        placeholder: 'e.g. TAG',
         oninput: (e) => { state.team.tag = e.target.value; },
       }),
     ]),
@@ -112,12 +115,24 @@ function teamStep(container, ctx, state) {
         onclick: async (e) => {
           const name = card.querySelector('#ob-team-name').value.trim();
           if (!name) return;
-          e.target.disabled = true;
-          e.target.textContent = 'Creating…';
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = 'Creating…';
           const tag = card.querySelector('#ob-team-tag').value.trim();
-          await window.cci.saveOrg({ name: state.org.name, tag: state.org.tag || null, logo: state.org.logo });
-          await window.cci.saveTeam({ name, tag: tag || null });
-          await ctx.onComplete();
+          try {
+            await window.cci.saveOrg({
+              name: state.org.name,
+              tag: state.org.tag || null,
+              logo: state.org.logo,
+              accent: DEFAULT_ACCENT,
+            });
+            await window.cci.saveTeam({ name, tag: tag || null, accent: DEFAULT_ACCENT });
+            await ctx.onComplete();
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'Create Team & Enter Command Center';
+            toast(err?.message || 'Could not create the team.', 'error');
+          }
         },
       },
       'Create Team & Enter Command Center'
@@ -131,7 +146,7 @@ function logoField(inputId, target, onChange) {
   const preview = el('div', { class: 'onboarding-logo-preview' }, target.logo ? '' : '—');
   if (target.logo && window.cci?.dataUrlForPath) {
     window.cci.dataUrlForPath(target.logo).then((url) => {
-      if (!url || !preview.isConnected) return;
+      if (!url) return;
       preview.replaceChildren(el('img', { src: url, alt: '' }));
     });
   }

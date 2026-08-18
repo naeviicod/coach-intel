@@ -181,3 +181,35 @@ test('calendar: shiftMonth rolls the year over and bucketByDate groups items', a
   assert.equal(buckets['2026-08-01'].length, 2);
   assert.equal(buckets['2026-08-02'].length, 1);
 });
+
+test('calendar: org league items show team, opponent and maps only', async () => {
+  const cal = await import(libUrl('calendar.js'));
+  const team = { id: 'rome', name: 'Rome', tag: 'ROME' };
+  const items = cal.leagueItemsForTeam(team, {
+    events: [
+      {
+        type: 'league-match',
+        date: '2026-08-22',
+        time: '18:00',
+        opponent: 'FaZe',
+        maps: ['Den', 'Raid'],
+      },
+      { type: 'training', date: '2026-08-22', title: 'Aim trainers' },
+      { type: 'scrim', date: '2026-08-23', opponent: 'LAT' },
+    ],
+    matches: [
+      { date: '2026-08-22', opponent: 'FaZe', map: 'Scar', result: 'Win' },
+      { date: '2026-08-24', opponent: 'Optic', map: 'Den', mode: 'Hardpoint' },
+    ],
+  });
+  assert.equal(items.length, 2);
+  const faze = items.find((i) => i.opponent === 'FaZe');
+  assert.equal(faze.title, 'ROME vs FaZe');
+  assert.equal(faze.teamName, 'Rome');
+  assert.deepEqual(faze.maps, ['Den', 'Raid', 'Scar']);
+  assert.equal(faze.time, '18:00');
+  assert.ok(items.every((i) => i.type === 'league-match'));
+  const optic = items.find((i) => i.opponent === 'Optic');
+  assert.equal(optic.title, 'ROME vs Optic');
+  assert.deepEqual(optic.maps, ['Den']);
+});

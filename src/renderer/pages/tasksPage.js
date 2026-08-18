@@ -87,7 +87,25 @@ export async function render(container, ctx) {
       teams.length > 1 && !scoped
         ? el('select', { 'aria-label': 'Team' }, teams.map((t) => el('option', { value: t.id }, t.name)))
         : null;
+    const assigneePick = el('select', { 'aria-label': 'Assign to' }, [el('option', { value: '' }, 'Unassigned')]);
     const error = el('div', { class: 'field-hint', style: 'color:var(--loss);display:none;' }, 'A title is required.');
+
+    async function loadAssignees(teamId) {
+      const current = assigneePick.value;
+      assigneePick.innerHTML = '';
+      assigneePick.append(el('option', { value: '' }, 'Unassigned'));
+      let members = [];
+      try {
+        members = await window.cci.getMembers(teamId);
+      } catch (err) {
+        console.error('[tasks] could not load members for assignment', err);
+      }
+      for (const m of members) {
+        assigneePick.append(el('option', { value: m.id, selected: m.id === current ? 'selected' : null }, m.gamertag));
+      }
+    }
+    loadAssignees(teamPick ? teamPick.value : team.id);
+    if (teamPick) teamPick.addEventListener('change', () => loadAssignees(teamPick.value));
 
     composer.append(
       el('div', { class: 'card compact', style: 'margin-bottom:12px;' }, [
@@ -95,6 +113,7 @@ export async function render(container, ctx) {
           el('div', { style: 'flex:1;min-width:200px;' }, [title]),
           due,
           teamPick,
+          assigneePick,
           el('button', { class: 'btn primary sm', onclick: save }, 'Add'),
           el('button', { class: 'btn subtle sm', onclick: () => (composer.innerHTML = '') }, 'Cancel'),
         ]),
@@ -103,22 +122,36 @@ export async function render(container, ctx) {
     );
     title.focus();
 
-    async function save() {
+    async function save(ev) {
+      const btn = ev?.currentTarget;
+      if (btn?.disabled) return;
       if (!title.value.trim()) {
         error.style.display = '';
         title.focus();
         return;
       }
-      const teamId = teamPick ? teamPick.value : team.id;
-      await window.cci.saveTask(teamId, { title: title.value.trim(), due: due.value || null });
-      composer.innerHTML = '';
-      await draw();
+      if (btn) btn.disabled = true;
+      try {
+        const teamId = teamPick ? teamPick.value : team.id;
+        await window.cci.saveTask(teamId, {
+          title: title.value.trim(),
+          due: due.value || null,
+          assignee_id: assigneePick.value || null,
+        });
+        composer.innerHTML = '';
+        await draw();
+      } catch (err) {
+        if (btn) btn.disabled = false;
+        error.textContent = err?.message || 'Could not save the task.';
+        error.style.display = '';
+      }
     }
   }
 
   async function draw() {
     list.innerHTML = '';
     const rows = [];
+    const membersByTeam = new Map();
     for (const team of scope) {
       if (teamFilter && team.id !== teamFilter) continue;
       const tasks = await window.cci.getTasks(team.id);
@@ -146,7 +179,15 @@ export async function render(container, ctx) {
     }
 
     for (const task of visible) {
+      let assigneeName = null;
+      if (task.assignee_id) {
+        if (!membersByTeam.has(task.team.id)) {
+          membersByTeam.set(task.team.id, await window.cci.getMembers(task.team.id).catch(() => []));
+        }
+        assigneeName = membersByTeam.get(task.team.id).find((m) => m.id === task.assignee_id)?.gamertag || null;
+      }
       const row = taskRow(task, {
+        assigneeName,
         onToggle: async (t) => {
           await window.cci.saveTask(t.team.id, { task_id: t.task_id, done: !t.done });
           await draw();

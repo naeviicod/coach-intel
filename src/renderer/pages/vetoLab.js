@@ -2,7 +2,7 @@ import { el, icon, fmtStamp } from '../utils.js';
 import { iconBtn } from './teamHub/parts.js';
 import { pageHeader, teamSelect, emptyState, confirmModal, toast } from './planningShared.js';
 import { VETO_FORMATS, seriesModes, buildVetoSequence, availableMaps, resultSeries, isSequenceComplete, groupStepsByMode, shortMode } from '../lib/veto.js';
-import { collectVetoes, intelForOpponent, suggestForStep, summaryLines } from '../lib/vetoIntel.js';
+import { collectVetoes, intelForOpponent, suggestForStep, summaryLines, mapRecommendation } from '../lib/vetoIntel.js';
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
@@ -20,10 +20,11 @@ export async function render(container, ctx) {
 }
 
 async function draw(container, ctx, teams, active, reload) {
-  const [vetoes, opponents, ruleset] = await Promise.all([
+  const [vetoes, opponents, ruleset, matches] = await Promise.all([
     window.cci.getVetoes(active.id),
     window.cci.getOpponents(),
     window.cci.getCdlRuleset(),
+    window.cci.getMatches(active.id),
   ]);
   const rulesetModes = ruleset?.modes || ['Hardpoint', 'Search & Destroy', 'Overload'];
   const poolsByMode = {};
@@ -79,8 +80,8 @@ async function draw(container, ctx, teams, active, reload) {
       formatSelect,
       firstSelect,
       el('div', { style: 'flex:1;' }),
-      el('button', { class: 'btn sm subtle', onclick: () => { rebuild(); paint(); toast('Veto reset', 'ok'); } }, 'Reset'),
-      el('button', { class: 'btn sm primary', onclick: savePlan }, 'Save Plan'),
+      el('button', { class: 'btn sm subtle edit-only', onclick: () => { rebuild(); paint(); toast('Veto reset', 'ok'); } }, 'Reset'),
+      el('button', { class: 'btn sm primary edit-only', onclick: savePlan }, 'Save Plan'),
     ])
   );
 
@@ -94,6 +95,12 @@ async function draw(container, ctx, teams, active, reload) {
 
   function currentIntel() {
     return intelForOpponent(state.opponent, catalog);
+  }
+
+  function currentOpponentRecord() {
+    const name = state.opponent.trim().toLowerCase();
+    if (!name) return null;
+    return opponents.find((o) => String(o.name || '').trim().toLowerCase() === name) || null;
   }
 
   function assign(map) {
@@ -182,15 +189,26 @@ async function draw(container, ctx, teams, active, reload) {
       if (!maps.length) {
         picker.append(el('div', { class: 'field-hint', style: 'padding:6px 2px;' }, 'No maps left in this pool.'));
       } else {
+        const opponentRecord = currentOpponentRecord();
         picker.append(
           el(
             'div',
             { class: 'grid veto-pool', style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;' },
             maps.map((map) => {
               const hint = hintFor[map];
+              // Separate from the habit hint above: this is our real win rate
+              // on the map plus the opponent's coach-entered threat rating —
+              // never a fabricated opponent win rate.
+              const rec = mapRecommendation({ map, mode: step.mode, matches, opponent: opponentRecord });
               return el('button', { class: `veto-tile ${step.action}${hint ? ' hint' : ''}`, onclick: () => assign(map) }, [
-                el('span', { class: 'veto-tile-name' }, map),
+                el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:6px;' }, [
+                  el('span', { class: 'veto-tile-name' }, map),
+                  rec.lean
+                    ? el('span', { class: `pill ${rec.lean === 'pick' ? 'win' : 'loss'}`, title: rec.reasons.join(' ') }, rec.lean.toUpperCase())
+                    : null,
+                ]),
                 hint ? el('span', { class: 'veto-tile-why' }, `${hint.why} · ${hint.source} (${hint.n})`) : null,
+                rec.total ? el('span', { class: 'veto-tile-why' }, rec.reasons[0]) : null,
               ]);
             })
           )

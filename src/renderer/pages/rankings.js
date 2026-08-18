@@ -16,7 +16,7 @@ export async function render(container, ctx) {
     pageHeader(
       'Rankings',
       'League and regional standings alongside your own form',
-      el('div', { style: 'display:flex;gap:8px;' }, [
+      el('div', { class: 'edit-only', style: 'display:flex;gap:8px;' }, [
         el('button', { class: 'btn sm', onclick: () => editRegion(rankings, reload) }, 'Region'),
         el('button', { class: 'btn primary', onclick: () => teamForm(rankings, reload) }, [
           el('span', { class: 'icon', style: 'display:inline-flex;vertical-align:-2px;margin-right:6px;', html: icon('plus', 13) }),
@@ -63,7 +63,7 @@ export async function render(container, ctx) {
       emptyState(
         'No standings entered',
         'Rankings are yours to maintain — add the teams in your league or region with their records and points to track the table.',
-        el('button', { class: 'btn primary', onclick: () => teamForm(rankings, reload) }, 'Add the first team')
+        el('button', { class: 'btn primary edit-only', onclick: () => teamForm(rankings, reload) }, 'Add the first team')
       )
     );
     return;
@@ -91,7 +91,7 @@ export async function render(container, ctx) {
           el('td', { class: 'num' }, `${winPct(team)}%`),
           el('td', { class: 'num', style: 'font-weight:700;' }, String(team.points || 0)),
           el('td', { class: 'field-hint', style: 'color:var(--text-dim);' }, team.note || '—'),
-          el('td', {}, el('div', { class: 'row-actions' }, [
+          el('td', {}, el('div', { class: 'row-actions edit-only' }, [
             iconBtn('edit', 'Edit team', () => teamForm(rankings, reload, team)),
             iconBtn('trash', 'Remove team', () =>
               confirmModal({

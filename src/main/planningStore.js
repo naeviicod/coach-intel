@@ -106,11 +106,28 @@ function str(value, max = 4000) {
   return String(value ?? '').slice(0, max);
 }
 
+function normalizeEventMaps(maps) {
+  const raw = Array.isArray(maps)
+    ? maps
+    : typeof maps === 'string'
+      ? maps.split(/[,;\n]+/)
+      : [];
+  const out = [];
+  for (const entry of raw) {
+    const name = typeof entry === 'string'
+      ? str(entry, 60).trim()
+      : str(entry?.map || entry?.name || '', 60).trim();
+    if (name && !out.includes(name)) out.push(name);
+    if (out.length >= 11) break;
+  }
+  return out;
+}
+
 // ---------- Schedule events (Calendar) ----------
 //
-// Coach-created calendar entries. Match-log and scrim-hub rows still overlay
-// the same month; these types are what the Add Event form can persist.
-// Older keys (practice, scrim-block, other) stay valid so existing files load.
+// Coach-created calendar entries. The org Calendar page only surfaces
+// league-match rows (plus logged match history). Other types stay on the
+// team's planner. Older keys (practice, scrim-block, other) still load.
 
 const EVENT_TYPES = [
   'league-match',
@@ -122,6 +139,22 @@ const EVENT_TYPES = [
   'scrim-block',
   'other',
 ];
+
+// Attendees can be the whole roster plus staff, unlike a 4-person scrim
+// lineup, so this dedupes without normalizeLineup's tighter cap.
+function normalizeAttendees(ids) {
+  if (!Array.isArray(ids)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const raw of ids) {
+    const id = str(raw, 80);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= 30) break;
+  }
+  return out;
+}
 
 async function getEvents(teamId) {
   const rows = await listJson(teamSub(teamId, 'schedule'), 'event_id');
@@ -143,7 +176,9 @@ async function saveEvent(teamId, event) {
     time: event.time !== undefined ? (event.time ? str(event.time, 5) : null) : existing?.time || null,
     duration_min: event.duration_min !== undefined ? clampInt(event.duration_min, 0) || null : existing?.duration_min || null,
     opponent: event.opponent !== undefined ? str(event.opponent, 120) : existing?.opponent || '',
+    maps: event.maps !== undefined ? normalizeEventMaps(event.maps) : existing?.maps || [],
     notes: event.notes !== undefined ? str(event.notes) : existing?.notes || '',
+    attendee_ids: event.attendee_ids !== undefined ? normalizeAttendees(event.attendee_ids) : existing?.attendee_ids || [],
     created_at: existing?.created_at || now,
     updated_at: now,
   };
@@ -159,14 +194,42 @@ async function deleteEvent(teamId, eventId) {
 
 const SCRIM_STATUSES = ['scheduled', 'completed', 'cancelled'];
 
+function normalizeLineup(ids) {
+  if (!Array.isArray(ids)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const raw of ids) {
+    const id = str(raw, 80);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
+function normalizeTags(tags) {
+  const list = Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',') : [];
+  const out = [];
+  for (const raw of list) {
+    const t = str(raw, 40).trim();
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
 function normalizeScrimMaps(maps) {
   if (!Array.isArray(maps)) return [];
   return maps.slice(0, 11).map((m) => ({
     map: str(m.map || '', 60),
     mode: str(m.mode || '', 40),
+    side: str(m.side || '', 40),
     result: m.result === 'Win' || m.result === 'Loss' ? m.result : '',
     us: m.us === null || m.us === undefined || m.us === '' ? null : clampInt(m.us, 0),
     them: m.them === null || m.them === undefined || m.them === '' ? null : clampInt(m.them, 0),
+    vod_url: str(m.vod_url || '', 1000),
+    tags: normalizeTags(m.tags),
   }));
 }
 
@@ -191,6 +254,7 @@ async function saveScrim(teamId, scrim) {
     status,
     maps: scrim.maps !== undefined ? normalizeScrimMaps(scrim.maps) : existing?.maps || [],
     notes: scrim.notes !== undefined ? str(scrim.notes) : existing?.notes || '',
+    lineup: normalizeLineup(scrim.lineup !== undefined ? scrim.lineup : existing?.lineup),
     created_at: existing?.created_at || now,
     updated_at: now,
   };
@@ -358,6 +422,17 @@ function normalizeOpponentPlayers(players) {
   }));
 }
 
+// How sure we actually are about a piece of opponent intel — shown next to
+// every intel item so a stale or unverified read never looks as solid as a
+// confirmed one. Unrecognized/missing values fall back to the most cautious
+// state rather than silently defaulting to "confirmed".
+const INTEL_CONFIDENCE = ['CONFIRMED', 'LIKELY', 'OLD DATA', 'UNVERIFIED'];
+
+function normalizeConfidence(value) {
+  const v = String(value || '').trim().toUpperCase();
+  return INTEL_CONFIDENCE.includes(v) ? v : 'UNVERIFIED';
+}
+
 function normalizeMapNotes(mapNotes) {
   if (!Array.isArray(mapNotes)) return [];
   return mapNotes.slice(0, 40).map((m) => ({
@@ -365,7 +440,32 @@ function normalizeMapNotes(mapNotes) {
     mode: str(m.mode || '', 40),
     threat: m.threat === 'high' || m.threat === 'low' ? m.threat : 'medium',
     note: str(m.note || '', 600),
+    confidence: normalizeConfidence(m.confidence),
+    source: str(m.source || '', 200),
+    date: m.date ? str(m.date, 10) : null,
+    vod_timestamp: str(m.vod_timestamp || '', 200),
   }));
+}
+
+// General (non-map-specific) intel items — tendencies, veto reads, player
+// notes — each with its own confidence and optional provenance, distinct
+// from the single free-text `tendencies` blob this supplements rather than
+// replaces (existing data/UI reading `tendencies` keeps working unchanged).
+function normalizeOpponentIntel(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .slice(0, 150)
+    .map((it) => ({
+      intel_id: str(it.intel_id || makeId('intel'), 80),
+      text: str(it.text || '', 600),
+      category: str(it.category || 'General', 40),
+      confidence: normalizeConfidence(it.confidence),
+      source: str(it.source || '', 200),
+      date: it.date ? str(it.date, 10) : null,
+      vod_timestamp: str(it.vod_timestamp || '', 200),
+      created_at: str(it.created_at || nowIso(), 40),
+    }))
+    .filter((it) => it.text);
 }
 
 async function getOpponents() {
@@ -389,6 +489,7 @@ async function saveOpponent(opponent) {
     region: str(opponent.region !== undefined ? opponent.region : existing?.region || '', 60),
     players: opponent.players !== undefined ? normalizeOpponentPlayers(opponent.players) : existing?.players || [],
     map_notes: opponent.map_notes !== undefined ? normalizeMapNotes(opponent.map_notes) : existing?.map_notes || [],
+    intel: opponent.intel !== undefined ? normalizeOpponentIntel(opponent.intel) : existing?.intel || [],
     tendencies: opponent.tendencies !== undefined ? str(opponent.tendencies) : existing?.tendencies || '',
     notes: opponent.notes !== undefined ? str(opponent.notes) : existing?.notes || '',
     veto_history: opponent.veto_history !== undefined ? normalizeVetoHistory(opponent.veto_history) : existing?.veto_history || [],
@@ -433,6 +534,7 @@ async function saveRankings(rankings) {
 
 module.exports = {
   EVENT_TYPES,
+  INTEL_CONFIDENCE,
   getEvents,
   saveEvent,
   deleteEvent,

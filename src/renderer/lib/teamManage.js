@@ -1,14 +1,30 @@
-import { el } from '../utils.js';
-import { openModal } from '../components/modal.js';
+import { el, faceMark, comboInput } from '../utils.js';
+import { openModal, toast } from '../components/modal.js';
+import { HANDLE_FIELDS, TITLE_SUGGESTIONS, memberStaffTitle, normalizeHandles } from './profile.js';
+import { defaultSlot, isStaffMember, normalizeSlot } from './roster.js';
 
 export const ROLES = ['IGL', 'AR', 'SMG', 'Sniper', 'Flex', 'Main Sub', 'Main AR'];
 
 export async function uploadTeamLogo(team) {
-  const src = await window.cci.pickImage();
-  if (!src || !team?.id) return null;
-  const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-  const rel = await window.cci.copyImage(src, `org/logos/teams/${team.id}.${ext}`);
-  return window.cci.saveTeam({ ...team, logo: rel });
+  try {
+    const src = await window.cci.pickImage();
+    if (!src || !team?.id) return null;
+    const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+    const rel = await window.cci.copyImage(src, `org/logos/teams/${team.id}.${ext}`);
+    if (!rel) throw new Error('Could not copy the logo file.');
+    const saved = await window.cci.saveTeam({
+      id: team.id,
+      name: team.name,
+      tag: team.tag ?? null,
+      logo: rel,
+    });
+    if (!saved) throw new Error('Could not save the team logo.');
+    return saved;
+  } catch (err) {
+    console.error('[teams] logo upload failed', err);
+    toast(err?.message && !err.message.includes('[object Object]') ? err.message : 'Could not save the team logo.');
+    return null;
+  }
 }
 
 export function openTeamModal(ctx, team, { onSaved } = {}) {
@@ -33,27 +49,88 @@ export function openTeamModal(ctx, team, { onSaved } = {}) {
         class: 'btn primary',
         onclick: async () => {
           const name = body.querySelector('#team-name').value.trim();
-          if (!name) return;
-          const saved = await window.cci.saveTeam({
-            id: team?.id,
-            name,
-            tag: body.querySelector('#team-tag').value.trim() || null,
-            logo: team?.logo || null,
-          });
-          overlay.remove();
-          await ctx.refreshShell();
-          if (onSaved) onSaved(saved);
-          else ctx.navigate('teams');
+          if (!name) {
+            toast('A team name is required', 'error');
+            body.querySelector('#team-name').focus();
+            return;
+          }
+          try {
+            const saved = await window.cci.saveTeam({
+              id: team?.id,
+              name,
+              tag: body.querySelector('#team-tag').value.trim() || null,
+              logo: team?.logo || null,
+            });
+            overlay.remove();
+            await ctx.refreshShell();
+            if (onSaved) onSaved(saved);
+            else ctx.navigate('teams');
+          } catch (err) {
+            console.error('[teams] save team failed', err);
+            toast(err?.message || 'Could not save the team.', 'error');
+          }
         },
       }, 'Save'),
     ])
   );
 }
 
-export function openMemberModal(ctx, teamId, member, { onSaved } = {}) {
+function memberSlug(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function imageExt(sourcePath) {
+  return String(sourcePath.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+}
+
+function memberHeading(isEdit, member, slot) {
+  if (isEdit) return `Edit ${member.gamertag}`;
+  if (slot === 'staff') return 'Add Org Member';
+  if (slot === 'bench') return 'Add Bench Player';
+  return 'Add Player';
+}
+
+export function openMemberModal(ctx, teamId, member, { onSaved, slot } = {}) {
   const isEdit = Boolean(member);
+  const initialSlot = normalizeSlot(member?.slot || slot);
+  let photoRel = member?.photo || null;
+  let pendingSrc = null;
+  const previewHost = el('div', {});
+  const paintPreview = () => {
+    previewHost.replaceChildren(
+      faceMark({ photo: photoRel, name: member?.gamertag || member?.name || 'Player', size: 52 })
+    );
+  };
+  paintPreview();
+
+  const handles = member?.handles || {};
   const body = el('div', {}, [
-    el('h3', {}, isEdit ? `Edit ${member.gamertag}` : 'Add Player'),
+    el('h3', {}, memberHeading(isEdit, member, initialSlot)),
+    el('div', { class: 'profile-photo-row' }, [
+      previewHost,
+      el('div', { style: 'flex:1;' }, [
+        el('div', { class: 'settings-row-title' }, 'Player photo'),
+        el('div', { class: 'field-hint' }, 'Optional. Shown on the roster and player profile.'),
+      ]),
+      el('button', {
+        class: 'btn',
+        type: 'button',
+        onclick: async () => {
+          const src = await window.cci.pickImage();
+          if (!src) return;
+          pendingSrc = src;
+          const id = member?.id || memberSlug(body.querySelector('#member-gamertag').value) || 'player';
+          const rel = await window.cci.copyImage(src, `org/members/${teamId}/${id}.${imageExt(src)}`);
+          if (!rel) return;
+          photoRel = rel;
+          paintPreview();
+        },
+      }, photoRel ? 'Change Photo' : 'Upload Photo'),
+    ]),
     el('div', { class: 'inline-fields' }, [
       el('div', { class: 'field' }, [
         el('label', { for: 'member-gamertag' }, 'Gamertag'),
@@ -64,22 +141,61 @@ export function openMemberModal(ctx, teamId, member, { onSaved } = {}) {
         el('input', { type: 'text', id: 'member-name', value: member?.name || '' }),
       ]),
     ]),
-    el('div', { class: 'field' }, [
-      el('label', { for: 'member-role' }, 'Role'),
-      el(
-        'select',
-        { id: 'member-role' },
-        ROLES.map((r) => el('option', { value: r, selected: member?.role === r ? 'selected' : null }, r))
-      ),
-      el('div', { class: 'field-hint' }, 'Shown on the Players page and Team Hub roster.'),
+    el('div', { class: 'inline-fields' }, [
+      el('div', { class: 'field' }, [
+        el('label', { for: 'member-title' }, 'Org Role'),
+        comboInput({
+          id: 'member-title',
+          value: memberStaffTitle(member) || (initialSlot === 'staff' ? '' : 'Player'),
+          placeholder: 'Player, Developer…',
+          options: TITLE_SUGGESTIONS,
+        }),
+        el('div', { class: 'field-hint' }, 'Their job in the org. You can list more than one, comma-separated — Player, Developer.'),
+      ]),
+      el('div', { class: 'field' }, [
+        el('label', { for: 'member-role' }, 'In-game Role'),
+        el(
+          'select',
+          { id: 'member-role' },
+          ROLES.map((r) => el('option', { value: r, selected: member?.role === r ? 'selected' : null }, r))
+        ),
+        el('div', { class: 'field-hint' }, 'For players on the roster. Staff can leave this as Flex.'),
+      ]),
+    ]),
+    el('div', { class: 'inline-fields' }, [
+      el('div', { class: 'field' }, [
+        el('label', { for: 'member-slot' }, 'Lineup'),
+        el('select', { id: 'member-slot' }, [
+          el('option', { value: 'starter', selected: initialSlot === 'starter' ? 'selected' : null }, 'Starter'),
+          el('option', { value: 'bench', selected: initialSlot === 'bench' ? 'selected' : null }, 'Backup / Bench'),
+          el('option', { value: 'staff', selected: initialSlot === 'staff' ? 'selected' : null }, 'Staff / Org'),
+        ]),
+        el('div', { class: 'field-hint' }, 'Where they sit on this roster. Org roles are separate — a starter can also be a developer or coach.'),
+      ]),
     ]),
     el('div', { class: 'field' }, [
       el('label', { for: 'member-aliases' }, 'OCR Aliases (comma-separated)'),
       el('input', { type: 'text', id: 'member-aliases', value: (member?.aliases || []).join(', ') }),
       el('div', { class: 'field-hint' }, 'Common OCR misreads of this gamertag, so stats still attribute correctly.'),
     ]),
+    el('div', { class: 'modal-section-title' }, 'Socials & Gaming IDs'),
+    el(
+      'div',
+      { class: 'handle-grid' },
+      HANDLE_FIELDS.map((field) =>
+        el('div', { class: 'field' }, [
+          el('label', { for: `member-handle-${field.key}` }, field.label),
+          el('input', {
+            type: 'text',
+            id: `member-handle-${field.key}`,
+            value: handles[field.key] || '',
+            placeholder: field.placeholder,
+          }),
+        ])
+      )
+    ),
   ]);
-  const overlay = openModal(body);
+  const overlay = openModal(body, { width: '540px' });
   body.append(
     el('div', { class: 'modal-actions' }, [
       el('button', { class: 'btn subtle', onclick: () => overlay.remove() }, 'Cancel'),
@@ -87,25 +203,142 @@ export function openMemberModal(ctx, teamId, member, { onSaved } = {}) {
         class: 'btn primary',
         onclick: async () => {
           const gamertag = body.querySelector('#member-gamertag').value.trim();
-          if (!gamertag) return;
+          if (!gamertag) {
+            toast('A gamertag is required', 'error');
+            body.querySelector('#member-gamertag').focus();
+            return;
+          }
           const name = body.querySelector('#member-name').value.trim();
-          const saved = await window.cci.saveMember(teamId, {
-            id: member?.id,
-            gamertag,
-            name: name || gamertag,
-            role: body.querySelector('#member-role').value,
-            aliases: body
-              .querySelector('#member-aliases')
-              .value.split(',')
-              .map((a) => a.trim())
-              .filter(Boolean),
-            photo: member?.photo || null,
-          });
-          overlay.remove();
-          if (onSaved) onSaved(saved);
-          else ctx.navigate('players');
+          const collected = {};
+          for (const { key } of HANDLE_FIELDS) {
+            collected[key] = body.querySelector(`#member-handle-${key}`)?.value || '';
+          }
+          const id = member?.id || memberSlug(gamertag);
+          if (pendingSrc && id) {
+            const rel = await window.cci.copyImage(pendingSrc, `org/members/${teamId}/${id}.${imageExt(pendingSrc)}`);
+            if (rel) photoRel = rel;
+          }
+          try {
+            const saved = await window.cci.saveMember(teamId, {
+              id: member?.id || id,
+              gamertag,
+              name: name || gamertag,
+              role: body.querySelector('#member-role').value,
+              title: body.querySelector('#member-title').value.trim(),
+              slot: normalizeSlot(body.querySelector('#member-slot').value),
+              aliases: body
+                .querySelector('#member-aliases')
+                .value.split(',')
+                .map((a) => a.trim())
+                .filter(Boolean),
+              photo: photoRel,
+              handles: normalizeHandles(collected),
+            });
+            overlay.remove();
+            if (onSaved) onSaved(saved);
+            else ctx.navigate('players');
+          } catch (err) {
+            console.error('[teams] save member failed', err);
+            toast(
+              err?.message && !err.message.includes('[object Object]')
+                ? err.message
+                : 'Could not save the player.'
+            );
+          }
         },
       }, 'Save'),
+    ])
+  );
+}
+
+function arrivalSlot(member, destMembers) {
+  if (isStaffMember(member)) return 'staff';
+  return defaultSlot(destMembers);
+}
+
+export async function openTransferModal(ctx, fromTeam, members, { onDone } = {}) {
+  const list = (Array.isArray(members) ? members : [members]).filter((m) => m?.id);
+  if (!list.length) return;
+
+  const teams = ((await window.cci.getTeams()) || []).filter((t) => t.id !== fromTeam.id);
+  if (!teams.length) {
+    toast('Add another team first, then you can transfer players.', 'error');
+    return;
+  }
+
+  const bulk = list.length > 1;
+  const destMembers = await window.cci.getMembers(teams[0].id);
+  const initialSlot = list.every(isStaffMember) ? 'staff' : arrivalSlot(list[0], destMembers);
+
+  const body = el('div', {}, [
+    el('h3', {}, bulk ? `Transfer ${list.length} players` : `Transfer ${list[0].gamertag}`),
+    el(
+      'div',
+      { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
+      bulk
+        ? `Moves ${list.map((m) => m.gamertag).join(', ')} from ${fromTeam.name}. Match history stays with ${fromTeam.name}. Discord stays linked.`
+        : `Moves them from ${fromTeam.name} to another roster. Match history stays with ${fromTeam.name}. Discord stays linked.`
+    ),
+    el('div', { class: 'field' }, [
+      el('label', { for: 'transfer-team' }, 'New team'),
+      el(
+        'select',
+        { id: 'transfer-team' },
+        teams.map((t, i) => el('option', { value: t.id, selected: i === 0 ? 'selected' : null }, t.name))
+      ),
+    ]),
+    el('div', { class: 'field' }, [
+      el('label', { for: 'transfer-slot' }, 'Lineup on arrival'),
+      el('select', { id: 'transfer-slot' }, [
+        bulk ? el('option', { value: 'keep', selected: 'selected' }, 'Keep current slot') : null,
+        el('option', { value: 'starter', selected: !bulk && initialSlot === 'starter' ? 'selected' : null }, 'Starter'),
+        el('option', { value: 'bench', selected: !bulk && initialSlot === 'bench' ? 'selected' : null }, 'Backup / Bench'),
+        el('option', { value: 'staff', selected: !bulk && initialSlot === 'staff' ? 'selected' : null }, 'Staff / Org'),
+      ]),
+    ]),
+  ]);
+  const overlay = openModal(body, { width: '480px' });
+  const teamSelect = body.querySelector('#transfer-team');
+  const slotSelect = body.querySelector('#transfer-slot');
+  if (!bulk) {
+    teamSelect.addEventListener('change', async () => {
+      const roster = await window.cci.getMembers(teamSelect.value);
+      slotSelect.value = arrivalSlot(list[0], roster);
+    });
+  }
+
+  body.append(
+    el('div', { class: 'modal-actions' }, [
+      el('button', { class: 'btn subtle', type: 'button', onclick: () => overlay.remove() }, 'Cancel'),
+      el('button', {
+        class: 'btn primary',
+        type: 'button',
+        onclick: async () => {
+          const toTeamId = teamSelect.value;
+          const dest = teams.find((t) => t.id === toTeamId);
+          if (!toTeamId || !dest) {
+            toast('Pick a team to transfer to.', 'error');
+            return;
+          }
+          const slotVal = slotSelect.value;
+          const opts = slotVal === 'keep' ? {} : { slot: normalizeSlot(slotVal) };
+          try {
+            if (bulk) {
+              await window.cci.transferMembers(fromTeam.id, toTeamId, list.map((m) => m.id), opts);
+            } else {
+              await window.cci.transferMember(fromTeam.id, toTeamId, list[0].id, opts);
+            }
+            overlay.remove();
+            toast(bulk ? `${list.length} players moved to ${dest.name}.` : `${list[0].gamertag} moved to ${dest.name}.`);
+            await ctx.refreshShell?.();
+            if (onDone) onDone(dest);
+            else ctx.navigate('players');
+          } catch (err) {
+            console.error('[teams] transfer failed', err);
+            toast(err?.message || 'Could not transfer.', 'error');
+          }
+        },
+      }, bulk ? `Transfer ${list.length}` : 'Transfer'),
     ])
   );
 }

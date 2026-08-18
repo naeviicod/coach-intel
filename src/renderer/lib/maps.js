@@ -57,21 +57,26 @@ export async function resolveMapImage(name) {
   return firstExisting([asset(`maps/${id}.jpg`), asset(`maps/${id}.webp`), asset(`maps/${id}.png`)]);
 }
 
+// Returns { src, isLayout }: isLayout is true only when a real mode-specific
+// tactical blueprint was found. When it falls back to the plain reference
+// photo, the caller can — and should — tell the coach that's what they're
+// looking at, rather than silently substituting one for the other.
 export async function resolveMapLayout(name, mode) {
   const id = mapSlug(name);
   const key = modeLayoutKey(mode);
-  if (!id) return null;
+  if (!id) return { src: null, isLayout: false };
   if (key && window.cci?.dataUrlForPath) {
     for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
       const url = await window.cci.dataUrlForPath(`maps/${id}-${key}.${ext}`);
-      if (url) return url;
+      if (url) return { src: url, isLayout: true };
     }
     const bundled = await firstExisting([
       asset(`maps/${id}-${key}.jpg`),
       asset(`maps/${id}-${key}.webp`),
       asset(`maps/${id}-${key}.png`),
     ]);
-    if (bundled) return bundled;
+    if (bundled) return { src: bundled, isLayout: true };
   }
-  return resolveMapImage(name);
+  const fallback = await resolveMapImage(name);
+  return { src: fallback, isLayout: false };
 }

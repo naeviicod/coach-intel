@@ -13,8 +13,8 @@ export async function render(root, hub) {
 
   root.append(hubHead('Team Settings', `Identity and stored data for ${hub.team.name}`, [hub.ctxToggle]));
 
-  const name = el('input', { type: 'text', value: hub.team.name || '', 'aria-label': 'Team name' });
-  const tag = el('input', { type: 'text', value: hub.team.tag || '', placeholder: 'e.g. NAV', 'aria-label': 'Team tag' });
+  const name = el('input', { type: 'text', value: hub.team.name || '', 'aria-label': 'Team name', disabled: hub.canEdit ? null : 'disabled' });
+  const tag = el('input', { type: 'text', value: hub.team.tag || '', placeholder: 'e.g. NAV', 'aria-label': 'Team tag', disabled: hub.canEdit ? null : 'disabled' });
   const status = el('div', { class: 'field-hint', style: 'margin-top:10px;' }, '');
 
   root.append(
@@ -26,7 +26,7 @@ export async function render(root, hub) {
           el('div', { class: 'settings-row-title' }, 'Team logo'),
           el('div', { class: 'field-hint' }, 'Square PNG or JPG. Shown on Teams, Players, and Roster.'),
           el('button', {
-            class: 'btn sm',
+            class: 'btn sm edit-only',
             style: 'margin-top:8px;',
             onclick: async () => {
               const saved = await uploadTeamLogo(hub.team);
@@ -46,7 +46,7 @@ export async function render(root, hub) {
         el(
           'button',
           {
-            class: 'btn primary sm',
+            class: 'btn primary sm edit-only',
             onclick: async () => {
               if (!name.value.trim()) {
                 status.textContent = 'Team name cannot be empty.';

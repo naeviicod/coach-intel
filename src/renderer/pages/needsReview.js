@@ -17,7 +17,7 @@ async function draw(container, ctx, teams, state, reload) {
   container.append(
     el('div', { class: 'page-header' }, [
       el('div', {}, [
-        el('div', { class: 'page-title' }, 'Needs Review'),
+        el('div', { class: 'page-title' }, 'Scoreboard Inbox'),
         el('div', { class: 'page-subtitle' }, 'Drop scoreboard screenshots here. Coach Intel files them by team and date, then reads the stats.'),
       ]),
     ])

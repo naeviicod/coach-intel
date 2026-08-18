@@ -57,9 +57,15 @@ const SENSITIVITY_LABELS = {
 const CHANNEL_PURPOSES = [
   { id: 'general', label: 'General Intel', example: '#coach-intel', defaultSensitivity: 'PUBLIC_TEAM' },
   { id: 'match_reports', label: 'Match Reports', example: '#match-reports', defaultSensitivity: 'PUBLIC_TEAM' },
+  { id: 'scrims', label: 'Scrim Scheduling', example: '#scrims', defaultSensitivity: 'PUBLIC_TEAM' },
+  { id: 'training', label: 'Training & Practice', example: '#training', defaultSensitivity: 'PUBLIC_TEAM' },
   { id: 'strats', label: 'Strat Review', example: '#strats', defaultSensitivity: 'COACHING_STAFF' },
   { id: 'vod_review', label: 'VOD Review', example: '#vod-review', defaultSensitivity: 'COACHING_STAFF' },
   { id: 'alerts', label: 'Alerts', example: '#coach-alerts', defaultSensitivity: 'RESTRICTED' },
+  // The one purpose Coach Intel actually reads from, not just posts to — kept
+  // singular and clearly labeled so every other channel mapping still means
+  // "post here only", matching what the Integrations page tells the coach.
+  { id: 'team_chat', label: 'Team Chat (Coach Intel reads this one)', example: '#team-chat', defaultSensitivity: 'PUBLIC_TEAM' },
 ];
 
 const PURPOSE_IDS = CHANNEL_PURPOSES.map((p) => p.id);
@@ -92,6 +98,11 @@ const EVENTS = [
   { id: 'review.assigned', group: 'Review', label: 'Review assigned', purpose: 'vod_review', sensitivity: 'COACHING_STAFF', defaultEnabled: true },
   { id: 'review.overdue', group: 'Review', label: 'Review overdue', purpose: 'alerts', sensitivity: 'COACHING_STAFF', defaultEnabled: false },
   { id: 'review.resolved', group: 'Review', label: 'Review resolved', purpose: 'vod_review', sensitivity: 'COACHING_STAFF', defaultEnabled: false },
+
+  // Calendar
+  { id: 'calendar.scrim_scheduled', group: 'Calendar', label: 'Scrim booked', purpose: 'scrims', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
+  { id: 'calendar.training_scheduled', group: 'Calendar', label: 'Training/meeting/VOD review scheduled', purpose: 'training', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
+  { id: 'calendar.match_scheduled', group: 'Calendar', label: 'Match added to calendar', purpose: 'match_reports', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
 
   // Match
   { id: 'match.pre_match_ready', group: 'Match', label: 'Pre-match pack ready', purpose: 'match_reports', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true },

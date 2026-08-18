@@ -1,12 +1,7 @@
 {
   "updated": "2026-08-16",
-  "source_note": "Seed data compiled from public CDL/competitive coverage. Refresh periodically — meta shifts each season.",
+  "source_note": "Seed data compiled from public CDL/competitive coverage. Refresh periodically — meta shifts each season. The active map pool lives in cdl-ruleset.json (Settings -> Game Rules) — it is the single source of truth, so it is intentionally not duplicated here.",
   "modes": ["Hardpoint", "Search & Destroy", "Overload"],
-  "map_pool": {
-    "hardpoint": ["Den", "Exposure", "Scar", "plus rotating season maps"],
-    "search_and_destroy": ["Colossus", "Den", "Exposure", "Raid", "Scar"],
-    "overload": ["Den", "Exposure", "Scar"]
-  },
   "current_meta_weapons": {
     "hardpoint_primary": ["M15 Mod 0", "Dravec 45", "Sturmwolf 45"],
     "snd_primary": ["M15 Mod 0", "Dravec 45"],

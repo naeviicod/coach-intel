@@ -51,6 +51,34 @@ function control(field, value) {
       })
     );
   }
+  if (field.type === 'checks') {
+    const selected = new Set((Array.isArray(value) ? value : []).map(String));
+    const box = el('div', { class: 'lineup-grid' });
+    const inputs = [];
+    for (const opt of field.options || []) {
+      const [v, label] = Array.isArray(opt) ? opt : [opt, opt];
+      const input = el('input', {
+        type: 'checkbox',
+        value: v,
+        checked: selected.has(String(v)) ? 'checked' : null,
+      });
+      const row = el('label', { class: `lineup-pick${selected.has(String(v)) ? ' is-on' : ''}` }, [
+        input,
+        el('span', {}, label),
+      ]);
+      input.addEventListener('change', () => {
+        const on = inputs.filter((i) => i.checked);
+        if (field.max && on.length > field.max) {
+          input.checked = false;
+          return;
+        }
+        row.classList.toggle('is-on', input.checked);
+      });
+      inputs.push(input);
+      box.append(row);
+    }
+    return box;
+  }
   const type = ['date', 'time', 'number'].includes(field.type) ? field.type : 'text';
   return el('input', { ...attrs, type, value: value != null ? String(value) : '' });
 }
@@ -91,12 +119,28 @@ export function openForm({ title, submitLabel = 'Save', fields, values = {}, wid
   const submit = async (button) => {
     const out = {};
     for (const [key, { field, node }] of Object.entries(controls)) {
+      if (field.type === 'checks') {
+        out[key] = [...node.querySelectorAll('input:checked')].map((i) => i.value);
+        continue;
+      }
       let value = node.value;
       if (typeof value === 'string') value = value.trim();
       if (field.type === 'number') value = value === '' ? null : Number(value);
       out[key] = value;
     }
     for (const { field } of Object.values(controls)) {
+      if (field.required && field.type === 'checks') {
+        const n = (out[field.key] || []).length;
+        if (field.min && n < field.min) {
+          toast(`Pick ${field.min} players who will play`, 'error');
+          return;
+        }
+        if (!n) {
+          toast(`${field.label || field.key} is required`, 'error');
+          return;
+        }
+        continue;
+      }
       if (field.required && !out[field.key]) {
         toast(`${field.label || field.key} is required`, 'error');
         return;

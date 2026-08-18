@@ -115,6 +115,90 @@ async function cdlRulesetChanged({ change, mapName, mapId, detail, stamp, actor 
   return 'cdl.ruleset_change_detected';
 }
 
+// ---------- Calendar events & scrims ----------
+//
+// A calendar event's `type` decides which Discord channel purpose it belongs
+// to. Only creation is announced — editing an existing event/scrim would
+// otherwise re-post on every small correction.
+
+const CALENDAR_TYPE_EVENT = {
+  scrim: 'calendar.scrim_scheduled',
+  'scrim-block': 'calendar.scrim_scheduled',
+  training: 'calendar.training_scheduled',
+  practice: 'calendar.training_scheduled',
+  meeting: 'calendar.training_scheduled',
+  'vod-review': 'calendar.training_scheduled',
+  'league-match': 'calendar.match_scheduled',
+  match: 'calendar.match_scheduled',
+};
+
+function attendeeNamesFor(event, members) {
+  const ids = Array.isArray(event.attendee_ids) ? event.attendee_ids : [];
+  if (!ids.length || !Array.isArray(members)) return [];
+  return ids.map((id) => members.find((m) => m.id === id)?.gamertag).filter(Boolean);
+}
+
+async function calendarEventSaved({ isNew, event, team, members, actor }) {
+  if (!isNew) return null;
+  const eventId = CALENDAR_TYPE_EVENT[event.type];
+  if (!eventId) return null;
+
+  const attendeeNames = attendeeNamesFor(event, members);
+
+  await emit(eventId, {
+    title: event.title || 'Event',
+    subtitle: [event.date, event.time].filter(Boolean).join(' · ') || null,
+    summary: event.notes || null,
+    fields: attendeeNames.length ? [{ name: 'Attendees', value: attendeeNames.join(', ') }] : [],
+    team,
+    actor,
+    targetId: event.event_id,
+    dedupeId: event.event_id,
+    recipientMemberIds: event.attendee_ids || [],
+  });
+  return eventId;
+}
+
+/**
+ * Saves a calendar event and announces it if it's brand new.
+ *
+ * "New" has to be judged from the *incoming* payload, before the store fills
+ * in a generated id — planningStore has no singular getEvent to diff against.
+ */
+async function saveEventAndAnnounce(store, teamId, event) {
+  const isNew = !event.event_id;
+  const saved = await store.saveEvent(teamId, event);
+  const [team, members] = await Promise.all([store.getTeam(teamId), store.getMembers(teamId).catch(() => [])]);
+  await calendarEventSaved({ isNew, event: saved, team, members, actor: 'Coach' });
+  return saved;
+}
+
+async function scrimSaved({ isNew, scrim, team, actor }) {
+  if (!isNew) return null;
+  await emit('calendar.scrim_scheduled', {
+    title: `Scrim vs ${scrim.opponent || 'TBD'}`,
+    subtitle: [scrim.date, scrim.time].filter(Boolean).join(' · ') || null,
+    summary: scrim.format || null,
+    team,
+    actor,
+    targetId: scrim.scrim_id,
+    dedupeId: scrim.scrim_id,
+  });
+  return 'calendar.scrim_scheduled';
+}
+
+/**
+ * Saves a scrim booking and announces it if it's brand new. Same
+ * judge-newness-before-save approach as saveEventAndAnnounce.
+ */
+async function saveScrimAndAnnounce(store, teamId, scrim) {
+  const isNew = !scrim.scrim_id;
+  const saved = await store.saveScrim(teamId, scrim);
+  const team = await store.getTeam(teamId);
+  await scrimSaved({ isNew, scrim: saved, team, actor: 'Coach' });
+  return saved;
+}
+
 module.exports = {
   subscribe,
   reset,
@@ -123,4 +207,6 @@ module.exports = {
   stratSaved,
   saveStratAndAnnounce,
   cdlRulesetChanged,
+  saveEventAndAnnounce,
+  saveScrimAndAnnounce,
 };

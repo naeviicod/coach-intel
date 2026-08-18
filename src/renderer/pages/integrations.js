@@ -99,8 +99,96 @@ async function renderDiscord(root, ctx) {
     })
   );
 
+  const hasChatChannel = (integration.channels || []).some((c) => c.purpose === 'team_chat' && c.enabled && c.discord_channel_id);
+  if (hasChatChannel) root.append(teamChatCard(actor));
+
   root.append(roleMappingCard({ roles: roles || [] }));
   root.append(auditCard({ entries: audit || [] }));
+}
+
+// ---------- Team Chat ----------
+//
+// Polls the mapped "Team Chat" channel every 8s while this card is on screen.
+// Not a live socket — a lightweight preview, matching what was scoped.
+
+const CHAT_POLL_MS = 8000;
+
+function chatMessageRow(m) {
+  return el('div', { class: 'chat-msg' }, [
+    m.avatar
+      ? el('img', { class: 'chat-msg-avatar', src: m.avatar, alt: '' })
+      : el('div', { class: 'chat-msg-avatar chat-msg-avatar-fallback' }, m.author.slice(0, 1).toUpperCase()),
+    el('div', { class: 'chat-msg-body' }, [
+      el('div', { class: 'chat-msg-head' }, [
+        el('span', { class: 'chat-msg-author' }, m.author),
+        el('span', { class: 'chat-msg-time' }, new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+      ]),
+      el('div', { class: 'chat-msg-content' }, m.content || '—'),
+    ]),
+  ]);
+}
+
+function teamChatCard(actor) {
+  const card = el('div', { class: 'card section' });
+  const title = el('div', { class: 'section-title' }, 'Team Chat');
+  const list = el('div', { class: 'chat-list' });
+  const status = el('div', { class: 'field-hint', style: 'padding:4px 0 8px;' }, 'Loading…');
+  const input = el('input', { type: 'text', placeholder: 'Message the team…', maxlength: '2000' });
+  const sendBtn = el('button', { class: 'btn primary sm edit-only' }, 'Send');
+
+  card.append(title, status, list, el('div', { class: 'chat-compose edit-only' }, [input, sendBtn]));
+
+  let timer = null;
+  let sending = false;
+
+  async function poll() {
+    if (!document.body.contains(card)) {
+      clearInterval(timer);
+      return;
+    }
+    try {
+      const result = await window.cci.discord.listMessages();
+      title.textContent = `Team Chat — #${result.channelName}`;
+      status.style.display = 'none';
+      const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 20;
+      list.innerHTML = '';
+      if (!result.messages.length) {
+        list.append(el('div', { class: 'field-hint', style: 'padding:10px 0;' }, 'No messages yet.'));
+      } else {
+        for (const m of result.messages) list.append(chatMessageRow(m));
+      }
+      if (atBottom) list.scrollTop = list.scrollHeight;
+    } catch (err) {
+      status.style.display = '';
+      status.textContent = err?.message || 'Could not load Team Chat.';
+    }
+  }
+
+  async function send() {
+    const content = input.value.trim();
+    if (!content || sending) return;
+    sending = true;
+    sendBtn.disabled = true;
+    try {
+      await window.cci.discord.sendChatMessage({ content, actor });
+      input.value = '';
+      await poll();
+    } catch (err) {
+      toast(err?.message || 'Could not send that message.', 'error');
+    } finally {
+      sending = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+  sendBtn.onclick = send;
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') send();
+  });
+
+  poll();
+  timer = setInterval(poll, CHAT_POLL_MS);
+  return card;
 }
 
 // ---------- Status header ----------
@@ -123,7 +211,8 @@ function headerCard(state, root, ctx, actor) {
     card.append(
       el('div', { class: 'field-hint', style: 'max-width:560px;line-height:1.5;margin-bottom:14px;' },
         'Send Coach Intel notifications, Strats, Intel, and match reports into your team\'s Discord server. ' +
-        'Coach Intel posts to the channels you approve and never reads your messages.')
+        'Coach Intel only posts to the channels you approve — the single exception is an optional "Team Chat" ' +
+        'channel you can choose below, which Coach Intel previews inside the app.')
     );
     if (!state.encryptionAvailable) {
       card.append(

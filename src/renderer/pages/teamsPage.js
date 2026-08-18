@@ -10,7 +10,7 @@ export async function render(container, ctx) {
         el('div', { class: 'page-title' }, 'Teams'),
         el('div', { class: 'page-subtitle' }, `${teams.length} team${teams.length === 1 ? '' : 's'} in the organization`),
       ]),
-      el('button', { class: 'btn primary', onclick: () => openTeamModal(ctx) }, '+ Add Team'),
+      el('button', { class: 'btn primary edit-only', onclick: () => openTeamModal(ctx) }, '+ Add Team'),
     ])
   );
 
@@ -51,7 +51,7 @@ function teamCard(team, members, matches, ctx) {
         el('div', { class: 'team-meta' }, `${members.length} player${members.length === 1 ? '' : 's'} · ${record.w}-${record.l}`),
       ]),
     ]),
-    el('div', { class: 'logo-well', style: 'margin-top:4px;' }, [
+    el('div', { class: 'logo-well edit-only', style: 'margin-top:4px;' }, [
       el('div', { class: 'field-hint', style: 'margin:0;flex:1;' }, team.logo ? 'Team logo on file.' : 'No logo yet. Upload a square PNG or JPG.'),
       el('button', {
         class: 'btn sm',
@@ -73,10 +73,10 @@ function teamCard(team, members, matches, ctx) {
       el('div', { html: sparkline(recentResults.length ? recentResults : [0, 0]) }),
     ]),
     el('div', { class: 'team-card-actions' }, [
-      el('button', { class: 'btn sm', onclick: () => ctx.navigate('command-center', team.id) }, 'Open Hub'),
-      el('button', { class: 'btn sm', onclick: () => openTeamModal(ctx, team) }, 'Edit'),
+      el('button', { class: 'btn sm', onclick: () => ctx.navigate('team-hub', team.id) }, 'Open Hub'),
+      el('button', { class: 'btn sm edit-only', onclick: () => openTeamModal(ctx, team) }, 'Edit'),
       el('button', {
-        class: 'btn sm danger',
+        class: 'btn sm danger edit-only',
         onclick: async () => {
           if (!confirm(`Delete ${team.name} and all of its data? This cannot be undone.`)) return;
           await window.cci.deleteTeam(team.id);

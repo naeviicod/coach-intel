@@ -1,18 +1,17 @@
 import { el, icon, teamMark } from '../../utils.js';
 import { getPref, setPref } from '../../prefs.js';
-import { MODES, inlineError, skeleton } from './parts.js';
+import { inlineError, skeleton } from './parts.js';
 import * as overview from './sections/overview.js';
 import * as roster from './sections/roster.js';
 import * as notes from './sections/notes.js';
 import * as objectives from './sections/objectives.js';
-import * as strats from './sections/strats.js';
 import * as veto from './sections/veto.js';
 import * as practice from './sections/practice.js';
 import * as teamSettings from './sections/teamSettings.js';
 import { renderContextPanel } from './context.js';
 
-// The Team Hub owns the whole content area: rail, workspace and context panel
-// scroll independently, so the page opts out of the standard content padding.
+// The Team Hub owns the whole content area: a compact top bar, then workspace
+// and context panel scroll independently, so the page opts out of standard padding.
 export const flush = true;
 
 const SECTION_DEFS = [
@@ -20,13 +19,14 @@ const SECTION_DEFS = [
   { key: 'roster', label: 'Roster', icon: 'roster', module: roster, count: 'members' },
   { key: 'notes', label: 'Team Notes', icon: 'notes', module: notes, count: 'notes' },
   { key: 'objectives', label: 'Objectives', icon: 'objectives', module: objectives },
-  { key: 'strats', label: 'Strats & Playbooks', icon: 'strats', module: strats, count: 'strats', expandable: true },
   { key: 'veto', label: 'Veto History', icon: 'veto', module: veto },
-  { key: 'practice', label: 'Practice Planner', icon: 'practice', module: practice },
+  { key: 'practice', label: 'Planner', icon: 'calendar', module: practice },
   { key: 'settings', label: 'Team Settings', icon: 'settings', module: teamSettings },
 ];
 
 export const SECTIONS = SECTION_DEFS.map((s) => s.key);
+
+let live = null;
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
@@ -55,7 +55,7 @@ export async function render(container, ctx) {
   // land on the same place the user is looking at.
   if (team.id !== requestedTeam) {
     const tail = requestedTeam && SECTIONS.includes(requestedTeam) ? `/${parts.join('/')}` : '';
-    window.location.replace(`#/team-hub/${team.id}${tail}`);
+    ctx.navigate('team-hub', `${team.id}${tail}`);
     return;
   }
   setPref('lastTeamId', team.id);
@@ -64,10 +64,11 @@ export async function render(container, ctx) {
   const def = SECTION_DEFS.find((s) => s.key === sectionKey);
   const sub = parts.slice(2);
 
-  const rail = el('aside', { class: 'hub-rail' });
+  const rail = el('header', { class: 'hub-rail' });
   const workspace = el('div', { class: 'hub-workspace' });
   const context = el('aside', { class: 'hub-context', 'aria-label': 'Context panel' });
-  const hub = el('div', { class: 'hub' }, [rail, workspace, context]);
+  const body = el('div', { class: 'hub-body' }, [workspace, context]);
+  const hub = el('div', { class: 'hub' }, [rail, body]);
   container.append(hub);
 
   const hubCtx = {
@@ -78,22 +79,24 @@ export async function render(container, ctx) {
     sub,
     go: (section, ...rest) =>
       ctx.navigate('team-hub', [team.id, section, ...rest.filter(Boolean)].join('/')),
-    goTeam: (teamId) => ctx.navigate('team-hub', `${teamId}/${sectionKey}`),
+    goTeam: (teamId) => ctx.navigate('team-hub', `${teamId}/${hubCtx.section}`),
+    openPlaybooks: (...rest) =>
+      ctx.navigate('playbooks', [team.id, ...rest.filter(Boolean)].join('/')),
+    canEdit: Boolean(ctx.canEdit),
     ctxToggle: contextToggle(context),
     refreshRail: null,
   };
 
   workspace.append(skeleton('kpi'));
-  renderRail(rail, hubCtx, { members: null, notes: null, strats: null });
+  renderRail(rail, hubCtx, { members: null, notes: null });
 
-  let counts = { members: 0, notes: 0, strats: 0 };
+  let counts = { members: 0, notes: 0 };
   try {
-    const [members, noteList, stratList] = await Promise.all([
+    const [members, noteList] = await Promise.all([
       window.cci.getMembers(team.id),
       window.cci.getNotes(team.id),
-      window.cci.getStrats(team.id),
     ]);
-    counts = { members: members.length, notes: noteList.length, strats: stratList.length };
+    counts = { members: members.length, notes: noteList.length };
   } catch (err) {
     console.error('[team-hub] rail counts failed', err);
   }
@@ -102,39 +105,98 @@ export async function render(container, ctx) {
   // surface as an unhandled rejection; stale counts are the acceptable outcome.
   hubCtx.refreshRail = async () => {
     try {
-      const [members, noteList, stratList] = await Promise.all([
+      const [members, noteList] = await Promise.all([
         window.cci.getMembers(team.id),
         window.cci.getNotes(team.id),
-        window.cci.getStrats(team.id),
       ]);
-      renderRail(rail, hubCtx, { members: members.length, notes: noteList.length, strats: stratList.length });
+      renderRail(rail, hubCtx, { members: members.length, notes: noteList.length });
+      if (live?.hubCtx === hubCtx) live.counts = { members: members.length, notes: noteList.length };
     } catch (err) {
       console.error('[team-hub] rail refresh failed', err);
     }
   };
 
-  workspace.innerHTML = '';
-  try {
-    await def.module.render(workspace, hubCtx);
-  } catch (err) {
-    console.error(`[team-hub] section "${sectionKey}" failed`, err);
-    workspace.innerHTML = '';
-    workspace.append(inlineError(String(err?.message || err), () => render(container, ctx)));
+  live = { container, teamId: team.id, rail, workspace, context, hubCtx, counts };
+  await paintSection(workspace, def, hubCtx, () => render(container, ctx), { animate: false });
+  await renderContextPanel(context, hubCtx);
+}
+
+// Same Team Hub shell, different section: keep the bar and context frame so
+// Overview → Roster does not flash the whole page.
+export async function update(container, ctx) {
+  if (!live?.workspace?.isConnected || live.container !== container) {
+    container.innerHTML = '';
+    return render(container, ctx);
   }
 
-  await renderContextPanel(context, hubCtx);
+  const teams = await window.cci.getTeams().catch(() => live.hubCtx.teams);
+  live.hubCtx.teams = teams;
+  const parts = (ctx.param || '').split('/').filter(Boolean);
+  const requestedTeam = parts[0];
+  const team =
+    teams.find((t) => t.id === requestedTeam) ||
+    teams.find((t) => t.id === live.teamId) ||
+    teams[0];
+  if (team) live.hubCtx.team = team;
+
+  if (!team || team.id !== live.teamId) {
+    container.innerHTML = '';
+    return render(container, ctx);
+  }
+  if (team.id !== requestedTeam) {
+    const tail = requestedTeam && SECTIONS.includes(requestedTeam) ? `/${parts.join('/')}` : '';
+    ctx.navigate('team-hub', `${team.id}${tail}`);
+    return;
+  }
+
+  const sectionKey = SECTIONS.includes(parts[1]) ? parts[1] : 'overview';
+  const def = SECTION_DEFS.find((s) => s.key === sectionKey);
+  const sub = parts.slice(2);
+  const same =
+    sectionKey === live.hubCtx.section &&
+    sub.join('/') === (live.hubCtx.sub || []).join('/');
+  live.hubCtx.section = sectionKey;
+  live.hubCtx.sub = sub;
+  live.hubCtx.param = ctx.param;
+  renderRail(live.rail, live.hubCtx, live.counts);
+  await paintSection(live.workspace, def, live.hubCtx, () => render(container, ctx), { animate: !same });
+  await renderContextPanel(live.context, live.hubCtx);
+}
+
+async function paintSection(workspace, def, hubCtx, retry, { animate = true } = {}) {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const holder = el('div');
+  try {
+    await def.module.render(holder, hubCtx);
+  } catch (err) {
+    console.error(`[team-hub] section "${hubCtx.section}" failed`, err);
+    workspace.innerHTML = '';
+    workspace.append(inlineError(String(err?.message || err), retry));
+    return;
+  }
+  workspace.replaceChildren(...holder.childNodes);
+  workspace.style.opacity = '';
+  if (!animate || reduceMotion || !workspace.animate) return;
+  const anim = workspace.animate(
+    [{ opacity: 0 }, { opacity: 1 }],
+    { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' }
+  );
+  anim.finished.then(() => {
+    try { anim.commitStyles(); anim.cancel(); } catch { /* ignore */ }
+    workspace.style.opacity = '';
+  }).catch(() => { workspace.style.opacity = ''; });
 }
 
 // ---------- Rail ----------
 
 function renderRail(rail, hub, counts) {
   rail.innerHTML = '';
-  rail.append(teamSelector(hub));
+  if (hub.teams.length > 1) rail.append(teamSelector(hub));
 
   const nav = el('nav', { class: 'hub-rail-nav', 'aria-label': `${hub.team.name} sections` });
   for (const def of SECTION_DEFS) {
-    const active = def.key === hub.section;
     const count = def.count ? counts[def.count] : null;
+    const active = def.key === hub.section;
     nav.append(
       el(
         'button',
@@ -151,28 +213,8 @@ function renderRail(rail, hub, counts) {
         ]
       )
     );
-
-    // Mode filters only exist while Strats is the open section, matching the
-    // spec's "expand its mode filters when selected" behaviour.
-    if (def.expandable && active) {
-      const activeMode = hub.sub[0] === 'mode' ? hub.sub[1] : 'all';
-      nav.append(subLink('All Strats', activeMode === 'all', () => hub.go('strats')));
-      for (const mode of MODES) {
-        nav.append(
-          subLink(mode.label, activeMode === mode.key, () => hub.go('strats', 'mode', mode.key))
-        );
-      }
-    }
   }
   rail.append(nav);
-}
-
-function subLink(label, active, onClick) {
-  return el(
-    'button',
-    { type: 'button', class: `rail-sublink${active ? ' active' : ''}`, 'aria-current': active ? 'true' : null, onclick: onClick },
-    label
-  );
 }
 
 function teamSelector(hub) {
@@ -186,20 +228,15 @@ function teamSelector(hub) {
       class: 'team-select-btn',
       'aria-haspopup': 'listbox',
       'aria-expanded': 'false',
-      disabled: teams.length < 2 ? '' : null,
-      style: teams.length < 2 ? 'cursor:default;' : null,
+      'aria-label': `${team.name}, switch team`,
     },
     [
-      teamMark(team, { class: 'sb-org-logo', style: 'width:34px;height:34px;' }),
-      el('div', { class: 'team-select-id' }, [
-        el('div', { class: 'team-select-name' }, team.name),
-        el('div', { class: 'team-select-sub' }, team.tag ? `${team.tag} · Call of Duty` : 'Call of Duty Team'),
-      ]),
-      teams.length > 1 ? el('span', { class: 'team-select-chev', html: icon('chevronDown', 14) }) : null,
+      teamMark(team, { class: 'sb-org-logo', style: 'width:28px;height:28px;' }),
+      el('span', { class: 'team-select-chev', html: icon('chevronDown', 14) }),
     ]
   );
+
   wrap.append(btn);
-  if (teams.length < 2) return wrap;
 
   let menu = null;
   const close = () => {

@@ -16,6 +16,10 @@ const crypto = require('crypto');
 const { EVENTS_BY_ID, SENSITIVITY, STATUS, AUDIT_ACTIONS } = require('./constants');
 const { DiscordError, CODES, toDiscordError } = require('./redact');
 const messages = require('./messages');
+// In-app notifications ride the same shared_docs pipeline as tasks/events, so
+// they reach every signed-in teammate live instead of sitting in a local file
+// only the machine that created them can see.
+const cloudSync = require('../cloudSync');
 
 const OUTCOME = {
   DELIVERED: 'DELIVERED',
@@ -203,22 +207,42 @@ class DiscordProvider {
 }
 
 /**
- * Records notifications inside Coach Intel itself. Coach Intel has no in-app
- * notification centre yet, so this keeps the abstraction honest without pretending
- * to deliver anywhere: it writes to the audit trail only.
+ * Records notifications inside Coach Intel itself — the app's own bell/feed,
+ * independent of whether Discord is connected or a channel is mapped. Every
+ * signed-in teammate sees the same team feed (there is no per-user private
+ * inbox anywhere else in the app, so this matches that model rather than
+ * inventing a new one).
  */
 class InAppProvider {
-  constructor({ audit, orgName = null } = {}) {
+  constructor({ store, orgName = null } = {}) {
     this.id = 'in-app';
-    this.audit = audit;
+    this.store = store;
     this.orgName = orgName;
   }
 
   async deliver(eventId, payload = {}) {
-    if (!this.audit) return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: 'No audit sink' };
     const event = EVENTS_BY_ID.get(eventId);
     if (!event) return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: SKIP_REASON.UNKNOWN_EVENT };
-    return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: 'In-app delivery not implemented' };
+    const teamId = payload.team?.id;
+    if (!this.store || !teamId) {
+      return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: 'No notification store or team' };
+    }
+    try {
+      const linkKind = payload.linkKind || messages.defaultLinkKind(eventId);
+      const record = await this.store.addNotification(teamId, {
+        event_id: eventId,
+        title: payload.title || event.label,
+        subtitle: payload.subtitle || null,
+        route: messages.routeFor(linkKind, teamId, payload.targetId),
+        recipient_member_ids: payload.recipientMemberIds || [],
+      });
+      cloudSync.push('notification', teamId, record).catch((err) => {
+        console.warn('[in-app] notification cloud push failed:', err.message);
+      });
+      return { outcome: OUTCOME.DELIVERED, provider: this.id };
+    } catch (err) {
+      return { outcome: OUTCOME.FAILED, provider: this.id, message: err.message };
+    }
   }
 }
 

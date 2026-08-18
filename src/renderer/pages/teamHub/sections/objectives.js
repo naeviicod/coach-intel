@@ -5,7 +5,7 @@ import { hubHead, miniEmpty, taskRow } from '../parts.js';
 export async function render(root, hub) {
   root.append(
     hubHead('Objectives', `What ${hub.team.name} is working on`, [
-      el('button', { class: 'btn primary', onclick: () => openComposer() }, '+ New Objective'),
+      el('button', { class: 'btn primary edit-only', onclick: () => openComposer() }, '+ New Objective'),
       hub.ctxToggle,
     ])
   );
@@ -34,15 +34,24 @@ export async function render(root, hub) {
     );
     title.focus();
 
-    async function save() {
+    async function save(ev) {
+      const btn = ev?.currentTarget;
+      if (btn?.disabled) return;
       if (!title.value.trim()) {
         error.style.display = '';
         title.focus();
         return;
       }
-      await window.cci.saveTask(hub.team.id, { title: title.value.trim(), due: due.value || null });
-      composer.innerHTML = '';
-      await draw();
+      if (btn) btn.disabled = true;
+      try {
+        await window.cci.saveTask(hub.team.id, { title: title.value.trim(), due: due.value || null });
+        composer.innerHTML = '';
+        await draw();
+      } catch (err) {
+        if (btn) btn.disabled = false;
+        error.textContent = err?.message || 'Could not save the objective.';
+        error.style.display = '';
+      }
     }
   }
 
@@ -58,7 +67,7 @@ export async function render(root, hub) {
         miniEmpty(
           'No open objectives',
           'Set a target the team can measure, like a map win rate or a specific habit to fix.',
-          el('button', { class: 'btn primary sm', onclick: () => openComposer() }, '+ New Objective')
+          el('button', { class: 'btn primary sm edit-only', onclick: () => openComposer() }, '+ New Objective')
         )
       );
     } else {
@@ -85,7 +94,7 @@ export async function render(root, hub) {
       el(
         'button',
         {
-          class: 'btn subtle sm',
+          class: 'btn subtle sm edit-only',
           'aria-label': `Delete ${task.title}`,
           onclick: async () => {
             if (!confirm(`Delete "${task.title}"?`)) return;

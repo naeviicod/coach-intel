@@ -6,7 +6,7 @@ const TAGS = ['General', 'Opponent', 'Practice', 'Review'];
 export async function render(root, hub) {
   root.append(
     hubHead('Team Notes', `Shared notes for ${hub.team.name}`, [
-      el('button', { class: 'btn primary', onclick: () => openComposer() }, '+ New Note'),
+      el('button', { class: 'btn primary edit-only', onclick: () => openComposer() }, '+ New Note'),
       hub.ctxToggle,
     ])
   );
@@ -44,21 +44,30 @@ export async function render(root, hub) {
     );
     title.focus();
 
-    async function save() {
+    async function save(ev) {
+      const btn = ev?.currentTarget;
+      if (btn?.disabled) return;
       if (!title.value.trim()) {
         error.style.display = '';
         title.focus();
         return;
       }
-      await window.cci.saveNote(hub.team.id, {
-        note_id: note?.note_id,
-        title: title.value.trim(),
-        body: body.value,
-        tag: tag.value,
-      });
-      composer.innerHTML = '';
-      await draw();
-      hub.refreshRail?.();
+      if (btn) btn.disabled = true;
+      try {
+        await window.cci.saveNote(hub.team.id, {
+          note_id: note?.note_id,
+          title: title.value.trim(),
+          body: body.value,
+          tag: tag.value,
+        });
+        composer.innerHTML = '';
+        await draw();
+        hub.refreshRail?.();
+      } catch (err) {
+        if (btn) btn.disabled = false;
+        error.textContent = err?.message || 'Could not save the note.';
+        error.style.display = '';
+      }
     }
   }
 
@@ -71,7 +80,7 @@ export async function render(root, hub) {
           miniEmpty(
             'No notes yet',
             'Scrim takeaways, opponent tendencies and coaching reminders live here, scoped to this team.',
-            el('button', { class: 'btn primary sm', onclick: () => openComposer() }, '+ New Note')
+            el('button', { class: 'btn primary sm edit-only', onclick: () => openComposer() }, '+ New Note')
           ),
         ])
       );
@@ -86,7 +95,7 @@ export async function render(root, hub) {
               el('div', { class: 'note-title' }, note.title),
               el('div', { class: 'note-meta' }, `${note.tag || 'General'} · ${fmtStamp(note.updated_at)}`),
             ]),
-            el('div', { style: 'display:flex;gap:4px;' }, [
+            el('div', { class: 'edit-only', style: 'display:flex;gap:4px;' }, [
               iconBtn('edit', `Edit ${note.title}`, () => openComposer(note)),
               iconBtn('trash', `Delete ${note.title}`, async () => {
                 if (!confirm(`Delete "${note.title}"?`)) return;

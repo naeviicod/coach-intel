@@ -1,0 +1,24 @@
+{
+  // Separate from tsconfig.json on purpose: this one compiles to real .js for
+  // `node --test` to run directly. It uses @types/node instead of
+  // @cloudflare/workers-types (the two declare conflicting global Request/
+  // Response types), so it excludes index.ts, the one file that needs the
+  // Workers-only ExecutionContext type. Wrangler itself never reads this file
+  // — it bundles src/index.ts straight from TypeScript via esbuild.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src", "tests"],
+  "exclude": ["src/index.ts"]
+}

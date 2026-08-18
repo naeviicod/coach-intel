@@ -1,16 +1,25 @@
 const fs = require('fs/promises');
 const fss = require('fs');
 const path = require('path');
+const { bundledFor, mergeObjectives, NEEDS_VERIFICATION } = require('./mapObjectives');
 
 function resolveDataRoot() {
   if (process.env.CCI_DATA_ROOT) return process.env.CCI_DATA_ROOT;
   try {
     const { app } = require('electron');
-    if (app?.isPackaged) return path.join(app.getPath('userData'), 'data');
+    // Packaged and `electron .` share the same userData store so demo files
+    // in the repo's data/org folder never leak into a running session.
+    if (app) return path.join(app.getPath('userData'), 'data');
   } catch {
     // Tests and scripts load this file without Electron.
   }
   return path.join(__dirname, '..', '..', 'data');
+}
+
+function clampPieceScale(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0.7;
+  return Math.round(Math.min(1.4, Math.max(0.4, v)) * 100) / 100;
 }
 
 const DATA_ROOT = resolveDataRoot();
@@ -90,11 +99,27 @@ async function deleteAllData() {
 
 // ---------- Org ----------
 
+async function existingOrgLogo() {
+  for (const rel of ['org/logos/org-logo.png', 'org/logos/org-logo.jpg', 'org/logos/org-logo.jpeg', 'org/logos/org-logo.webp']) {
+    try {
+      await fs.access(path.join(DATA_ROOT, rel));
+      return rel;
+    } catch {
+      // try the next extension
+    }
+  }
+  return null;
+}
+
 async function getOrg() {
   const profile = (await readJson(path.join(ORG_DIR, 'org-profile.json'))) || {
     name: 'My Organization',
     logo: null,
   };
+  if (!profile.logo) {
+    const found = await existingOrgLogo();
+    if (found) profile.logo = found;
+  }
   let teamIds = [];
   try {
     const entries = await fs.readdir(TEAMS_DIR, { withFileTypes: true });
@@ -106,13 +131,24 @@ async function getOrg() {
 }
 
 async function saveOrg(org) {
-  const existing = await readJson(path.join(ORG_DIR, 'org-profile.json'));
+  const existing = (await readJson(path.join(ORG_DIR, 'org-profile.json'))) || {};
+  const profileName = org.profileName !== undefined
+    ? String(org.profileName || '').trim()
+    : String(existing.profileName || existing.coachName || '').trim();
+  const profileTitle = org.profileTitle !== undefined
+    ? String(org.profileTitle || '').trim()
+    : String(existing.profileTitle || '').trim();
   await writeJson(path.join(ORG_DIR, 'org-profile.json'), {
-    name: org.name,
-    tag: org.tag !== undefined ? org.tag : existing?.tag || null,
-    logo: org.logo !== undefined ? org.logo : existing?.logo || null,
-    coachName: org.coachName !== undefined ? org.coachName : existing?.coachName || 'Coach',
-    accent: org.accent !== undefined ? org.accent : existing?.accent || null,
+    ...existing,
+    name: org.name || existing.name || 'My Organization',
+    tag: org.tag !== undefined ? org.tag : existing.tag || null,
+    logo: org.logo || existing.logo || (await existingOrgLogo()),
+    coachName: profileName || existing.coachName || 'Coach',
+    profileName,
+    profileTitle,
+    profilePhoto: org.profilePhoto !== undefined ? org.profilePhoto : existing.profilePhoto || null,
+    accent: org.accent !== undefined ? org.accent : existing.accent || null,
+    updated_at: nowIso(),
   });
   return getOrg();
 }
@@ -185,13 +221,37 @@ async function getMembers(teamId) {
     const data = await readJson(path.join(dir, file));
     if (data) members.push({ id: path.basename(file, '.json'), ...data });
   }
-  return members.sort((a, b) => a.gamertag.localeCompare(b.gamertag));
+  return members.sort((a, b) => String(a.gamertag || '').localeCompare(String(b.gamertag || '')));
 }
 
 async function getMember(teamId, memberId) {
   const data = await readJson(path.join(teamDirFor(teamId), 'members', `${memberId}.json`));
   if (!data) return null;
   return { id: memberId, ...data };
+}
+
+function isNaeviiName(value) {
+  const s = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return s === 'naevii' || s === 'naeviiszn' || s.startsWith('naeviiszn');
+}
+
+function memberTitle(title, member) {
+  const explicit = String(title || '').trim().slice(0, 80);
+  if (explicit) return explicit;
+  if (isNaeviiName(member?.gamertag) || isNaeviiName(member?.name)) return 'Developer';
+  return '';
+}
+
+const HANDLE_KEYS = ['activision', 'checkmate', 'discord', 'twitch', 'twitter', 'youtube', 'instagram', 'other'];
+
+function memberHandles(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const key of HANDLE_KEYS) {
+    const value = String(raw[key] || '').trim().slice(0, 120);
+    if (value) out[key] = value;
+  }
+  return out;
 }
 
 async function saveMember(teamId, member) {
@@ -204,6 +264,9 @@ async function saveMember(teamId, member) {
     aliases: member.aliases || [],
     role: member.role || 'Flex',
     photo: member.photo || null,
+    slot: member.slot === 'bench' || member.slot === 'staff' ? member.slot : 'starter',
+    title: memberTitle(member.title, member),
+    handles: memberHandles(member.handles),
   };
   await writeJson(filePath, record);
 
@@ -228,10 +291,48 @@ async function deleteMember(teamId, memberId) {
   }
 }
 
+async function transferMember(fromTeamId, toTeamId, memberId, { slot } = {}) {
+  const from = String(fromTeamId || '').trim();
+  const to = String(toTeamId || '').trim();
+  const id = String(memberId || '').trim();
+  if (!from || !to || !id) throw new Error('A team and player are required to transfer.');
+  if (from === to) throw new Error('Pick a different team to transfer to.');
+
+  const member = await getMember(from, id);
+  const dest = await getMember(to, id);
+  if (!member && !dest) throw new Error('That player is not on the source team.');
+
+  if (!dest) {
+    const destRoster = await getMembers(to);
+    const sameTag = destRoster.find(
+      (m) => String(m.gamertag || '').toLowerCase() === String((member.gamertag) || '').toLowerCase()
+    );
+    if (sameTag) throw new Error(`${member.gamertag} is already on that roster.`);
+  }
+
+  const source = member || dest;
+  const nextSlot = slot === 'bench' || slot === 'staff' || slot === 'starter' ? slot : source.slot;
+  const saved = await saveMember(to, { ...source, id, slot: nextSlot });
+  if (member) await deleteMember(from, id);
+  return { ...saved, team_id: to, from_team_id: from };
+}
+
+async function transferMembers(fromTeamId, toTeamId, memberIds, opts) {
+  const ids = [...new Set((memberIds || []).map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) throw new Error('Pick at least one player to transfer.');
+  const moved = [];
+  for (const id of ids) moved.push(await transferMember(fromTeamId, toTeamId, id, opts || {}));
+  return moved;
+}
+
 // ---------- Matches ----------
 
+function matchesDirFor(teamId) {
+  return path.join(teamDirFor(teamId), 'data', 'matches');
+}
+
 async function getMatches(teamId) {
-  const dir = path.join(teamDirFor(teamId), 'data', 'matches');
+  const dir = matchesDirFor(teamId);
   let files = [];
   try {
     files = (await fs.readdir(dir)).filter((f) => f.endsWith('.json'));
@@ -245,6 +346,76 @@ async function getMatches(teamId) {
     if (data) matches.push(data);
   }
   return matches.sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+// Team-level, mode-specific round/hill counters behind the advanced CoD
+// metrics (hold %, break %, rotation %, opening-duel/first-blood/post-plant/
+// retake %, Overload scoring/defensive-stop %). Every field is optional and
+// starts null — a coach fills in as much as they have time to track, and a
+// metric simply has no value to show until its counters exist. Non-negative
+// integers only; anything else (blank, negative, junk) collapses to null
+// rather than a fabricated number.
+function clampCount(value, existing) {
+  if (value === undefined) return existing ?? null;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : existing ?? null;
+}
+
+const HP_FIELDS = ['holds_won', 'holds_attempted', 'breaks_won', 'breaks_attempted', 'rotations_won', 'rotations_attempted'];
+const SND_FIELDS = [
+  'offense_rounds', 'offense_round_wins', 'defense_rounds', 'defense_round_wins',
+  'first_bloods', 'first_blood_wins', 'first_deaths', 'first_death_wins',
+  'post_plant_rounds', 'post_plant_wins', 'retake_rounds', 'retake_wins',
+];
+const OVERLOAD_FIELDS = ['scoring_attempts', 'scoring_wins', 'defensive_attempts', 'defensive_stops'];
+
+function mergeCounters(fields, incoming, existing) {
+  if (incoming === undefined) return existing || null;
+  const out = {};
+  let any = false;
+  for (const key of fields) {
+    const v = clampCount(incoming?.[key], existing?.[key]);
+    out[key] = v;
+    if (v !== null) any = true;
+  }
+  return any ? out : null;
+}
+
+async function saveMatch(teamId, match) {
+  const dir = matchesDirFor(teamId);
+  await ensureDir(dir);
+  const now = nowIso();
+  const id = safeSegment(
+    match.match_id || slugify(`${match.date || todayIso()}-${match.opponent || 'match'}-${Date.now()}`),
+    'match id'
+  );
+  const existing = match.match_id ? await readJson(path.join(dir, `${id}.json`)) : null;
+
+  const record = {
+    match_id: id,
+    team_id: teamId,
+    date: match.date || existing?.date || todayIso(),
+    opponent: match.opponent !== undefined ? match.opponent : existing?.opponent || '',
+    mode: match.mode !== undefined ? match.mode : existing?.mode || '',
+    map: match.map !== undefined ? match.map : existing?.map || '',
+    side: match.side !== undefined ? match.side : existing?.side || '',
+    score: match.score !== undefined ? match.score : existing?.score || '',
+    result: match.result !== undefined ? match.result : existing?.result || '',
+    players: match.players !== undefined ? match.players : existing?.players || [],
+    hp: mergeCounters(HP_FIELDS, match.hp, existing?.hp),
+    snd: mergeCounters(SND_FIELDS, match.snd, existing?.snd),
+    overload: mergeCounters(OVERLOAD_FIELDS, match.overload, existing?.overload),
+    created_at: existing?.created_at || now,
+    updated_at: now,
+  };
+
+  await writeJson(path.join(dir, `${id}.json`), record);
+  return record;
+}
+
+async function deleteMatch(teamId, matchId) {
+  await fs.rm(path.join(matchesDirFor(teamId), `${safeSegment(matchId, 'match id')}.json`), { force: true });
 }
 
 // ---------- Strats (Strategy Board) ----------
@@ -282,6 +453,25 @@ async function nextStratName(teamId) {
   return `Strat ${n}`;
 }
 
+// Mirrors the renderer's normalizePos clamping (stratBoard/pieces.js) without
+// importing renderer code into the main process — kept minimal on purpose.
+function sanitizeSteps(steps) {
+  if (!Array.isArray(steps)) return [];
+  const clamp01 = (n) => (Number.isFinite(Number(n)) ? Math.min(1, Math.max(0, Number(n))) : 0.5);
+  return steps.slice(0, 30).map((s) => ({
+    label: String(s?.label || 'Step').slice(0, 60),
+    player_positions: Array.isArray(s?.player_positions)
+      ? s.player_positions.slice(0, 8).map((p) => ({
+          member_id: p?.member_id ?? null,
+          opponent: !!p?.opponent,
+          x: clamp01(p?.x),
+          y: clamp01(p?.y),
+          facing: Number.isFinite(Number(p?.facing)) ? Number(p.facing) : 0,
+        }))
+      : [],
+  }));
+}
+
 async function saveStrat(teamId, strat) {
   const dir = stratsDirFor(teamId);
   await ensureDir(dir);
@@ -295,10 +485,13 @@ async function saveStrat(teamId, strat) {
     strategy_name: strat.strategy_name || (existing ? existing.strategy_name : await nextStratName(teamId)),
     map: strat.map,
     mode: strat.mode,
+    objective_key: strat.objective_key !== undefined ? strat.objective_key : existing?.objective_key || '',
     team_id: teamId,
     player_positions: strat.player_positions || [],
     drawings: strat.drawings || [],
     notes: strat.notes || '',
+    piece_scale: clampPieceScale(strat.piece_scale ?? existing?.piece_scale ?? 0.7),
+    steps: strat.steps !== undefined ? sanitizeSteps(strat.steps) : existing?.steps || [],
     status: strat.status || existing?.status || 'DRAFT',
     versions: existing?.versions || [],
     created_at: existing?.created_at || now,
@@ -314,6 +507,7 @@ async function saveStrat(teamId, strat) {
       player_positions: record.player_positions,
       drawings: record.drawings,
       notes: record.notes,
+      piece_scale: record.piece_scale,
       created_at: now,
     },
   ];
@@ -356,6 +550,7 @@ async function restoreStratVersion(teamId, stratId, versionNumber) {
     player_positions: version.player_positions,
     drawings: version.drawings,
     notes: version.notes,
+    piece_scale: version.piece_scale ?? strat.piece_scale,
     status: strat.status,
     versionLabel: `Restored v${versionNumber}`,
   });
@@ -480,6 +675,7 @@ async function saveTask(teamId, task) {
     done,
     due: task.due !== undefined ? task.due || null : existing?.due || null,
     notes: task.notes !== undefined ? task.notes : existing?.notes || '',
+    assignee_id: task.assignee_id !== undefined ? task.assignee_id || null : existing?.assignee_id || null,
     team_id: teamId,
     links: normalizeLinks(task.links, existing?.links),
     created_at: existing?.created_at || now,
@@ -585,6 +781,21 @@ async function restoreCdlMap(mapId) {
   return map;
 }
 
+// Every team with local match history has a local team directory (that's where
+// matches themselves live), whether or not team-profile.json exists — so this
+// walks TEAMS_DIR directly rather than through getTeams(), which depends on
+// team-profile.json and goes stale for any team created after teams moved to
+// Supabase (see cci:saveTeam in main.js).
+async function localTeamIds() {
+  try {
+    const entries = await fs.readdir(TEAMS_DIR, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+    return [];
+  }
+}
+
 // Blocks removal when matches reference this map, unless force is set — never
 // touches match history itself, just counts it so the UI can warn.
 async function removeCdlMap(mapId, { force = false } = {}) {
@@ -594,9 +805,9 @@ async function removeCdlMap(mapId, { force = false } = {}) {
   if (!map) return { blocked: false };
 
   let matchCount = 0;
-  const teams = await getTeams();
-  for (const team of teams) {
-    const matches = await getMatches(team.id);
+  const teamIds = await localTeamIds();
+  for (const id of teamIds) {
+    const matches = await getMatches(id);
     matchCount += matches.filter((mt) => mt.map === map.name).length;
   }
 
@@ -626,11 +837,152 @@ async function updateCdlMapModes(mapId, activeModes) {
   return map;
 }
 
+// ---------- Map objectives (hills / bombsites / device spawns) ----------
+//
+// Separate from map art: callouts live in JSON so a coach can correct a hill
+// without replacing the blueprint. Bundled competitive research fills the
+// empty state; a saved file still wins for any field the coach has verified.
+
+const MAPS_DATA_DIR = path.join(DATA_ROOT, 'maps');
+
+function objectivesModeKey(mode) {
+  const m = String(mode || '').toLowerCase();
+  if (m.includes('hardpoint')) return 'hardpoint';
+  if (m.includes('search') || m.includes('destroy')) return 'snd';
+  if (m.includes('overload')) return 'overload';
+  return null;
+}
+
+function mapObjectivesPath(mapSlug, modeKey) {
+  return path.join(MAPS_DATA_DIR, safeSegment(mapSlug, 'map slug'), `${modeKey}.json`);
+}
+
+function coordFields(item) {
+  const x = Number(item?.x);
+  const y = Number(item?.y);
+  const out = {};
+  if (Number.isFinite(x)) out.x = Math.min(1, Math.max(0, x));
+  if (Number.isFinite(y)) out.y = Math.min(1, Math.max(0, y));
+  return out;
+}
+
+// Search & Destroy always has exactly two named bombsites and Overload always
+// has exactly two scoring sides — that's a fixed rule of the game modes, not a
+// guess about *this* map. Hardpoint hill count varies by map, so hills start
+// empty rather than guessing how many exist.
+function emptyObjectives(mapName, mode, modeKey) {
+  const base = { map: mapName, mode, updated_at: null, verified_by: null };
+  if (modeKey === 'hardpoint') return { ...base, hills: [] };
+  if (modeKey === 'snd') {
+    return {
+      ...base,
+      bombsites: [
+        { label: 'A', location: NEEDS_VERIFICATION },
+        { label: 'B', location: NEEDS_VERIFICATION },
+      ],
+      bomb_spawn: NEEDS_VERIFICATION,
+      offense_spawn: NEEDS_VERIFICATION,
+      defense_spawn: NEEDS_VERIFICATION,
+    };
+  }
+  if (modeKey === 'overload') {
+    return {
+      ...base,
+      device_spawns: [],
+      team_a_zone: NEEDS_VERIFICATION,
+      team_b_zone: NEEDS_VERIFICATION,
+    };
+  }
+  return base;
+}
+
+async function getMapObjectives(mapSlug, mapName, mode) {
+  const modeKey = objectivesModeKey(mode);
+  if (!modeKey) return null;
+  const fallback = emptyObjectives(mapName, mode, modeKey);
+  const bundled = bundledFor(mapSlug, mapName, modeKey);
+  const existing = await readJson(mapObjectivesPath(mapSlug, modeKey));
+  const merged = mergeObjectives(bundled, existing, fallback);
+  return { ...merged, map: mapName, mode };
+}
+
+async function saveMapObjectives(mapSlug, mapName, mode, data) {
+  const modeKey = objectivesModeKey(mode);
+  if (!modeKey) throw new Error(`Unknown objectives mode: ${mode}`);
+  const slug = safeSegment(mapSlug, 'map slug');
+  const now = nowIso();
+  const record = { map: mapName, mode, updated_at: now, verified_by: data?.verified_by || null };
+
+  if (modeKey === 'hardpoint') {
+    record.hills = Array.isArray(data?.hills)
+      ? data.hills.map((h, i) => ({
+          order: Number.isFinite(h.order) ? h.order : i + 1,
+          label: String(h.label || `P${i + 1}`).slice(0, 20),
+          location: String(h.location || NEEDS_VERIFICATION).slice(0, 200),
+          notes: String(h.notes || '').slice(0, 400),
+          ...coordFields(h),
+        }))
+      : [];
+  } else if (modeKey === 'snd') {
+    record.bombsites = Array.isArray(data?.bombsites) && data.bombsites.length
+      ? data.bombsites.map((b, i) => ({
+          label: String(b.label || (i === 0 ? 'A' : 'B')).slice(0, 10),
+          location: String(b.location || NEEDS_VERIFICATION).slice(0, 200),
+          ...coordFields(b),
+        }))
+      : [
+          { label: 'A', location: NEEDS_VERIFICATION },
+          { label: 'B', location: NEEDS_VERIFICATION },
+        ];
+    record.bomb_spawn = String(data?.bomb_spawn || NEEDS_VERIFICATION).slice(0, 200);
+    record.offense_spawn = String(data?.offense_spawn || NEEDS_VERIFICATION).slice(0, 200);
+    record.defense_spawn = String(data?.defense_spawn || NEEDS_VERIFICATION).slice(0, 200);
+  } else if (modeKey === 'overload') {
+    record.device_spawns = Array.isArray(data?.device_spawns)
+      ? data.device_spawns.map((d, i) => ({
+          label: String(d.label || `Device ${i + 1}`).slice(0, 20),
+          location: String(d.location || NEEDS_VERIFICATION).slice(0, 200),
+          ...coordFields(d),
+        }))
+      : [];
+    record.team_a_zone = String(data?.team_a_zone || NEEDS_VERIFICATION).slice(0, 200);
+    record.team_b_zone = String(data?.team_b_zone || NEEDS_VERIFICATION).slice(0, 200);
+  }
+  if (data?.keys) record.keys = data.keys;
+
+  await writeJson(mapObjectivesPath(slug, modeKey), record);
+  return record;
+}
+
+async function readTeamLogos() {
+  return (await readJson(path.join(ORG_DIR, 'team-logos.json'), {})) || {};
+}
+
+async function patchTeamLogo(teamId, logo) {
+  const id = safeSegment(teamId, 'team');
+  const all = await readTeamLogos();
+  all[id] = logo;
+  await writeJson(path.join(ORG_DIR, 'team-logos.json'), all);
+  return logo;
+}
+
+async function applyLocalLogos(teams) {
+  const logos = await readTeamLogos();
+  return (teams || []).map((team) => (logos[team.id] ? { ...team, logo: logos[team.id] } : team));
+}
+
+async function applyLocalLogo(team) {
+  if (!team?.id) return team;
+  const logos = await readTeamLogos();
+  return logos[team.id] ? { ...team, logo: logos[team.id] } : team;
+}
+
 // ---------- Files (logos / photos) ----------
 
-const MAP_ART_DIR = path.join(
-  '/Users/Ion/Library/Mobile Documents/com~apple~CloudDocs/Naevii/Artwork/maps/bo7'
-);
+// Optional personal mirror of uploaded map art to a folder outside the app's
+// data dir (e.g. a source-of-truth asset library). Off by default so map-art
+// uploads work on any machine; set CCI_MAP_ART_MIRROR_DIR to opt in on yours.
+const MAP_ART_MIRROR_DIR = process.env.CCI_MAP_ART_MIRROR_DIR || null;
 
 function mapArtFileName(mapName, ext) {
   const base = String(mapName || 'map')
@@ -655,11 +1007,18 @@ async function saveMapArt(sourcePath, mapName, layoutKey) {
   const key = String(layoutKey || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const rel = key ? `maps/${slug}-${key}${ext}` : `maps/${slug}${ext}`;
   await copyImage(sourcePath, rel);
-  await fs.mkdir(MAP_ART_DIR, { recursive: true });
-  const artName = key
-    ? `${String(mapName || slug).trim().replace(/[^\w]+/g, '_')}_${key.toUpperCase()}_Layout${ext}`
-    : mapArtFileName(mapName, ext);
-  await fs.copyFile(sourcePath, path.join(MAP_ART_DIR, artName));
+
+  if (MAP_ART_MIRROR_DIR) {
+    try {
+      await fs.mkdir(MAP_ART_MIRROR_DIR, { recursive: true });
+      const artName = key
+        ? `${String(mapName || slug).trim().replace(/[^\w]+/g, '_')}_${key.toUpperCase()}_Layout${ext}`
+        : mapArtFileName(mapName, ext);
+      await fs.copyFile(sourcePath, path.join(MAP_ART_MIRROR_DIR, artName));
+    } catch (err) {
+      console.warn('[dataStore] map art mirror copy failed (non-fatal):', err.message);
+    }
+  }
   return rel;
 }
 
@@ -686,7 +1045,11 @@ module.exports = {
   getMember,
   saveMember,
   deleteMember,
+  transferMember,
+  transferMembers,
   getMatches,
+  saveMatch,
+  deleteMatch,
   getStrats,
   getStrat,
   saveStrat,
@@ -709,7 +1072,12 @@ module.exports = {
   restoreCdlMap,
   removeCdlMap,
   updateCdlMapModes,
+  getMapObjectives,
+  saveMapObjectives,
   copyImage,
   saveMapArt,
   resolveDataPath,
+  patchTeamLogo,
+  applyLocalLogos,
+  applyLocalLogo,
 };

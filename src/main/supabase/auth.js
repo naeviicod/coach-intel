@@ -7,7 +7,7 @@ const REDIRECT_TO = 'coachintel://auth-callback';
 function createAuthService({ client }) {
   async function signInWithDiscord() {
     if (!client) {
-      throw new Error('Supabase is not configured yet — paste the project URL and anon key into src/main/supabase/config.js');
+      throw new Error('Sign-in is unavailable right now. Try again, or continue offline.');
     }
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'discord',

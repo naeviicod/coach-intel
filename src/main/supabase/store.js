@@ -11,36 +11,58 @@ const path = require('path');
 
 function createSessionStore({ dataRoot, secretStore }) {
   const dir = path.join(dataRoot, 'org', 'integrations');
-  const filePath = path.join(dir, 'supabase-session.enc');
+  const encryptedPath = path.join(dir, 'supabase-session.enc');
+  // Used only when the OS keychain is unavailable (e.g. an unsigned dev build
+  // where macOS won't grant Keychain access) — a distinct filename so an
+  // encrypted and a plaintext session file are never mistaken for each other.
+  const plaintextPath = path.join(dir, 'supabase-session.insecure.json');
 
-  function assertEncryptionAvailable() {
-    if (!secretStore || !secretStore.isAvailable()) {
-      throw new Error('OS keychain encryption unavailable; refusing to store the session in plaintext');
+  let warnedNoKeychain = false;
+  function keychainAvailable() {
+    const available = Boolean(secretStore && secretStore.isAvailable());
+    if (!available && !warnedNoKeychain) {
+      warnedNoKeychain = true;
+      console.warn(
+        '[supabase] OS keychain unavailable — session will be stored in a permissions-locked file instead of encrypted. ' +
+          'Common on an unsigned dev build; signing the app (even ad-hoc) usually fixes it.'
+      );
     }
+    return available;
   }
 
   async function readAll() {
-    let encrypted;
+    if (keychainAvailable()) {
+      let encrypted;
+      try {
+        encrypted = await fs.readFile(encryptedPath);
+      } catch (err) {
+        if (err.code === 'ENOENT') return {};
+        throw err;
+      }
+      try {
+        return JSON.parse(secretStore.decrypt(encrypted));
+      } catch {
+        // Keychain changed or file corrupt — treat as a session that must be re-created.
+        return {};
+      }
+    }
     try {
-      encrypted = await fs.readFile(filePath);
+      return JSON.parse(await fs.readFile(plaintextPath, 'utf-8'));
     } catch (err) {
       if (err.code === 'ENOENT') return {};
-      throw err;
-    }
-    assertEncryptionAvailable();
-    try {
-      return JSON.parse(secretStore.decrypt(encrypted));
-    } catch {
-      // Keychain changed or file corrupt — treat as a session that must be re-created.
       return {};
     }
   }
 
   async function writeAll(data) {
-    assertEncryptionAvailable();
     await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(filePath, secretStore.encrypt(JSON.stringify(data)));
-    await fs.chmod(filePath, 0o600).catch(() => {});
+    if (keychainAvailable()) {
+      await fs.writeFile(encryptedPath, secretStore.encrypt(JSON.stringify(data)));
+      await fs.chmod(encryptedPath, 0o600).catch(() => {});
+      return;
+    }
+    await fs.writeFile(plaintextPath, JSON.stringify(data));
+    await fs.chmod(plaintextPath, 0o600).catch(() => {});
   }
 
   return {

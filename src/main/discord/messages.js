@@ -48,6 +48,8 @@ const ROUTES = {
   review: () => 'needs-review',
   member: (teamId, memberId) => `member/${teamId}/${memberId}`,
   integrations: () => 'integrations',
+  calendar: (teamId) => `calendar/${teamId}`,
+  scrim: (teamId) => `scrim-hub/${teamId}`,
 };
 
 function routeFor(kind, teamId, extra) {
@@ -208,6 +210,8 @@ function eventMessage(eventId, payload = {}) {
 function defaultLinkKind(eventId) {
   if (eventId.startsWith('strategy.')) return 'strat';
   if (eventId.startsWith('intel.')) return 'intel';
+  if (eventId === 'calendar.scrim_scheduled') return 'scrim';
+  if (eventId.startsWith('calendar.')) return 'calendar';
   if (eventId.startsWith('match.')) return 'match';
   if (eventId.startsWith('review.') || eventId.startsWith('vod.')) return 'review';
   if (eventId.startsWith('cdl.') || eventId.startsWith('data.') || eventId.startsWith('external.')) return 'maps';

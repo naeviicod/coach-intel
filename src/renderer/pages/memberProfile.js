@@ -1,12 +1,15 @@
 import { el, playerAvatar, roleBadge, fmtDate, statsForMember, aggregate, sparkline } from '../utils.js';
-import { openMemberModal } from '../lib/teamManage.js';
+import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
+import { HANDLE_FIELDS, orgTitles } from '../lib/profile.js';
+import { openInviteModal } from '../lib/invite.js';
 
 export async function render(container, ctx) {
   const [teamId, memberId] = (ctx.param || '').split('/');
-  const [team, member, matches] = await Promise.all([
+  const [team, member, matches, teams] = await Promise.all([
     window.cci.getTeam(teamId),
     window.cci.getMember(teamId, memberId),
     window.cci.getMatches(teamId),
+    window.cci.getTeams(),
   ]);
 
   if (!member || !team) {
@@ -16,6 +19,10 @@ export async function render(container, ctx) {
 
   const rows = statsForMember(matches, memberId).sort((a, b) => (a.match.date < b.match.date ? -1 : 1));
   const totals = aggregate(rows);
+  const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
+  const handleEntries = HANDLE_FIELDS
+    .map((field) => ({ ...field, value: String(member.handles?.[field.key] || '').trim() }))
+    .filter((field) => field.value);
 
   container.append(
     el('div', { class: 'page-header' }, [
@@ -24,17 +31,39 @@ export async function render(container, ctx) {
         el('div', {}, [
           el('div', { class: 'page-title' }, member.gamertag),
           el('div', { class: 'page-subtitle' }, [
-            `${member.name} · ${team.name} · `,
+            [member.name, team.name, member.linked?.discord_username ? `Discord ${member.linked.discord_username}` : '']
+              .filter(Boolean)
+              .join(' · ') + ' · ',
+            ...titles.flatMap((t) => [
+              el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t),
+              ' · ',
+            ]),
             roleBadge(member.role),
           ]),
         ]),
       ]),
-      el('button', {
-        class: 'btn',
-        onclick: () => openMemberModal(ctx, teamId, member, {
-          onSaved: () => ctx.navigate('member', `${teamId}/${memberId}`),
-        }),
-      }, 'Edit Player'),
+      el('div', { class: 'edit-only', style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
+        el('button', {
+          class: 'btn',
+          onclick: () => openInviteModal(ctx, teamId, member, {
+            onDone: () => ctx.navigate('member', `${teamId}/${memberId}`),
+          }),
+        }, member.linked ? 'Invite / Linked' : 'Invite'),
+        el('button', {
+          class: 'btn',
+          onclick: () => openMemberModal(ctx, teamId, member, {
+            onSaved: () => ctx.navigate('member', `${teamId}/${memberId}`),
+          }),
+        }, 'Edit Player'),
+        (teams || []).some((t) => t.id !== teamId)
+          ? el('button', {
+            class: 'btn',
+            onclick: () => openTransferModal(ctx, team, member, {
+              onDone: (dest) => ctx.navigate('member', `${dest.id}/${memberId}`),
+            }),
+          }, 'Transfer')
+          : null,
+      ]),
     ])
   );
 
@@ -53,6 +82,24 @@ export async function render(container, ctx) {
     el('div', { html: sparkline(trendKd.length ? trendKd : [0]) , style: 'margin-top:4px;'}),
   ]);
   container.append(trendCard);
+
+  if (handleEntries.length) {
+    container.append(
+      el('div', { class: 'card section' }, [
+        el('div', { class: 'section-title' }, 'Socials & Gaming IDs'),
+        el(
+          'div',
+          { class: 'handle-grid', style: 'margin-top:8px;' },
+          handleEntries.map((field) =>
+            el('div', { class: 'field' }, [
+              el('label', {}, field.label),
+              el('div', { class: 'settings-row-title' }, field.value),
+            ])
+          )
+        ),
+      ])
+    );
+  }
 
   if (member.aliases && member.aliases.length) {
     container.append(

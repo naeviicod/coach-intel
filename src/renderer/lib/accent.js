@@ -53,6 +53,12 @@ function brandTintFilter(hex) {
   return `hue-rotate(${rotate}deg) saturate(${sat.toFixed(2)}) brightness(${bright.toFixed(2)})`;
 }
 
+export function resolveAccent({ invite, shared, org, firstLaunch } = {}) {
+  const fromInvite = normalizeHex(invite);
+  if (firstLaunch && !fromInvite) return DEFAULT_ACCENT;
+  return fromInvite || normalizeHex(shared) || normalizeHex(org) || DEFAULT_ACCENT;
+}
+
 export function applyAccent(hex) {
   const color = normalizeHex(hex) || DEFAULT_ACCENT;
   const root = document.documentElement;

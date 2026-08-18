@@ -1,6 +1,7 @@
 import { el, icon } from '../../utils.js';
 
 export const MAX_PER_TEAM = 4;
+export const DEFAULT_PIECE_SCALE = 0.7;
 
 const US_SLOTS = [
   { x: 0.22, y: 0.68, facing: 0.18 },
@@ -16,6 +17,12 @@ const THEM_SLOTS = [
   { x: 0.70, y: 0.42, facing: Math.PI + 0.62 },
 ];
 
+export function clampPieceScale(n, fallback = DEFAULT_PIECE_SCALE) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.round(Math.min(1.4, Math.max(0.4, v)) * 100) / 100;
+}
+
 function clamp01(n) {
   return Math.min(1, Math.max(0, Number(n) || 0));
 }
@@ -30,18 +37,21 @@ export function normalizePos(pos) {
   };
 }
 
-export function defaultPositions(members) {
+export function defaultPositions(members, layout) {
+  const usSlots = layout?.spawns?.us || US_SLOTS;
+  const themSlots = layout?.spawns?.them || THEM_SLOTS;
   const us = (members || []).slice(0, MAX_PER_TEAM).map((m, i) =>
-    normalizePos({ member_id: m.id, ...US_SLOTS[i] })
+    normalizePos({ member_id: m.id, ...(usSlots[i] || US_SLOTS[i]) })
   );
-  const them = THEM_SLOTS.map((slot) => normalizePos({ opponent: true, ...slot }));
+  const them = themSlots.slice(0, MAX_PER_TEAM).map((slot) => normalizePos({ opponent: true, ...slot }));
   return [...us, ...them];
 }
 
-export function nextOpponentSlot(existing) {
+export function nextOpponentSlot(existing, layout) {
   const used = (existing || []).filter((p) => p.opponent);
   if (used.length >= MAX_PER_TEAM) return null;
-  return normalizePos({ opponent: true, ...THEM_SLOTS[used.length] });
+  const themSlots = layout?.spawns?.them || THEM_SLOTS;
+  return normalizePos({ opponent: true, ...(themSlots[used.length] || THEM_SLOTS[used.length]) });
 }
 
 function shortLabel(text) {
@@ -57,11 +67,11 @@ function placeLabel(node, facing) {
   node.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 }
 
-export function renderPiece(pos, member, { board, number, selected, onChange, onRemove, onSelect }) {
+export function renderPiece(pos, member, { board, number, selected, onChange, onRemove, onSelect, locked } = {}) {
   const raw = pos.opponent ? `Opp ${number}` : member?.gamertag || `P${number}`;
   const label = shortLabel(raw);
   const piece = el('div', {
-    class: `board-piece${pos.opponent ? ' opponent' : ' us'}${selected ? ' selected' : ''}`,
+    class: `board-piece${pos.opponent ? ' opponent' : ' us'}${selected ? ' selected' : ''}${locked ? ' is-locked' : ''}`,
     style: `left:${pos.x * 100}%;top:${pos.y * 100}%;--facing:${(pos.facing * 180) / Math.PI}deg;`,
   });
 
@@ -69,20 +79,23 @@ export function renderPiece(pos, member, { board, number, selected, onChange, on
   const num = el('div', { class: 'board-piece-n' }, String(number));
   const name = el('div', { class: 'board-piece-label', title: raw }, label);
   placeLabel(name, pos.facing);
-  const remove = el('button', {
-    type: 'button',
-    class: 'board-piece-x',
-    'aria-label': `Remove ${label}`,
-    title: 'Remove',
-    html: icon('trash', 11),
-    onclick: (e) => {
-      e.stopPropagation();
-      onRemove();
-    },
-  });
-
-  piece.append(rot, num, name, remove);
+  piece.append(rot, num, name);
+  if (!locked) {
+    const remove = el('button', {
+      type: 'button',
+      class: 'board-piece-x',
+      'aria-label': `Remove ${label}`,
+      title: 'Remove',
+      html: icon('trash', 11),
+      onclick: (e) => {
+        e.stopPropagation();
+        onRemove();
+      },
+    });
+    piece.append(remove);
+  }
   piece.addEventListener('contextmenu', (e) => e.preventDefault());
+  if (locked) return piece;
 
   const tri = rot.querySelector('.board-tri');
   const cone = rot.querySelector('.board-fov-cone');

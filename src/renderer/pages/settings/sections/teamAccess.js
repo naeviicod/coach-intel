@@ -1,13 +1,5 @@
 import { el, initials } from '../../../utils.js';
-
-const ROLES = ['owner', 'team_leader', 'coach', 'analyst', 'member'];
-const ROLE_LABELS = {
-  owner: 'Owner',
-  team_leader: 'Team leader',
-  coach: 'Coach',
-  analyst: 'Analyst',
-  member: 'Member',
-};
+import { ASSIGNABLE_ROLES, ROLE_LABELS, canEdit } from '../../../lib/access.js';
 
 export async function render(panel, ctx) {
   const authState = await window.cci.auth.getState();
@@ -33,14 +25,14 @@ export async function render(panel, ctx) {
   }
 
   const { profiles, me } = result.data;
-  const canEditRoles = Boolean(me && (me.role === 'owner' || me.role === 'team_leader'));
+  const canEditRoles = Boolean(me && canEdit(me.role) && (me.role === 'owner' || me.role === 'admin' || me.role === 'team_leader'));
 
   const card = el('div', { class: 'card section' }, [
     el('div', { class: 'section-title' }, 'Who can sign in'),
     el(
       'div',
       { class: 'field-hint', style: 'margin-bottom:10px;' },
-      'Everyone who has signed in to Coach Intel with Discord, and their role. New sign-ins land here automatically.'
+      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite a member from their profile — that link binds Discord to that person and the role you pick. Admins and org owners see every team. Players and creatives only see their team.'
     ),
   ]);
 
@@ -59,8 +51,11 @@ export async function render(panel, ctx) {
                 ctx.reload();
               },
             },
-            ROLES.map((r) =>
-              el('option', { value: r, selected: person.role === r ? 'selected' : null }, ROLE_LABELS[r] || r)
+            ASSIGNABLE_ROLES.map((r) =>
+              el('option', {
+                value: r,
+                selected: (person.role === 'member' ? 'user' : person.role) === r ? 'selected' : null,
+              }, ROLE_LABELS[r] || r)
             )
           )
         : el('span', { class: 'role-badge' }, ROLE_LABELS[person.role] || person.role);

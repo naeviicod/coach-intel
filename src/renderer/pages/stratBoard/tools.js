@@ -8,6 +8,7 @@ export const TOOLS = [
   { key: 'rect', label: 'Rectangle', shortcut: 'R', icon: 'M3 3.6h10v8.8H3z' },
   { key: 'zone', label: 'Circle', shortcut: 'C', icon: 'M8 2.8a5.2 5.2 0 110 10.4 5.2 5.2 0 010-10.4z' },
   { key: 'text', label: 'Text', shortcut: 'T', icon: 'M3.2 4.2h9.6M8 4.2V13' },
+  { key: 'pin', label: 'Pin', shortcut: 'P', icon: 'M8 2.4c-2.3 0-4 1.7-4 3.9 0 2.8 4 7.3 4 7.3s4-4.5 4-7.3c0-2.2-1.7-3.9-4-3.9zM8 7.7a1.5 1.5 0 110-3 1.5 1.5 0 010 3z' },
   { key: 'erase', label: 'Erase', shortcut: 'E', icon: 'M4.2 9.4l4.8-4.8 3.2 3.2-4.8 4.8H4.2z' },
 ];
 

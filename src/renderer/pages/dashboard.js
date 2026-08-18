@@ -1,4 +1,4 @@
-import { el, fmtDue, fmtStamp, teamWinRate } from '../utils.js';
+import { el, fmtDue, fmtStamp, orgMark, teamMark, teamWinRate } from '../utils.js';
 import { buildSignals } from './intelFeed.js';
 import { kpi, miniEmpty, taskRow } from './teamHub/parts.js';
 
@@ -17,9 +17,13 @@ async function draw(container, ctx, reload) {
 
   container.append(
     el('div', { class: 'page-header' }, [
-      el('div', {}, [
-        el('div', { class: 'page-title' }, 'Dashboard'),
-        el('div', { class: 'page-subtitle' }, `${org?.name || 'Your organization'} — what needs attention today`),
+      el('div', { class: 'page-identity' }, [
+        orgMark(org, { class: 'sb-org-logo page-org-logo', fallbackLogo: teams.find((t) => t.logo)?.logo }),
+        el('div', { style: 'min-width:0;' }, [
+          el('div', { class: 'page-org-name' }, org?.name || 'Your organization'),
+          el('div', { class: 'page-title' }, 'Dashboard'),
+          el('div', { class: 'page-subtitle' }, 'What needs attention today'),
+        ]),
       ]),
     ])
   );
@@ -60,7 +64,7 @@ async function draw(container, ctx, reload) {
         onClick: () => ctx.navigate('tasks'),
       }),
       kpi({
-        label: 'Needs Review',
+        label: 'Scoreboard Inbox',
         value: reviewCount,
         meta: reviewCount ? 'Screenshots pending' : 'Queue clear',
         onClick: () => ctx.navigate('needs-review'),
@@ -161,6 +165,7 @@ function teamsCard(ctx, perTeam) {
     const lastNote = notes[0];
     card.append(
       el('button', { type: 'button', class: 'crow', onclick: () => ctx.navigate('team-hub', team.id) }, [
+        teamMark(team),
         el('div', { class: 'crow-main' }, [
           el('div', { class: 'crow-title' }, team.name),
           el('div', { class: 'crow-sub' }, [

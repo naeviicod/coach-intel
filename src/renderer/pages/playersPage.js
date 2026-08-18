@@ -1,5 +1,9 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../utils.js';
-import { openMemberModal } from '../lib/teamManage.js';
+import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
+import { defaultSlot, isStaffMember, splitRoster } from '../lib/roster.js';
+import { isNaevii, memberStaffTitle, orgTitles } from '../lib/profile.js';
+import { openInviteModal } from '../lib/invite.js';
+import { toast } from '../components/modal.js';
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
@@ -8,7 +12,7 @@ export async function render(container, ctx) {
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Players'),
-        el('div', { class: 'page-subtitle' }, 'Add and edit roster members across the organization'),
+        el('div', { class: 'page-subtitle' }, ctx.canEdit ? 'Players, staff, and creatives across the organization' : 'Members across the organization'),
       ]),
     ])
   );
@@ -23,58 +27,187 @@ export async function render(container, ctx) {
   }
 
   for (const team of teams) {
-    const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
-    container.append(rosterCard(team, members, matches, ctx));
+    const [rawMembers, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
+    const members = await repairPlayingNaevii(team.id, rawMembers, ctx.canEdit);
+    container.append(rosterCard(team, members, matches, ctx, teams));
   }
 }
 
-function rosterCard(team, members, matches, ctx) {
+function rosterCard(team, members, matches, ctx, teams) {
+  const { starters, bench, staff } = splitRoster(members);
+  const playing = starters.length + bench.length;
+  const transferSelected = el('button', {
+    class: 'btn primary',
+    onclick: () => {
+      if (!(teams || []).some((t) => t.id !== team.id)) {
+        toast('Add another team first, then you can transfer players.');
+        return;
+      }
+      const picked = selectedMembers(card, members);
+      if (!picked.length) {
+        toast('Select one or more players to transfer.');
+        return;
+      }
+      openTransferModal(ctx, team, picked);
+    },
+  }, 'Transfer selected');
+
   const card = el('div', { class: 'card section' }, [
     el('div', { class: 'team-identity', style: 'margin-bottom:16px;' }, [
       teamMark(team, { class: 'team-logo lg' }),
       el('div', { style: 'min-width:0;flex:1;' }, [
         el('div', { class: 'team-identity-kicker' }, team.tag ? `${team.tag} roster` : 'Team roster'),
         el('div', { class: 'team-identity-name' }, `${team.name} Roster`),
-        el('div', { class: 'team-meta' }, `${members.length} player${members.length === 1 ? '' : 's'}`),
+        el('div', { class: 'team-meta' }, lineupMeta(starters.length, bench.length, staff.length)),
       ]),
-      el('button', { class: 'btn primary', onclick: () => openMemberModal(ctx, team.id) }, '+ Add Player'),
+      el('div', { class: 'edit-only', style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
+        el('button', {
+          class: 'btn primary',
+          onclick: () => openMemberModal(ctx, team.id, null, { slot: defaultSlot(members) }),
+        }, '+ Add Player'),
+        el('button', {
+          class: 'btn primary',
+          onclick: () => openMemberModal(ctx, team.id, null, { slot: 'bench' }),
+        }, '+ Add Bench'),
+        el('button', {
+          class: 'btn primary',
+          onclick: () => openMemberModal(ctx, team.id, null, { slot: 'staff' }),
+        }, '+ Add Staff'),
+        ctx.canEdit ? transferSelected : null,
+      ]),
     ]),
   ]);
 
+  card.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('roster-check')) return;
+    const n = card.querySelectorAll('.roster-check:checked').length;
+    transferSelected.textContent = n ? `Transfer selected (${n})` : 'Transfer selected';
+  });
+
   if (!members.length) {
-    card.append(el('div', { class: 'field-hint' }, 'No players yet. Add the first member to this roster.'));
+    card.append(el('div', { class: 'field-hint' }, 'No members yet. Add a player or staff member to this roster.'));
     return card;
   }
 
-  for (const member of members) {
-    const totals = aggregate(statsForMember(matches, member.id));
-    card.append(
-      el('div', { class: 'roster-row' }, [
-        playerAvatar(member),
-        el('div', {
-          style: 'flex:1;min-width:0;cursor:pointer;',
-          onclick: () => ctx.navigate('member', `${team.id}/${member.id}`),
-        }, [
-          el('div', { class: 'gamertag' }, member.gamertag),
-          member.name && member.name !== member.gamertag
-            ? el('div', { class: 'member-name' }, member.name)
-            : null,
-        ]),
-        roleBadge(member.role),
-        el('div', { class: 'crow-meta', style: 'width:70px;text-align:right;' }, totals.matches ? `${totals.kd} K/D` : '—'),
-        el('div', { class: 'row-actions' }, [
-          el('button', { class: 'btn subtle sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
-          el('button', {
-            class: 'btn subtle sm danger',
-            onclick: async () => {
-              if (!confirm(`Remove ${member.gamertag} from ${team.name}?`)) return;
-              await window.cci.deleteMember(team.id, member.id);
-              ctx.navigate('players');
-            },
-          }, 'Remove'),
-        ]),
-      ])
-    );
-  }
+  appendGroup(card, 'Starting lineup', starters, team, matches, ctx, teams, { empty: 'No starters yet. Add a player or promote someone from the bench.' });
+  appendGroup(card, 'Backup / Bench', bench, team, matches, ctx, teams, {
+    empty: playing >= 4 ? 'No bench yet. Add a backup for when someone sits.' : null,
+  });
+  appendGroup(card, 'Staff & Org', staff, team, matches, ctx, teams, {
+    empty: 'No staff yet. Add a coach, analyst, artist, or other org member.',
+  });
+
   return card;
+}
+
+function lineupMeta(starters, bench, staff) {
+  const bits = [`${starters} starter${starters === 1 ? '' : 's'}`];
+  if (bench) bits.push(`${bench} bench`);
+  if (staff) bits.push(`${staff} staff`);
+  return bits.join(' · ');
+}
+
+function selectedMembers(card, members) {
+  const ids = new Set(
+    [...card.querySelectorAll('.roster-check:checked')].map((node) => node.getAttribute('data-member-id'))
+  );
+  return members.filter((m) => ids.has(m.id));
+}
+
+function appendGroup(card, title, members, team, matches, ctx, teams, { empty } = {}) {
+  if (!members.length && !empty) return;
+  card.append(el('div', { class: 'card-head', style: 'padding:8px 0 6px;' }, [
+    el('div', { class: 'card-title' }, title),
+    el('div', { class: 'card-meta' }, String(members.length)),
+  ]));
+  if (!members.length) {
+    card.append(el('div', { class: 'field-hint', style: 'padding:4px 0 12px;' }, empty));
+    return;
+  }
+  for (const member of members) card.append(memberRow(member, team, matches, ctx, teams));
+}
+
+function memberRow(member, team, matches, ctx, teams) {
+  const totals = aggregate(statsForMember(matches, member.id));
+  const onBench = member.slot === 'bench';
+  const staff = isStaffMember(member);
+  const orgRole = memberStaffTitle(member);
+  const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
+  const canTransfer = (teams || []).some((t) => t.id !== team.id);
+  return el('div', { class: 'roster-row' }, [
+    ctx.canEdit
+      ? el('input', {
+          type: 'checkbox',
+          class: 'roster-check',
+          'data-member-id': member.id,
+          title: `Select ${member.gamertag}`,
+        })
+      : null,
+    playerAvatar(member),
+    el('div', {
+      style: 'flex:1;min-width:0;cursor:pointer;',
+      onclick: () => ctx.navigate('member', `${team.id}/${member.id}`),
+    }, [
+      el('div', { class: 'gamertag' }, member.gamertag),
+      (() => {
+        const sub = [member.name && member.name !== member.gamertag ? member.name : '', orgRole]
+          .filter(Boolean)
+          .join(' · ');
+        return sub ? el('div', { class: 'member-name' }, sub) : null;
+      })(),
+    ]),
+    ...titles.map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
+    staff ? null : roleBadge(member.role),
+    staff ? el('span', { class: 'pill' }, 'Staff') : onBench ? el('span', { class: 'pill' }, 'Bench') : null,
+    el('div', { class: 'crow-meta', style: 'width:70px;text-align:right;' }, totals.matches ? `${totals.kd} K/D` : '—'),
+    el('div', { class: 'row-actions edit-only' }, [
+      staff ? null : el('button', {
+        class: 'btn subtle sm',
+        onclick: () => toggleSlot(ctx, team.id, member),
+      }, onBench ? 'Start' : 'Bench'),
+      el('button', { class: 'btn subtle sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
+      canTransfer
+        ? el('button', {
+          class: 'btn subtle sm',
+          onclick: () => openTransferModal(ctx, team, member),
+        }, 'Transfer')
+        : null,
+      el('button', {
+        class: 'btn subtle sm',
+        onclick: () => openInviteModal(ctx, team.id, member),
+      }, member.linked ? 'Linked' : 'Invite'),
+      el('button', {
+        class: 'btn subtle sm danger',
+        onclick: async () => {
+          if (!confirm(`Remove ${member.gamertag} from ${team.name}?`)) return;
+          await window.cci.deleteMember(team.id, member.id);
+          ctx.navigate('players');
+        },
+      }, 'Remove'),
+    ]),
+  ]);
+}
+
+async function toggleSlot(ctx, teamId, member) {
+  await window.cci.saveMember(teamId, {
+    ...member,
+    slot: member.slot === 'bench' ? 'starter' : 'bench',
+  });
+  ctx.navigate('players');
+}
+
+async function repairPlayingNaevii(teamId, members, canEdit) {
+  if (!canEdit) return members;
+  return Promise.all(
+    (members || []).map(async (member) => {
+      if (member.slot !== 'staff') return member;
+      if (!isNaevii(member.gamertag) && !isNaevii(member.name)) return member;
+      const next = { ...member, slot: 'starter' };
+      try {
+        return await window.cci.saveMember(teamId, next);
+      } catch {
+        return next;
+      }
+    })
+  );
 }

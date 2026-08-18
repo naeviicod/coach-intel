@@ -31,6 +31,11 @@ function report(line) {
 report('[verify] harness starting');
 
 const ROOT = path.join(__dirname, '..', '..');
+const fs = require('fs');
+const os = require('os');
+const DATA_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-verify-ui-'));
+process.env.CCI_DATA_ROOT = DATA_ROOT;
+fs.cpSync(path.join(ROOT, 'data', 'knowledge'), path.join(DATA_ROOT, 'knowledge'), { recursive: true });
 const dataStore = require(path.join(ROOT, 'src', 'main', 'dataStore'));
 const planningStore = require(path.join(ROOT, 'src', 'main', 'planningStore'));
 const { CHANNEL_PURPOSES, EVENTS, EVENT_GROUPS, SENSITIVITY_LABELS, STATUS_LABELS } = require(
@@ -151,6 +156,7 @@ function registerIpc() {
     'cci:getMetaKnowledge': () => dataStore.getMetaKnowledge(),
     'cci:getCdlRuleset': () => dataStore.getCdlRuleset(),
     'cci:getAppVersion': () => '0.1.0',
+    'cci:setTrafficLights': () => true,
     'cci:dataUrlForPath': () => null,
     'cci:getEvents': (e, id) => planningStore.getEvents(id),
     'cci:saveEvent': (e, id, event) => planningStore.saveEvent(id, event),
@@ -170,6 +176,18 @@ function registerIpc() {
     'cci:deleteOpponent': (e, oppId) => planningStore.deleteOpponent(oppId),
     'cci:getRankings': () => planningStore.getRankings(),
     'cci:saveRankings': (e, rankings) => planningStore.saveRankings(rankings),
+    'cci:authGetState': () => ({ configured: false, session: null }),
+    'cci:authSignInWithDiscord': () => ({ ok: false, error: 'verify stub' }),
+    'cci:authSignOut': () => true,
+    'cci:authListProfiles': () => ({ ok: true, data: { profiles: [], me: null } }),
+    'cci:authUpdateRole': () => ({ ok: true, data: true }),
+    'cci:invitePending': () => ({ ok: true, data: null }),
+    'cci:inviteCreate': () => ({ ok: false, error: 'verify stub' }),
+    'cci:inviteStatus': () => ({ ok: true, data: null }),
+    'cci:inviteRevoke': () => ({ ok: true, data: true }),
+    'cci:inviteRedeem': () => ({ ok: false, error: 'verify stub' }),
+    'cci:copyText': () => true,
+    'cci:openMedia': () => true,
   };
   for (const [channel, handler] of Object.entries(passthrough)) ipcMain.handle(channel, handler);
 
@@ -260,11 +278,10 @@ async function runShell(win) {
   }
 
   const sections = [
-    ['overview', ['Team Hub', 'Season Summary', 'Map Pool', 'Scoreboard inbox']],
+    ['overview', ['QA Temp Team', 'Season Summary', 'Map Pool', 'Scoreboard inbox']],
     ['roster', ['Roster']],
     ['notes', ['Team Notes']],
     ['objectives', ['Objectives', 'Open']],
-    ['strats', ['Strats & Playbooks', 'All Strats']],
     ['veto', ['Veto History']],
     ['practice', ['Practice Planner']],
     ['settings', ['Team Settings', 'Identity']],
@@ -288,26 +305,38 @@ async function runShell(win) {
   await new Promise((resolve) => setTimeout(resolve, 400));
   await shot(win, '10b-hub-objective-composer');
 
-  // The rail must expand mode filters only while Strats is open.
-  await goto(win, `#/team-hub/${teamId}/strats/mode/hardpoint`);
-  const activeSub = await win.webContents.executeJavaScript(
-    'document.querySelector(".rail-sublink.active")?.textContent || ""'
+  await goto(win, `#/playbooks/${teamId}`);
+  await expectText(win, ['Strats & Playbooks', 'New Strat', 'Playbooks'], 'Playbooks');
+  await shot(win, '11-playbooks');
+
+  await goto(win, `#/playbooks/${teamId}/mode/hardpoint`);
+  const activeMode = await win.webContents.executeJavaScript(
+    'document.querySelector(".playbooks-modes .mode-chip.active")?.textContent || ""'
   );
-  if (!activeSub.includes('Hardpoint')) problems.push('Strats mode filter did not mark its rail sublink active');
-  await shot(win, '11-hub-strats-hardpoint');
+  if (!activeMode.includes('HP')) problems.push('Playbooks mode filter did not mark Hardpoint active');
+  await shot(win, '11-playbooks-hardpoint');
+
+  await goto(win, `#/team-hub/${teamId}/strats/mode/hardpoint`);
+  const hubStratHash = await win.webContents.executeJavaScript('window.location.hash');
+  if (!hubStratHash.startsWith(`#/playbooks/${teamId}`)) {
+    problems.push(`Team Hub strats link did not redirect, hash is ${hubStratHash}`);
+  }
 
   // Legacy Command Center links must keep working.
   await goto(win, '#/command-center/' + teamId + '/strats');
   const hash = await win.webContents.executeJavaScript('window.location.hash');
-  if (!hash.startsWith('#/team-hub/')) problems.push(`legacy command-center link did not redirect, hash is ${hash}`);
+  if (!hash.startsWith('#/playbooks/')) problems.push(`legacy command-center link did not redirect, hash is ${hash}`);
 
-  // Collapsed navigation keeps the rail usable and shows the icon mark.
-  await win.webContents.executeJavaScript('document.querySelector("#sidebar .sb-collapse")?.click()');
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  const collapsed = await win.webContents.executeJavaScript(
+  await goto(win, '#/dashboard');
+  const beforeCollapse = await win.webContents.executeJavaScript(
     'document.getElementById("sidebar").classList.contains("collapsed")'
   );
-  if (!collapsed) problems.push('collapse button did not collapse the global navigation');
+  await win.webContents.executeJavaScript('document.querySelector("#sidebar .sb-collapse")?.click()');
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const afterCollapse = await win.webContents.executeJavaScript(
+    'document.getElementById("sidebar").classList.contains("collapsed")'
+  );
+  if (beforeCollapse === afterCollapse) problems.push('collapse button did not toggle the global navigation');
   await shot(win, '12-nav-collapsed');
   await win.webContents.executeJavaScript('document.querySelector("#sidebar .sb-collapse")?.click()');
   await new Promise((resolve) => setTimeout(resolve, 400));
@@ -335,6 +364,7 @@ async function runPlanning(win) {
     ['scrim-hub', ['Scrim Hub'], '31-scrim-hub'],
     ['vod-library', ['VOD Library'], '32-vod-library'],
     ['veto-lab', ['Veto Lab'], '33-veto-lab'],
+    ['playbooks', ['Strats & Playbooks', 'Playbooks'], '37-playbooks'],
     ['scouting', ['Scouting'], '34-scouting'],
     ['reports', ['Reports'], '35-reports'],
     ['rankings', ['Rankings'], '36-rankings'],
@@ -361,7 +391,7 @@ async function run(win) {
   // section is reachable by its own deep link.
   const settingsSections = [
     ['', ['Settings', 'Organization', 'Game Rules', 'Identity', 'Org Name'], '19-settings-organization'],
-    ['/game-rules', ['CDL Ruleset', 'Add Map'], '19b-settings-game-rules'],
+    ['/game-rules', ['Game & Season', 'Add Map'], '19b-settings-game-rules'],
     ['/integrations', ['Connected Services', 'Discord', 'Not Connected', 'Set Up', 'External Data'], '19c-settings-integrations'],
     ['/data', ['Storage', 'On-device only', 'Danger Zone', 'Delete All Data'], '19d-settings-data'],
     ['/about', ['Coach Intel', 'Version', 'Ruleset'], '19e-settings-about'],
@@ -443,19 +473,25 @@ async function run(win) {
   );
   if (!disabledOption) problems.push('a channel missing permissions should appear as a disabled option');
 
-  // Share → Discord should appear on the Intel Feed once Discord is connected.
-  await goto(win, '#/command-center/team-naevii/intel');
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  const shareVisible = await win.webContents.executeJavaScript(
-    'Array.from(document.querySelectorAll("button")).some((b) => b.textContent.trim() === "Share" && b.style.display !== "none")'
-  );
-  if (!shareVisible) problems.push('Intel Feed should show a visible Share button when Discord is connected');
+  const teams = await dataStore.getTeams();
+  const teamId = teams[0]?.id;
+  if (!teamId) {
+    problems.push('verify needs at least one team in the data store');
+  } else {
+    // Share → Discord should appear on the Intel Feed once Discord is connected.
+    await goto(win, `#/command-center/${teamId}/intel`);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const shareVisible = await win.webContents.executeJavaScript(
+      'Array.from(document.querySelectorAll("button")).some((b) => b.textContent.trim() === "Share" && b.style.display !== "none")'
+    );
+    if (!shareVisible) problems.push('Intel Feed should show a visible Share button when Discord is connected');
 
-  // Share → Discord should appear on a saved Strat.
-  await goto(win, '#/command-center/team-naevii/strats');
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const stratsText = await pageText(win);
-  if (!stratsText.includes('strat')) problems.push('Strats tab did not render the playbook');
+    // Share → Discord should appear on a saved Strat.
+    await goto(win, `#/command-center/${teamId}/strats`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const stratsText = await pageText(win);
+    if (!stratsText.includes('strat')) problems.push('Strats tab did not render the playbook');
+  }
 
   // A coachintel:// link from a Discord notification must land on the right screen.
   await goto(win, '#/dashboard');
@@ -534,6 +570,33 @@ watchdog.unref();
 app.whenReady().then(async () => {
   handleAssetProtocol();
   await dataStore.ensureDirectories();
+  await dataStore.saveOrg({ name: 'QA Org', tag: 'QA', coachName: 'QA Coach' });
+  const team = await dataStore.saveTeam({ name: 'QA Temp Team', tag: 'QAT' });
+  await dataStore.saveMember(team.id, { gamertag: 'QATempPlayer', name: 'QA Player', role: 'Flex' });
+  await dataStore.saveMatch(team.id, {
+    opponent: 'Rivals',
+    mode: 'Hardpoint',
+    map: 'Skyline',
+    result: 'Win',
+    score: '250-180',
+    date: '2026-08-01',
+  });
+  await dataStore.saveMatch(team.id, {
+    opponent: 'Rivals',
+    mode: 'Hardpoint',
+    map: 'Skyline',
+    result: 'Loss',
+    score: '180-250',
+    date: '2026-08-08',
+  });
+  await dataStore.saveMatch(team.id, {
+    opponent: 'Rivals',
+    mode: 'Hardpoint',
+    map: 'Skyline',
+    result: 'Win',
+    score: '250-200',
+    date: '2026-08-15',
+  });
   registerIpc();
 
   const win = new BrowserWindow({

@@ -1,24 +1,10 @@
 import { el, icon, fmtDate } from '../utils.js';
 import { iconBtn } from './teamHub/parts.js';
-import { openModal, modalActions } from '../components/modal.js';
 import { pageHeader, teamSelect, emptyState, openForm, confirmModal, toast } from './planningShared.js';
+import { parseVodUrl } from '../lib/vodLink.js';
+import { openVodReview } from './vodReview.js';
 
 const SOURCES = ['Link', 'YouTube', 'Twitch', 'Local File', 'Other'];
-
-function fmtClock(seconds) {
-  const s = Math.max(0, Math.floor(seconds || 0));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const mm = h ? String(m).padStart(2, '0') : String(m);
-  return `${h ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}`;
-}
-
-function parseClock(str) {
-  const parts = String(str || '').trim().split(':').map((p) => parseInt(p, 10));
-  if (parts.some((p) => Number.isNaN(p))) return 0;
-  return parts.reduce((acc, p) => acc * 60 + p, 0);
-}
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
@@ -51,7 +37,7 @@ async function draw(container, ctx, teams, active, reload) {
       `${active.name} — clips and timestamped review`,
       el('div', { style: 'display:flex;gap:10px;align-items:center;' }, [
         teamSelect(teams, active.id, (id) => ctx.navigate('vod-library', id)),
-        el('button', { class: 'btn primary', onclick: () => vodForm(active.id, mapNames, modeNames, matches, strats, reload) }, [
+        el('button', { class: 'btn primary edit-only', onclick: () => vodForm(active.id, mapNames, modeNames, matches, strats, reload) }, [
           el('span', { class: 'icon', style: 'display:inline-flex;vertical-align:-2px;margin-right:6px;', html: icon('plus', 13) }),
           'Add VOD',
         ]),
@@ -64,7 +50,7 @@ async function draw(container, ctx, teams, active, reload) {
       emptyState(
         'No VODs yet',
         'Add a VOD to store its link and drop timestamped notes tied to the maps, matches and strats you review.',
-        el('button', { class: 'btn primary', onclick: () => vodForm(active.id, mapNames, modeNames, matches, strats, reload) }, 'Add your first VOD')
+        el('button', { class: 'btn primary edit-only', onclick: () => vodForm(active.id, mapNames, modeNames, matches, strats, reload) }, 'Add your first VOD')
       )
     );
     return;
@@ -111,13 +97,14 @@ function filterSelect(allLabel, options, onChange) {
 
 function vodCard(vod, teamId, mapNames, modeNames, matches, strats, reload) {
   const tags = [vod.mode, vod.map, vod.opponent ? `vs ${vod.opponent}` : null].filter(Boolean);
+  const media = parseVodUrl(vod.url);
   return el('div', { class: 'card' }, [
     el('div', { class: 'card-head' }, [
       el('div', { style: 'min-width:0;' }, [
         el('div', { style: 'font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;' }, vod.title),
-        el('div', { class: 'field-hint', style: 'margin-top:2px;' }, `${vod.source} · ${fmtDate(vod.date)}`),
+        el('div', { class: 'field-hint', style: 'margin-top:2px;' }, `${media.label || vod.source} · ${fmtDate(vod.date)}`),
       ]),
-      el('div', { class: 'crow-actions' }, [
+      el('div', { class: 'crow-actions edit-only' }, [
         iconBtn('edit', 'Edit VOD', () => vodForm(teamId, mapNames, modeNames, matches, strats, reload, vod)),
         iconBtn('trash', 'Delete VOD', () =>
           confirmModal({
@@ -135,79 +122,21 @@ function vodCard(vod, teamId, mapNames, modeNames, matches, strats, reload) {
       ? el('div', { style: 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;' }, tags.map((t) => el('span', { class: 'role-badge' }, t)))
       : null,
     vod.notes ? el('div', { class: 'field-hint', style: 'line-height:1.5;margin-bottom:10px;' }, vod.notes) : null,
-    el('div', { style: 'display:flex;gap:8px;align-items:center;' }, [
-      el('button', { class: 'btn sm', onclick: () => openReview(vod, teamId, reload) }, [`Review · ${(vod.markers || []).length} marker${(vod.markers || []).length === 1 ? '' : 's'}`]),
-      vod.url ? el('button', { class: 'btn sm subtle', onclick: () => copyLink(vod.url) }, 'Copy link') : null,
+    el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;' }, [
+      el('button', { class: 'btn sm primary', onclick: () => openVodReview(vod, teamId, reload) }, [
+        media.kind === 'youtube' ? 'Watch & note' : 'Review',
+        ` · ${(vod.markers || []).length} note${(vod.markers || []).length === 1 ? '' : 's'}`,
+      ]),
+      media.watchUrl
+        ? el('button', { class: 'btn sm subtle', onclick: () => openMedia(media.watchUrl) }, `Open ${media.label || 'link'}`)
+        : null,
     ]),
   ]);
 }
 
-async function copyLink(url) {
-  try {
-    await navigator.clipboard.writeText(url);
-    toast('Link copied', 'ok');
-  } catch {
-    toast('Could not copy link', 'error');
-  }
-}
-
-function openReview(vod, teamId, reload) {
-  const body = el('div', {}, [
-    el('h3', {}, vod.title),
-    vod.url ? el('div', { class: 'field-hint', style: 'margin:-8px 0 12px;word-break:break-all;' }, vod.url) : null,
-  ]);
-  const list = el('div', {});
-  const renderMarkers = () => {
-    list.innerHTML = '';
-    const markers = [...(vod.markers || [])].sort((a, b) => a.t - b.t);
-    if (!markers.length) list.append(el('div', { class: 'field-hint', style: 'padding:6px 2px;' }, 'No markers yet. Add timestamps to review key moments.'));
-    for (const marker of markers) {
-      list.append(
-        el('div', { class: 'crow', style: 'cursor:default;align-items:flex-start;' }, [
-          el('span', { class: 'vod-ts' }, fmtClock(marker.t)),
-          el('div', { class: 'crow-main' }, [
-            el('div', { class: 'crow-title', style: 'white-space:normal;' }, marker.label || 'Marker'),
-            marker.note ? el('div', { class: 'field-hint', style: 'margin-top:3px;line-height:1.5;' }, marker.note) : null,
-          ]),
-          el('div', { class: 'crow-actions' }, [
-            iconBtn('trash', 'Remove marker', async () => {
-              const markersNext = (vod.markers || []).filter((m) => m.id !== marker.id);
-              vod.markers = markersNext;
-              await window.cci.saveVod(teamId, { ...vod, markers: markersNext });
-              renderMarkers();
-            }),
-          ]),
-        ])
-      );
-    }
-  };
-  renderMarkers();
-  body.append(list);
-  body.append(
-    modalActions([
-      el('button', { class: 'btn subtle', onclick: () => overlay.remove() }, 'Close'),
-      el('button', { class: 'btn primary', onclick: () => addMarker(vod, teamId, renderMarkers) }, '+ Add Marker'),
-    ])
-  );
-  const overlay = openModal(body, { width: '500px' });
-}
-
-function addMarker(vod, teamId, renderMarkers) {
-  openForm({
-    title: 'Add Marker',
-    fields: [
-      { key: 'time', label: 'Timestamp', placeholder: 'mm:ss (e.g. 4:12)', hint: 'Minutes:seconds into the VOD.' },
-      { key: 'label', label: 'Label', required: true, placeholder: 'Rotation, bad trade, great flank…' },
-      { key: 'note', label: 'Note', type: 'textarea', placeholder: 'What to take away from this moment' },
-    ],
-    onSubmit: async (values) => {
-      const marker = { id: `m${Date.now().toString(36)}`, t: parseClock(values.time), label: values.label, note: values.note };
-      const markers = [...(vod.markers || []), marker];
-      vod.markers = markers;
-      await window.cci.saveVod(teamId, { ...vod, markers });
-      renderMarkers();
-    },
-  });
+async function openMedia(url) {
+  const ok = await window.cci.openMedia?.(url);
+  if (!ok) toast('Could not open that VOD link', 'error');
 }
 
 function vodForm(teamId, mapNames, modeNames, matches, strats, reload, vod = null) {
@@ -234,7 +163,11 @@ function vodForm(teamId, mapNames, modeNames, matches, strats, reload, vod = nul
     ],
     values: vod || { source: 'Link', date: new Date().toISOString().slice(0, 10) },
     onSubmit: async (values) => {
-      await window.cci.saveVod(teamId, { ...(vod || {}), ...values });
+      const media = parseVodUrl(values.url);
+      const source = values.source && values.source !== 'Link'
+        ? values.source
+        : media.kind === 'youtube' ? 'YouTube' : media.kind.startsWith('twitch') ? 'Twitch' : values.source;
+      await window.cci.saveVod(teamId, { ...(vod || {}), ...values, source });
       toast(vod ? 'VOD updated' : 'VOD added', 'ok');
       reload();
     },

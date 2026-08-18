@@ -1,14 +1,23 @@
 import { el } from '../utils.js';
 
-// Shared overlay used by the Discord integration screens. Matches the existing
-// .modal-overlay / .modal styling already in the app.
-export function openModal(bodyEl, { width } = {}) {
-  const overlay = el('div', {
-    class: 'modal-overlay',
-    onclick: (e) => {
-      if (e.target === overlay) overlay.remove();
-    },
+// Close only when the press started and ended on the dimmed backdrop.
+// A click event fires on mouseup's target, so selecting text in the modal
+// and releasing outside used to dismiss without saving.
+export function bindBackdropDismiss(overlay) {
+  let pressedOnBackdrop = false;
+  overlay.addEventListener('pointerdown', (e) => {
+    pressedOnBackdrop = e.target === overlay;
   });
+  overlay.addEventListener('pointerup', (e) => {
+    const close = pressedOnBackdrop && e.target === overlay;
+    pressedOnBackdrop = false;
+    if (close) overlay.remove();
+  });
+}
+
+export function openModal(bodyEl, { width } = {}) {
+  const overlay = el('div', { class: 'modal-overlay' });
+  bindBackdropDismiss(overlay);
   const modal = el('div', { class: 'modal', style: width ? `width:${width};` : null });
   modal.append(bodyEl);
   overlay.append(modal);
@@ -17,9 +26,13 @@ export function openModal(bodyEl, { width } = {}) {
   const onKey = (e) => {
     if (e.key !== 'Escape') return;
     overlay.remove();
-    window.removeEventListener('keydown', onKey);
   };
   window.addEventListener('keydown', onKey);
+  const remove = overlay.remove.bind(overlay);
+  overlay.remove = () => {
+    window.removeEventListener('keydown', onKey);
+    remove();
+  };
 
   return overlay;
 }

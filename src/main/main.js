@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeImage, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, shell, screen, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { registerAssetScheme, handleAssetProtocol } = require('./assetProtocol');
@@ -10,8 +10,13 @@ const screenshotStore = require('./screenshotStore');
 const planningStore = require('./planningStore');
 const events = require('./events');
 const discord = require('./discord');
+const notificationStore = require('./notificationStore');
 const supabase = require('./supabase');
+const { syncLocalRosterToRemote, sharedWriteHint } = require('./rosterSync');
+const cloudSync = require('./cloudSync');
+const { assertCanEdit, seesAllTeams } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
+const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
 
 app.setName('Coach Intel');
@@ -47,6 +52,10 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.setTitle('Coach Intel');
+
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    if (params.mediaType === 'image' || params.hasImageContents) event.preventDefault();
+  });
 
   mainWindow.webContents.on('console-message', (e, level, message) => {
     if (level >= 2) console.log('[renderer]', message);
@@ -86,6 +95,51 @@ function focusWindow() {
 // regex would just reject it and the sign-in would silently go nowhere.
 function isAuthCallback(url) {
   return typeof url === 'string' && url.startsWith(`${DEEP_LINK_SCHEME}://auth-callback`);
+}
+
+function inviteTokenFromUrl(url) {
+  if (typeof url !== 'string') return null;
+  const prefix = `${DEEP_LINK_SCHEME}://invite/`;
+  if (!url.startsWith(prefix)) return null;
+  const token = url.slice(prefix.length).split(/[?#]/)[0].trim();
+  return /^[A-Za-z0-9_-]{16,64}$/.test(token) ? token : null;
+}
+
+function sendInviteEvent(channel, payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+}
+
+async function teamsForSession(teams) {
+  try {
+    const state = await supabase.get().getState();
+    if (!state?.session) return teams;
+    const { me } = await supabase.get().listProfiles();
+    if (!me || seesAllTeams(me.role)) return teams;
+    const ids = await supabase.get().teamIdsForUser(me.id);
+    if (!ids) return teams;
+    const allow = new Set(ids);
+    return teams.filter((team) => allow.has(team.id));
+  } catch (err) {
+    console.warn('[main] team scope failed', err.message);
+    return teams;
+  }
+}
+
+async function redeemPendingInvite() {
+  const token = await supabase.get().getPendingToken();
+  if (!token) return null;
+  try {
+    const result = await supabase.get().redeem(token);
+    sendInviteEvent('cci:inviteResult', {
+      ok: true,
+      message: 'Discord is linked to this player. You will see their team and role.',
+      ...result,
+    });
+    return result;
+  } catch (err) {
+    sendInviteEvent('cci:inviteResult', { ok: false, error: err.message });
+    return null;
+  }
 }
 
 function sendAuthState(payload) {
@@ -143,7 +197,11 @@ async function handleAuthCallback(url) {
       await supabase.get().signOut();
       sendAuthState({ session: null, error: membership.reason });
     } else {
+      await redeemPendingInvite();
       sendAuthState({ session, error: null });
+      syncLocalRosterToRemote({ supabase, dataStore }).catch((err) => {
+        console.error('[main] roster sync after sign-in failed', err);
+      });
     }
   } catch (err) {
     console.error('[main] supabase auth callback failed', err.message);
@@ -157,6 +215,11 @@ function handleDeepLink(url) {
     handleAuthCallback(url);
     return;
   }
+  const inviteToken = inviteTokenFromUrl(url);
+  if (inviteToken) {
+    handleInviteLink(inviteToken);
+    return;
+  }
   const route = routeFromDeepLink(url);
   if (!route) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -167,20 +230,77 @@ function handleDeepLink(url) {
   }
 }
 
+async function handleInviteLink(token) {
+  try {
+    await supabase.get().setPending(token);
+  } catch (err) {
+    sendInviteEvent('cci:inviteResult', { ok: false, error: err.message });
+    focusWindow();
+    return;
+  }
+  try {
+    const state = await supabase.get().getState();
+    if (state?.session) {
+      await redeemPendingInvite();
+      focusWindow();
+      return;
+    }
+    const preview = await supabase.get().preview(token).catch((err) => ({ ok: false, error: err.message }));
+    sendInviteEvent('cci:invitePending', preview);
+  } catch (err) {
+    sendInviteEvent('cci:inviteResult', { ok: false, error: err.message });
+  }
+  focusWindow();
+}
+
+function appEntryPath() {
+  const arg = process.argv.slice(1).find(
+    (a) => a && !a.startsWith('-') && !String(a).startsWith(`${DEEP_LINK_SCHEME}://`)
+  );
+  return path.resolve(arg || process.cwd());
+}
+
+function launchUrlFromArgv(argv = process.argv) {
+  return argv.find((a) => typeof a === 'string' && a.startsWith(`${DEEP_LINK_SCHEME}://`)) || null;
+}
+
+// Unpackaged `electron .` must pass this app's path, or macOS hands
+// coachintel:// to some other Electron.app on the machine.
+function registerDeepLinkProtocol() {
+  if (!shouldClaimProtocol(app.isPackaged)) return;
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME);
+    return;
+  }
+  app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.execPath, [appEntryPath()]);
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
+  // Without this return, app.quit() only *requests* a shutdown — the rest of
+  // this script (including app.whenReady().then(createWindow)) still runs in
+  // the same tick, so a redundant launch could briefly spin up its own window
+  // and even race the real instance for the OAuth code in the deep link.
   console.log('[main] another Coach Intel is already open');
   app.quit();
+  return;
 } else {
   app.on('second-instance', (event, argv) => {
-    const link = argv.find((arg) => arg.startsWith(`${DEEP_LINK_SCHEME}://`));
+    const link = launchUrlFromArgv(argv);
     if (link) handleDeepLink(link);
     else if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
   });
 }
 
+// open-url can fire before whenReady. Queue it so the auth callback is not
+// dropped, and so a second Electron binary never has to start to receive it.
+let pendingLaunchUrl = null;
 app.on('open-url', (event, url) => {
   event.preventDefault();
+  if (!app.isReady()) {
+    pendingLaunchUrl = url;
+    return;
+  }
   handleDeepLink(url);
 });
 
@@ -213,12 +333,24 @@ app.whenReady().then(async () => {
   await seedPackagedData();
   await dataStore.ensureDirectories();
 
-  app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME);
+  registerDeepLinkProtocol();
   discord.init({
     dataRoot: dataStore.DATA_ROOT,
     getOrgName: async () => (await dataStore.getOrg())?.name || null,
   });
-  supabase.init({ dataRoot: dataStore.DATA_ROOT });
+  try {
+    supabase.init({ dataRoot: dataStore.DATA_ROOT });
+    // Live roster sync: any teammate's change to teams/members pushes a refresh
+    // to every open window, so the app updates without anyone reloading it.
+    supabase.get().subscribeRealtime((table) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cci:dataChanged', { table });
+    });
+    syncLocalRosterToRemote({ supabase, dataStore }).catch((err) => {
+      console.error('[main] roster sync on launch failed', err);
+    });
+  } catch (err) {
+    console.error('[main] supabase init failed', err);
+  }
 
   // Domain events reach Discord only through this subscription, so the data layer
   // stays unaware of it. Delivery is filtered by the coach's notification
@@ -226,6 +358,10 @@ app.whenReady().then(async () => {
   events.subscribe((eventId, payload) => discord.get().publish(eventId, payload));
 
   createWindow();
+
+  const launchUrl = pendingLaunchUrl || launchUrlFromArgv();
+  pendingLaunchUrl = null;
+  if (launchUrl) handleDeepLink(launchUrl);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -240,65 +376,375 @@ app.on('window-all-closed', () => {
 
 // ---------- IPC ----------
 
-ipcMain.handle('cci:getOrg', () => dataStore.getOrg());
-ipcMain.handle('cci:saveOrg', (e, org) => dataStore.saveOrg(org));
+ipcMain.handle('cci:getOrg', () => cloudSync.hydrate('org'));
+ipcMain.handle('cci:saveOrg', requireEdit(async (e, org) => {
+  const saved = await dataStore.saveOrg(org);
+  if (org?.accent) {
+    supabase.get().syncAccent(org.accent).catch((err) => {
+      console.warn('[main] accent sync failed', err.message);
+    });
+  }
+  await cloudSave('org', '', saved);
+  return saved;
+}));
 
-ipcMain.handle('cci:getTeams', () => dataStore.getTeams());
-ipcMain.handle('cci:getTeam', (e, teamId) => dataStore.getTeam(teamId));
-ipcMain.handle('cci:saveTeam', (e, team) => dataStore.saveTeam(team));
-ipcMain.handle('cci:deleteTeam', (e, teamId) => dataStore.deleteTeam(teamId));
+// Teams, members, matches, strats, notes, tasks, and planning all hydrate from
+// Supabase when signed in. Local JSON is the working copy on this machine.
+function ipcErrorMessage(err) {
+  if (!err) return 'Something went wrong.';
+  if (typeof err === 'string') return err;
+  return err.message || err.details || err.hint || 'Something went wrong.';
+}
 
-ipcMain.handle('cci:getMembers', (e, teamId) => dataStore.getMembers(teamId));
-ipcMain.handle('cci:getMember', (e, teamId, memberId) => dataStore.getMember(teamId, memberId));
-ipcMain.handle('cci:saveMember', (e, teamId, member) => dataStore.saveMember(teamId, member));
-ipcMain.handle('cci:deleteMember', (e, teamId, memberId) => dataStore.deleteMember(teamId, memberId));
+async function withTimeout(promise, ms, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-ipcMain.handle('cci:getMatches', (e, teamId) => dataStore.getMatches(teamId));
+function requireEdit(handler) {
+  return async (...args) => {
+    await assertCanEdit(supabase);
+    return handler(...args);
+  };
+}
 
-ipcMain.handle('cci:getStrats', (e, teamId) => dataStore.getStrats(teamId));
-ipcMain.handle('cci:getStrat', (e, teamId, stratId) => dataStore.getStrat(teamId, stratId));
-ipcMain.handle('cci:saveStrat', (e, teamId, strat) => events.saveStratAndAnnounce(dataStore, teamId, strat));
-ipcMain.handle('cci:deleteStrat', (e, teamId, stratId) => dataStore.deleteStrat(teamId, stratId));
-ipcMain.handle('cci:duplicateStrat', (e, teamId, stratId) => dataStore.duplicateStrat(teamId, stratId));
-ipcMain.handle('cci:restoreStratVersion', (e, teamId, stratId, version) => dataStore.restoreStratVersion(teamId, stratId, version));
+async function cloudSave(kind, teamId, saved) {
+  const { session } = await supabase.get().getState();
+  try {
+    if (session) await cloudSync.push(kind, teamId, saved);
+    return saved;
+  } catch (err) {
+    console.error('[main] cloud save failed', ipcErrorMessage(err));
+    if (session) throw new Error(sharedWriteHint(err));
+    return saved;
+  }
+}
 
-ipcMain.handle('cci:getNotes', (e, teamId) => dataStore.getNotes(teamId));
-ipcMain.handle('cci:saveNote', (e, teamId, note) => dataStore.saveNote(teamId, note));
-ipcMain.handle('cci:deleteNote', (e, teamId, noteId) => dataStore.deleteNote(teamId, noteId));
+async function cloudDelete(kind, teamId, id) {
+  const { session } = await supabase.get().getState();
+  try {
+    if (session) await cloudSync.remove(kind, teamId, id);
+  } catch (err) {
+    console.error('[main] cloud delete failed', ipcErrorMessage(err));
+    if (session) throw new Error(sharedWriteHint(err));
+  }
+}
 
-ipcMain.handle('cci:getTasks', (e, teamId) => dataStore.getTasks(teamId));
-ipcMain.handle('cci:saveTask', (e, teamId, task) => dataStore.saveTask(teamId, task));
-ipcMain.handle('cci:deleteTask', (e, teamId, taskId) => dataStore.deleteTask(teamId, taskId));
+ipcMain.handle('cci:getTeams', async () => {
+  let remote = [];
+  try {
+    remote = await withTimeout(supabase.get().getTeams(), 2500, 'Loading teams');
+  } catch (err) {
+    console.error('[main] getTeams failed', ipcErrorMessage(err));
+  }
+  return dataStore.applyLocalLogos(await teamsForSession(await teamsWithLocal(remote)));
+});
+ipcMain.handle('cci:getTeam', async (e, teamId) => {
+  const local = await dataStore.getTeam(teamId);
+  let remote = null;
+  try {
+    remote = await supabase.get().getTeam(teamId);
+  } catch (err) {
+    console.error('[main] getTeam failed', ipcErrorMessage(err));
+  }
+  const merged = mergeTeam(remote, local);
+  const allowed = await teamsForSession(merged ? [merged] : []);
+  return dataStore.applyLocalLogo(allowed[0] || null);
+});
+ipcMain.handle('cci:saveTeam', requireEdit(async (e, team) => {
+  if (team?.id && team.logo) await dataStore.patchTeamLogo(team.id, team.logo);
+  const savedLocal = await dataStore.saveTeam(team);
+  const payload = { ...team, ...savedLocal, id: savedLocal.id };
+  // Local write is enough to enter the app. Supabase sync must not block Create.
+  supabase.get().ensureProfile().catch(() => null).then(() =>
+    supabase.get().saveTeam(payload)
+  ).catch((err) => {
+    console.error('[main] saveTeam sync failed', sharedWriteHint(err));
+  });
+  return dataStore.applyLocalLogo(savedLocal);
+}));
+ipcMain.handle('cci:deleteTeam', requireEdit(async (e, teamId) => {
+  const { session } = await supabase.get().getState();
+  try {
+    await supabase.get().deleteTeam(teamId);
+  } catch (err) {
+    console.error('[main] deleteTeam failed', ipcErrorMessage(err));
+    if (session) throw new Error(ipcErrorMessage(err));
+  }
+  // Teams moved to Supabase, but everything else this team owns (matches,
+  // strats, notes, tasks, screenshots) is still local-only — without this, it
+  // silently survives on disk forever after the team itself is gone.
+  await dataStore.deleteTeam(teamId);
+}));
 
-// ---------- Planning & prep (Calendar, Scrim Hub, VOD Library, Veto Lab) ----------
+function mergeTeam(remote, local) {
+  if (!remote && !local) return null;
+  if (!remote) return local; // created while offline/signed out, never synced yet
+  if (!local) return remote;
+  // Supabase is the shared source of truth once a team is synced — remote
+  // wins on every field except logo, which is resolved from a local asset
+  // path rather than stored as data in Supabase (see applyLocalLogo).
+  return { ...local, ...remote, logo: local.logo || remote.logo };
+}
 
-ipcMain.handle('cci:getEvents', (e, teamId) => planningStore.getEvents(teamId));
-ipcMain.handle('cci:saveEvent', (e, teamId, event) => planningStore.saveEvent(teamId, event));
-ipcMain.handle('cci:deleteEvent', (e, teamId, eventId) => planningStore.deleteEvent(teamId, eventId));
+async function teamsWithLocal(remote) {
+  const local = await dataStore.getTeams();
+  const localById = new Map((local || []).filter((t) => t?.id).map((t) => [t.id, t]));
+  const seen = new Set();
+  const out = [];
+  for (const team of remote || []) {
+    if (!team?.id) continue;
+    seen.add(team.id);
+    out.push(mergeTeam(team, localById.get(team.id)));
+  }
+  for (const team of local || []) {
+    if (team?.id && !seen.has(team.id)) out.push(team);
+  }
+  return out;
+}
 
-ipcMain.handle('cci:getScrims', (e, teamId) => planningStore.getScrims(teamId));
-ipcMain.handle('cci:saveScrim', (e, teamId, scrim) => planningStore.saveScrim(teamId, scrim));
-ipcMain.handle('cci:deleteScrim', (e, teamId, scrimId) => planningStore.deleteScrim(teamId, scrimId));
+async function membersWithLocal(teamId, remote) {
+  const local = await dataStore.getMembers(teamId);
+  const byId = new Map();
+  for (const m of remote || []) if (m?.id) byId.set(m.id, m);
+  for (const m of local) {
+    if (!m?.id) continue;
+    const prev = byId.get(m.id);
+    if (!prev) {
+      byId.set(m.id, m); // created while offline/signed out, never synced yet
+      continue;
+    }
+    // Supabase is the shared source of truth once a member is synced.
+    byId.set(m.id, {
+      ...m,
+      ...prev,
+      user_id: prev.user_id || m.user_id || null,
+      linked: prev.linked || m.linked || null,
+    });
+  }
+  return [...byId.values()].sort((a, b) =>
+    String(a.gamertag || '').localeCompare(String(b.gamertag || ''))
+  );
+}
 
-ipcMain.handle('cci:getVods', (e, teamId) => planningStore.getVods(teamId));
-ipcMain.handle('cci:saveVod', (e, teamId, vod) => planningStore.saveVod(teamId, vod));
-ipcMain.handle('cci:deleteVod', (e, teamId, vodId) => planningStore.deleteVod(teamId, vodId));
+ipcMain.handle('cci:getMembers', async (e, teamId) => {
+  let remote = [];
+  try {
+    remote = await withTimeout(supabase.get().getMembers(teamId), 2500, 'Loading roster');
+  } catch (err) {
+    console.error('[main] getMembers failed', ipcErrorMessage(err));
+  }
+  return membersWithLocal(teamId, remote);
+});
+ipcMain.handle('cci:getMember', async (e, teamId, memberId) => {
+  const local = await dataStore.getMember(teamId, memberId);
+  try {
+    const remote = await supabase.get().getMember(teamId, memberId);
+    if (!remote) return local;
+    return {
+      ...local,
+      ...remote,
+      user_id: remote.user_id || local?.user_id || null,
+      linked: remote.linked || local?.linked || null,
+    };
+  } catch (err) {
+    console.error('[main] getMember failed', ipcErrorMessage(err));
+    return local;
+  }
+});
+ipcMain.handle('cci:saveMember', requireEdit(async (e, teamId, member) => {
+  const savedLocal = await dataStore.saveMember(teamId, member);
+  const { session } = await supabase.get().getState();
+  try {
+    if (session) await supabase.get().ensureProfile().catch(() => null);
+    const remote = await supabase.get().saveMember(teamId, { ...member, ...savedLocal, id: savedLocal.id });
+    return { ...savedLocal, ...remote };
+  } catch (err) {
+    console.error('[main] saveMember failed', ipcErrorMessage(err));
+    if (session) throw new Error(sharedWriteHint(err));
+    return savedLocal;
+  }
+}));
+ipcMain.handle('cci:deleteMember', requireEdit(async (e, teamId, memberId) => {
+  const { session } = await supabase.get().getState();
+  try {
+    await supabase.get().deleteMember(teamId, memberId);
+  } catch (err) {
+    console.error('[main] deleteMember failed', ipcErrorMessage(err));
+    if (session) throw new Error(ipcErrorMessage(err));
+  }
+  await dataStore.deleteMember(teamId, memberId);
+  return true;
+}));
+async function transferAndSync(fromTeamId, toTeamId, memberId, opts) {
+  const savedLocal = await dataStore.transferMember(fromTeamId, toTeamId, memberId, opts || {});
+  const { session } = await supabase.get().getState();
+  try {
+    const remote = await supabase.get().transferMember(fromTeamId, toTeamId, memberId, opts || {});
+    return { ...savedLocal, ...remote };
+  } catch (err) {
+    console.error('[main] transferMember failed', ipcErrorMessage(err));
+    if (session) throw new Error(ipcErrorMessage(err));
+    return savedLocal;
+  }
+}
 
-ipcMain.handle('cci:getVetoes', (e, teamId) => planningStore.getVetoes(teamId));
-ipcMain.handle('cci:saveVeto', (e, teamId, veto) => planningStore.saveVeto(teamId, veto));
-ipcMain.handle('cci:deleteVeto', (e, teamId, vetoId) => planningStore.deleteVeto(teamId, vetoId));
+ipcMain.handle('cci:transferMember', requireEdit((e, fromTeamId, toTeamId, memberId, opts) =>
+  transferAndSync(fromTeamId, toTeamId, memberId, opts)
+));
+ipcMain.handle('cci:transferMembers', requireEdit(async (e, fromTeamId, toTeamId, memberIds, opts) => {
+  const moved = [];
+  for (const id of memberIds || []) {
+    moved.push(await transferAndSync(fromTeamId, toTeamId, id, opts));
+  }
+  return moved;
+}));
 
-// ---------- Scouting & Rankings (org-level) ----------
+ipcMain.handle('cci:getMatches', (e, teamId) => cloudSync.hydrate('match', teamId));
+ipcMain.handle('cci:saveMatch', requireEdit(async (e, teamId, match) => {
+  const saved = await dataStore.saveMatch(teamId, match);
+  return cloudSave('match', teamId, saved);
+}));
+ipcMain.handle('cci:deleteMatch', requireEdit(async (e, teamId, matchId) => {
+  await dataStore.deleteMatch(teamId, matchId);
+  await cloudDelete('match', teamId, matchId);
+  return true;
+}));
 
-ipcMain.handle('cci:getOpponents', () => planningStore.getOpponents());
-ipcMain.handle('cci:getOpponent', (e, opponentId) => planningStore.getOpponent(opponentId));
-ipcMain.handle('cci:saveOpponent', (e, opponent) => planningStore.saveOpponent(opponent));
-ipcMain.handle('cci:deleteOpponent', (e, opponentId) => planningStore.deleteOpponent(opponentId));
+ipcMain.handle('cci:getStrats', (e, teamId) => cloudSync.hydrate('strat', teamId));
+ipcMain.handle('cci:getStrat', async (e, teamId, stratId) => {
+  await cloudSync.hydrate('strat', teamId);
+  return dataStore.getStrat(teamId, stratId);
+});
+const stratAnnounceStore = { ...dataStore, getTeam: (teamId) => supabase.get().getTeam(teamId) };
+ipcMain.handle('cci:saveStrat', requireEdit(async (e, teamId, strat) => {
+  const saved = await events.saveStratAndAnnounce(stratAnnounceStore, teamId, strat);
+  return cloudSave('strat', teamId, saved);
+}));
 
-ipcMain.handle('cci:getRankings', () => planningStore.getRankings());
-ipcMain.handle('cci:saveRankings', (e, rankings) => planningStore.saveRankings(rankings));
+const planningAnnounceStore = {
+  ...planningStore,
+  getTeam: (teamId) => supabase.get().getTeam(teamId),
+  getMembers: (teamId) => supabase.get().getMembers(teamId),
+};
+ipcMain.handle('cci:deleteStrat', requireEdit(async (e, teamId, stratId) => {
+  await dataStore.deleteStrat(teamId, stratId);
+  await cloudDelete('strat', teamId, stratId);
+  return true;
+}));
+ipcMain.handle('cci:duplicateStrat', requireEdit(async (e, teamId, stratId) => {
+  const saved = await dataStore.duplicateStrat(teamId, stratId);
+  return cloudSave('strat', teamId, saved);
+}));
+ipcMain.handle('cci:restoreStratVersion', requireEdit(async (e, teamId, stratId, version) => {
+  const saved = await dataStore.restoreStratVersion(teamId, stratId, version);
+  return cloudSave('strat', teamId, saved);
+}));
 
-ipcMain.handle('cci:deleteAllData', () => dataStore.deleteAllData());
+ipcMain.handle('cci:getNotes', (e, teamId) => cloudSync.hydrate('note', teamId));
+ipcMain.handle('cci:saveNote', requireEdit(async (e, teamId, note) => {
+  const saved = await dataStore.saveNote(teamId, note);
+  return cloudSave('note', teamId, saved);
+}));
+ipcMain.handle('cci:deleteNote', requireEdit(async (e, teamId, noteId) => {
+  await dataStore.deleteNote(teamId, noteId);
+  await cloudDelete('note', teamId, noteId);
+  return true;
+}));
+
+ipcMain.handle('cci:getTasks', (e, teamId) => cloudSync.hydrate('task', teamId));
+ipcMain.handle('cci:saveTask', requireEdit(async (e, teamId, task) => {
+  const saved = await dataStore.saveTask(teamId, task);
+  return cloudSave('task', teamId, saved);
+}));
+ipcMain.handle('cci:deleteTask', requireEdit(async (e, teamId, taskId) => {
+  await dataStore.deleteTask(teamId, taskId);
+  await cloudDelete('task', teamId, taskId);
+  return true;
+}));
+
+ipcMain.handle('cci:getEvents', (e, teamId) => cloudSync.hydrate('event', teamId));
+ipcMain.handle('cci:saveEvent', requireEdit(async (e, teamId, event) => {
+  const saved = await events.saveEventAndAnnounce(planningAnnounceStore, teamId, event);
+  return cloudSave('event', teamId, saved);
+}));
+ipcMain.handle('cci:deleteEvent', requireEdit(async (e, teamId, eventId) => {
+  await planningStore.deleteEvent(teamId, eventId);
+  await cloudDelete('event', teamId, eventId);
+  return true;
+}));
+
+ipcMain.handle('cci:getNotifications', (e, teamId) => cloudSync.hydrate('notification', teamId));
+ipcMain.handle('cci:deleteNotification', async (e, teamId, id) => {
+  await notificationStore.deleteNotification(teamId, id);
+  await cloudDelete('notification', teamId, id);
+  return true;
+});
+
+ipcMain.handle('cci:getScrims', (e, teamId) => cloudSync.hydrate('scrim', teamId));
+ipcMain.handle('cci:saveScrim', requireEdit(async (e, teamId, scrim) => {
+  const saved = await events.saveScrimAndAnnounce(planningAnnounceStore, teamId, scrim);
+  return cloudSave('scrim', teamId, saved);
+}));
+ipcMain.handle('cci:deleteScrim', requireEdit(async (e, teamId, scrimId) => {
+  await planningStore.deleteScrim(teamId, scrimId);
+  await cloudDelete('scrim', teamId, scrimId);
+  return true;
+}));
+
+ipcMain.handle('cci:getVods', (e, teamId) => cloudSync.hydrate('vod', teamId));
+ipcMain.handle('cci:saveVod', requireEdit(async (e, teamId, vod) => {
+  const saved = await planningStore.saveVod(teamId, vod);
+  return cloudSave('vod', teamId, saved);
+}));
+ipcMain.handle('cci:deleteVod', requireEdit(async (e, teamId, vodId) => {
+  await planningStore.deleteVod(teamId, vodId);
+  await cloudDelete('vod', teamId, vodId);
+  return true;
+}));
+
+ipcMain.handle('cci:getVetoes', (e, teamId) => cloudSync.hydrate('veto', teamId));
+ipcMain.handle('cci:saveVeto', requireEdit(async (e, teamId, veto) => {
+  const saved = await planningStore.saveVeto(teamId, veto);
+  return cloudSave('veto', teamId, saved);
+}));
+ipcMain.handle('cci:deleteVeto', requireEdit(async (e, teamId, vetoId) => {
+  await planningStore.deleteVeto(teamId, vetoId);
+  await cloudDelete('veto', teamId, vetoId);
+  return true;
+}));
+
+ipcMain.handle('cci:getOpponents', () => cloudSync.hydrate('opponent'));
+ipcMain.handle('cci:getOpponent', async (e, opponentId) => {
+  await cloudSync.hydrate('opponent');
+  return planningStore.getOpponent(opponentId);
+});
+ipcMain.handle('cci:saveOpponent', requireEdit(async (e, opponent) => {
+  const saved = await planningStore.saveOpponent(opponent);
+  return cloudSave('opponent', '', saved);
+}));
+ipcMain.handle('cci:deleteOpponent', requireEdit(async (e, opponentId) => {
+  await planningStore.deleteOpponent(opponentId);
+  await cloudDelete('opponent', '', opponentId);
+  return true;
+}));
+
+ipcMain.handle('cci:getRankings', () => cloudSync.hydrate('rankings'));
+ipcMain.handle('cci:saveRankings', requireEdit(async (e, rankings) => {
+  const saved = await planningStore.saveRankings(rankings);
+  return cloudSave('rankings', '', saved);
+}));
+
+ipcMain.handle('cci:deleteAllData', requireEdit(() => dataStore.deleteAllData()));
 ipcMain.handle('cci:getAppVersion', () => app.getVersion());
 ipcMain.handle('cci:setTrafficLights', (e, collapsed) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -307,14 +753,14 @@ ipcMain.handle('cci:setTrafficLights', (e, collapsed) => {
 
 ipcMain.handle('cci:getNeedsReview', (e, teamId) => dataStore.getNeedsReview(teamId));
 ipcMain.handle('cci:listScoreboards', (e, teamId) => screenshotStore.listPending(teamId));
-ipcMain.handle('cci:importScoreboards', async (e, teamId, payload) => {
-  const team = await dataStore.getTeam(teamId);
+ipcMain.handle('cci:importScoreboards', requireEdit(async (e, teamId, payload) => {
+  const team = await supabase.get().getTeam(teamId);
   if (!team) throw new Error('Team not found');
   return screenshotStore.importScoreboards(teamId, payload || {});
-});
-ipcMain.handle('cci:deleteScoreboard', (e, teamId, filename, bucket) =>
+}));
+ipcMain.handle('cci:deleteScoreboard', requireEdit((e, teamId, filename, bucket) =>
   screenshotStore.deleteScoreboard(teamId, filename, bucket || 'inbox')
-);
+));
 async function defaultScoreboardDir() {
   try {
     await fs.access(screenshotStore.DEFAULT_SCRIM_SB_DIR);
@@ -341,10 +787,12 @@ ipcMain.handle('cci:pickScoreboardFolder', async () => {
   return result.filePaths[0];
 });
 ipcMain.handle('cci:getMetaKnowledge', () => dataStore.getMetaKnowledge());
-ipcMain.handle('cci:getCdlRuleset', () => dataStore.getCdlRuleset());
-ipcMain.handle('cci:updateCdlRulesetMeta', (e, updates) => dataStore.updateCdlRulesetMeta(updates));
-// Ruleset edits are the one piece of shared reference data a whole org depends on,
-// so each change is announced through the domain event layer.
+ipcMain.handle('cci:getCdlRuleset', () => cloudSync.hydrate('ruleset'));
+ipcMain.handle('cci:updateCdlRulesetMeta', requireEdit(async (e, updates) => {
+  const saved = await dataStore.updateCdlRulesetMeta(updates);
+  await cloudSave('ruleset', '', saved);
+  return saved;
+}));
 async function announceCdlChange(change, map, detail) {
   if (!map) return;
   const org = await dataStore.getOrg();
@@ -358,42 +806,58 @@ async function announceCdlChange(change, map, detail) {
   });
 }
 
-ipcMain.handle('cci:addCdlMap', async (e, map) => {
+async function saveRulesetChange(record) {
+  await cloudSave('ruleset', '', await dataStore.getCdlRuleset());
+  return record;
+}
+
+ipcMain.handle('cci:addCdlMap', requireEdit(async (e, map) => {
   const record = await dataStore.addCdlMap(map);
   await announceCdlChange('added', record, (record.modes || []).join(', ') || null);
-  return record;
-});
+  return saveRulesetChange(record);
+}));
 
-ipcMain.handle('cci:updateCdlMap', async (e, mapId, updates) => {
+ipcMain.handle('cci:updateCdlMap', requireEdit(async (e, mapId, updates) => {
   const record = await dataStore.updateCdlMap(mapId, updates);
   await announceCdlChange('updated', record, Object.keys(updates || {}).join(', ') || null);
-  return record;
-});
+  return saveRulesetChange(record);
+}));
 
-ipcMain.handle('cci:deactivateCdlMap', async (e, mapId) => {
+ipcMain.handle('cci:deactivateCdlMap', requireEdit(async (e, mapId) => {
   const record = await dataStore.deactivateCdlMap(mapId);
   await announceCdlChange('deactivated', record, 'No longer in the competitive pool');
-  return record;
-});
+  return saveRulesetChange(record);
+}));
 
-ipcMain.handle('cci:restoreCdlMap', async (e, mapId) => {
+ipcMain.handle('cci:restoreCdlMap', requireEdit(async (e, mapId) => {
   const record = await dataStore.restoreCdlMap(mapId);
   await announceCdlChange('restored', record, 'Back in the competitive pool');
-  return record;
-});
+  return saveRulesetChange(record);
+}));
 
-ipcMain.handle('cci:removeCdlMap', async (e, mapId, opts) => {
+ipcMain.handle('cci:removeCdlMap', requireEdit(async (e, mapId, opts) => {
   const map = (await dataStore.getCdlRuleset())?.maps.find((m) => m.map_id === mapId) || null;
   const result = await dataStore.removeCdlMap(mapId, opts);
   if (!result.blocked) await announceCdlChange('removed', map, 'Deleted from the map pool');
+  if (!result.blocked) await cloudSave('ruleset', '', await dataStore.getCdlRuleset());
   return result;
-});
+}));
 
-ipcMain.handle('cci:updateCdlMapModes', async (e, mapId, activeModes) => {
+ipcMain.handle('cci:updateCdlMapModes', requireEdit(async (e, mapId, activeModes) => {
   const record = await dataStore.updateCdlMapModes(mapId, activeModes);
   await announceCdlChange('modes', record, `Active modes: ${(activeModes || []).join(', ') || 'none'}`);
-  return record;
+  return saveRulesetChange(record);
+}));
+
+ipcMain.handle('cci:getMapObjectives', async (e, mapSlug, mapName, mode) => {
+  await cloudSync.hydrate('map_obj');
+  return dataStore.getMapObjectives(mapSlug, mapName, mode);
 });
+ipcMain.handle('cci:saveMapObjectives', requireEdit(async (e, mapSlug, mapName, mode, data) => {
+  const saved = await dataStore.saveMapObjectives(mapSlug, mapName, mode, data);
+  await cloudSave('map_obj', '', { ...saved, map_slug: mapSlug });
+  return saved;
+}));
 
 ipcMain.handle('cci:pickImage', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -404,12 +868,12 @@ ipcMain.handle('cci:pickImage', async () => {
   return result.filePaths[0];
 });
 
-ipcMain.handle('cci:copyImage', (e, sourcePath, destRelative) =>
+ipcMain.handle('cci:copyImage', requireEdit((e, sourcePath, destRelative) =>
   dataStore.copyImage(sourcePath, destRelative)
-);
-ipcMain.handle('cci:saveMapArt', (e, sourcePath, mapName) =>
-  dataStore.saveMapArt(sourcePath, mapName)
-);
+));
+ipcMain.handle('cci:saveMapArt', requireEdit((e, sourcePath, mapName, layoutKey) =>
+  dataStore.saveMapArt(sourcePath, mapName, layoutKey)
+));
 
 // ---------- Discord integration ----------
 //
@@ -420,19 +884,21 @@ ipcMain.handle('cci:saveMapArt', (e, sourcePath, mapName) =>
 const withDiscord = (fn) => (event, ...args) => discord.safeCall(() => fn(discord.get(), ...args));
 
 ipcMain.handle('cci:discordGetState', withDiscord((svc) => svc.getState()));
-ipcMain.handle('cci:discordBeginConnect', withDiscord((svc, payload) => svc.beginConnect(payload || {})));
-ipcMain.handle('cci:discordCompleteConnect', withDiscord((svc, payload) => svc.completeConnect(payload || {})));
-ipcMain.handle('cci:discordCancelConnect', withDiscord((svc) => svc.cancelConnect()));
+ipcMain.handle('cci:discordBeginConnect', requireEdit(withDiscord((svc, payload) => svc.beginConnect(payload || {}))));
+ipcMain.handle('cci:discordCompleteConnect', requireEdit(withDiscord((svc, payload) => svc.completeConnect(payload || {}))));
+ipcMain.handle('cci:discordCancelConnect', requireEdit(withDiscord((svc) => svc.cancelConnect())));
 ipcMain.handle('cci:discordListChannels', withDiscord((svc, payload) => svc.listChannels(payload || {})));
 ipcMain.handle('cci:discordListRoles', withDiscord((svc) => svc.listRoles()));
-ipcMain.handle('cci:discordSaveChannels', withDiscord((svc, payload) => svc.saveChannels(payload || {})));
-ipcMain.handle('cci:discordSavePreferences', withDiscord((svc, payload) => svc.savePreferences(payload || {})));
-ipcMain.handle('cci:discordTest', withDiscord((svc, payload) => svc.test(payload || {})));
-ipcMain.handle('cci:discordShare', withDiscord((svc, payload) => svc.share(payload || {})));
-ipcMain.handle('cci:discordPublish', withDiscord((svc, eventId, payload) => svc.publish(eventId, payload || {})));
+ipcMain.handle('cci:discordSaveChannels', requireEdit(withDiscord((svc, payload) => svc.saveChannels(payload || {}))));
+ipcMain.handle('cci:discordSavePreferences', requireEdit(withDiscord((svc, payload) => svc.savePreferences(payload || {}))));
+ipcMain.handle('cci:discordTest', requireEdit(withDiscord((svc, payload) => svc.test(payload || {}))));
+ipcMain.handle('cci:discordShare', requireEdit(withDiscord((svc, payload) => svc.share(payload || {}))));
+ipcMain.handle('cci:discordPublish', requireEdit(withDiscord((svc, eventId, payload) => svc.publish(eventId, payload || {}))));
 ipcMain.handle('cci:discordVerify', withDiscord((svc, payload) => svc.verify(payload || {})));
-ipcMain.handle('cci:discordDisconnect', withDiscord((svc, payload) => svc.disconnect(payload || {})));
+ipcMain.handle('cci:discordDisconnect', requireEdit(withDiscord((svc, payload) => svc.disconnect(payload || {}))));
 ipcMain.handle('cci:discordAudit', withDiscord((svc, payload) => svc.auditRecent(payload || {})));
+ipcMain.handle('cci:discordListMessages', withDiscord((svc) => svc.listRecentMessages()));
+ipcMain.handle('cci:discordSendChatMessage', requireEdit(withDiscord((svc, payload) => svc.sendChatMessage(payload || {}))));
 
 // ---------- Auth (Supabase, Discord sign-in) ----------
 
@@ -447,11 +913,32 @@ async function safeSupabaseCall(fn) {
   }
 }
 
+ipcMain.handle('cci:syncRoster', requireEdit(() => syncLocalRosterToRemote({ supabase, dataStore })));
+
 ipcMain.handle('cci:authGetState', () => supabase.get().getState());
-ipcMain.handle('cci:authSignInWithDiscord', () => supabase.get().signInWithDiscord());
-ipcMain.handle('cci:authSignOut', () => supabase.get().signOut());
+ipcMain.handle('cci:authSignInWithDiscord', () => safeSupabaseCall(() => supabase.get().signInWithDiscord()));
+ipcMain.handle('cci:authSignOut', async () => {
+  await supabase.get().signOut();
+  sendAuthState({ session: null, error: null });
+});
 ipcMain.handle('cci:authListProfiles', () => safeSupabaseCall(() => supabase.get().listProfiles()));
-ipcMain.handle('cci:authUpdateRole', (e, userId, role) => safeSupabaseCall(() => supabase.get().updateProfileRole(userId, role)));
+ipcMain.handle('cci:authUpdateRole', requireEdit((e, userId, role) => safeSupabaseCall(() => supabase.get().updateProfileRole(userId, role))));
+
+ipcMain.handle('cci:inviteCreate', requireEdit((e, payload) =>
+  safeSupabaseCall(() => supabase.get().create(payload || {}))
+));
+ipcMain.handle('cci:inviteStatus', (e, teamId, memberId) =>
+  safeSupabaseCall(() => supabase.get().status(teamId, memberId))
+);
+ipcMain.handle('cci:inviteRevoke', requireEdit((e, teamId, memberId) =>
+  safeSupabaseCall(() => supabase.get().revoke(teamId, memberId))
+));
+ipcMain.handle('cci:invitePending', () => safeSupabaseCall(() => supabase.get().pending()));
+ipcMain.handle('cci:inviteRedeem', (e, token) => safeSupabaseCall(() => supabase.get().redeem(token)));
+ipcMain.handle('cci:copyText', (e, text) => {
+  clipboard.writeText(String(text || ''));
+  return true;
+});
 
 // Only Discord's own domains may be opened from the integration screens.
 const ALLOWED_EXTERNAL_HOSTS = new Set(['discord.com', 'discord.dev', 'support.discord.com']);
@@ -461,6 +948,33 @@ ipcMain.handle('cci:openExternal', async (e, url) => {
     const parsed = new URL(String(url));
     if (parsed.protocol !== 'https:') return false;
     if (!ALLOWED_EXTERNAL_HOSTS.has(parsed.hostname)) return false;
+    await shell.openExternal(parsed.toString());
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+const MEDIA_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
+  'www.youtu.be',
+  'youtube-nocookie.com',
+  'www.youtube-nocookie.com',
+  'twitch.tv',
+  'www.twitch.tv',
+  'm.twitch.tv',
+  'clips.twitch.tv',
+  'player.twitch.tv',
+]);
+
+ipcMain.handle('cci:openMedia', async (e, url) => {
+  try {
+    const parsed = new URL(String(url));
+    if (parsed.protocol !== 'https:') return false;
+    if (!MEDIA_HOSTS.has(parsed.hostname.toLowerCase())) return false;
     await shell.openExternal(parsed.toString());
     return true;
   } catch {

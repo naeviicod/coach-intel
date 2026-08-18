@@ -1,7 +1,16 @@
-import { el, initials, icon } from './utils.js';
+import { el, icon, faceMark } from './utils.js';
 import { asset } from './lib/assets.js';
-import { applyAccent } from './lib/accent.js';
+import { applyAccent, resolveAccent, DEFAULT_ACCENT } from './lib/accent.js';
 import { getPref, setPref } from './prefs.js';
+import {
+  canAccessPage,
+  defaultLanding,
+  localStaffAccess,
+  accessFromProfile,
+  roleLabel as accessRoleLabel,
+} from './lib/access.js';
+import { chipIdentity } from './lib/profile.js';
+import { toast } from './components/modal.js';
 import * as onboarding from './pages/onboarding.js';
 import * as signIn from './pages/signIn.js';
 import * as dashboard from './pages/dashboard.js';
@@ -21,6 +30,8 @@ import * as calendar from './pages/calendar.js';
 import * as vodLibrary from './pages/vodLibrary.js';
 import * as scrimHub from './pages/scrimHub.js';
 import * as vetoLab from './pages/vetoLab.js';
+import * as warRoom from './pages/warRoom.js';
+import * as playbooks from './pages/playbooks.js';
 import * as reports from './pages/reports.js';
 import * as rankings from './pages/rankings.js';
 import * as teachCCIntel from './pages/teachCCIntel.js';
@@ -43,9 +54,11 @@ const routes = {
 
   'team-hub': teamHub,
   'scrim-hub': scrimHub,
+  playbooks,
 
   'maps-modes': mapsModes,
   'veto-lab': vetoLab,
+  'war-room': warRoom,
   scouting,
   reports,
   rankings,
@@ -74,7 +87,7 @@ const NAV_GROUPS = [
       { page: 'players', label: 'Players', icon: 'players', aliases: ['member'] },
       { page: 'matches', label: 'Matches', icon: 'matches' },
       { page: 'statistics', label: 'Statistics', icon: 'performance' },
-      { page: 'database', label: 'Database', icon: 'database' },
+      { page: 'database', label: 'Member Database', icon: 'database' },
       { page: 'reports', label: 'Reports', icon: 'reports' },
       { page: 'rankings', label: 'Rankings', icon: 'rankings' },
     ],
@@ -83,10 +96,12 @@ const NAV_GROUPS = [
     label: 'Team',
     items: [
       { page: 'team-hub', label: 'Team Hub', icon: 'teamHub' },
+      { page: 'playbooks', label: 'Strats & Playbooks', icon: 'strats' },
       { page: 'scrim-hub', label: 'Scrim Hub', icon: 'scrim' },
       { page: 'vod-library', label: 'VOD Library', icon: 'vod' },
-      { page: 'needs-review', label: 'Needs Review', icon: 'review' },
+      { page: 'needs-review', label: 'Scoreboard Inbox', icon: 'review' },
       { page: 'veto-lab', label: 'Veto Lab', icon: 'veto' },
+      { page: 'war-room', label: 'War Room', icon: 'objectives' },
     ],
   },
   {
@@ -112,18 +127,24 @@ const LEGACY_TAB_ROUTES = {
   performance: (teamId) => `#/statistics/${teamId}`,
   'maps-modes': (teamId) => `#/maps-modes/${teamId}`,
   intel: (teamId) => `#/intel-feed/${teamId}`,
+  strats: (teamId) => `#/playbooks/${teamId}`,
   teach: () => '#/teach',
 };
 
 const SPLASH_MIN_MS = 5000;
+const SPLASH_BAR_MS = 280;
+const BOOT_TIMEOUT_MS = 8000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
 const bootStart = performance.now();
+window.__cciBootStart = bootStart;
 
-let state = { org: null, teams: [], searchIndex: [], ruleset: null, alerts: 0, route: parseHash() };
+let state = { org: null, teams: [], searchIndex: [], ruleset: null, alerts: 0, notifications: [], route: parseHash(), access: localStaffAccess(), online: false, syncing: false };
 let navCollapsed = false;
 let navForced = false;
+let studioForced = false;
 let collapseBtn = null;
 let tooltipEl = null;
+let booted = false;
 
 function parseHash() {
   const hash = window.location.hash.replace(/^#\/?/, '');
@@ -132,6 +153,14 @@ function parseHash() {
 }
 
 function legacyRedirect({ page, param }) {
+  if (page === 'team-hub') {
+    const parts = (param || '').split('/').filter(Boolean);
+    if (parts[1] === 'strats') {
+      const rest = parts.slice(2).join('/');
+      return rest ? `#/playbooks/${parts[0]}/${rest}` : `#/playbooks/${parts[0]}`;
+    }
+    return null;
+  }
   if (page !== 'command-center') return null;
   const [teamId, tab] = (param || '').split('/');
   if (!teamId) return '#/team-hub';
@@ -141,15 +170,30 @@ function legacyRedirect({ page, param }) {
   return `#/team-hub/${teamId}${section}`;
 }
 
+function rememberedTeamId() {
+  return getPref('lastTeamId') || state.teams[0]?.id || null;
+}
+
 function navigate(page, param) {
-  window.location.hash = param ? `#/${page}/${param}` : `#/${page}`;
+  if (!canAccessPage(state.access?.role, page)) {
+    page = defaultLanding(state.access?.role);
+    param = page === 'team-hub' ? rememberedTeamId() : null;
+  }
+  const hash = param ? `#/${page}/${param}` : `#/${page}`;
+  if (window.location.hash === hash) {
+    state.route = parseHash();
+    renderContent();
+    syncNavActive();
+    return;
+  }
+  window.location.hash = hash;
 }
 window.cciNavigate = navigate;
 
 // A coachintel:// link — the one Discord notifications carry — arrives from the
 // main process as a bare route. Unknown pages are ignored so a stale or hand-edited
 // link cannot navigate the app somewhere that does not exist.
-window.cci.onDeepLink?.((route) => {
+window.cci?.onDeepLink?.((route) => {
   const clean = String(route || '').replace(/^#?\/?/, '');
   if (!clean) return;
   const [page, ...rest] = clean.split('/');
@@ -163,11 +207,71 @@ window.cci.onDeepLink?.((route) => {
   navigate(page, target.param || undefined);
 });
 
+// Another signed-in teammate changed shared data — refresh so everyone sees
+// the same roster, K/D, and match history live instead of needing a reload.
+window.cci?.onDataChanged?.(() => {
+  if (!booted) return;
+  loadShellData()
+    .then(() => {
+      renderSidebar();
+      renderStatusBar();
+      renderContent();
+    })
+    .catch((err) => console.error('[renderer] data refresh failed', err));
+  loadNotifications()
+    .then(() => paintBell())
+    .catch((err) => console.error('[renderer] notifications refresh failed', err));
+});
+
+// Sign-in/out flips the topbar between "Offline · On-device" (local cache
+// only) and "Online · Synced" (signed in, Supabase is the source of truth)
+// without needing a restart.
+window.cci?.auth?.onAuthStateChanged?.(() => {
+  if (!booted) return;
+  loadAccess()
+    .then(() => {
+      renderSidebar();
+      renderTopbar();
+    })
+    .catch((err) => console.error('[renderer] auth state refresh failed', err));
+});
+
+window.cci?.invites?.onResult?.((result) => {
+  if (result?.ok) toast(result.message || 'Invite accepted.');
+  else if (result?.error) toast(result.error, 'error');
+  if (!booted) return;
+  loadShellData()
+    .then(() => {
+      renderSidebar();
+      renderTopbar();
+      renderStatusBar();
+      renderContent();
+    })
+    .catch((err) => console.error('[renderer] invite refresh failed', err));
+});
+
+document.addEventListener('click', (e) => {
+  const wrap = document.querySelector('.topbar-notif-wrap');
+  if (!wrap || wrap.contains(e.target)) return;
+  const panel = wrap.querySelector('.topbar-notif-panel');
+  if (panel) panel.style.display = 'none';
+});
+
 window.addEventListener('hashchange', () => {
+  if (!booted) {
+    state.route = parseHash();
+    return;
+  }
   const next = parseHash();
   const redirect = legacyRedirect(next);
   if (redirect) {
     window.location.replace(redirect);
+    return;
+  }
+  if (!allowedRoute(next.page)) {
+    const land = defaultLanding(state.access?.role);
+    const teamId = land === 'team-hub' ? rememberedTeamId() : null;
+    window.location.replace(teamId ? `#/${land}/${teamId}` : `#/${land}`);
     return;
   }
   state.route = next;
@@ -177,13 +281,76 @@ window.addEventListener('hashchange', () => {
 
 // ---------- Boot ----------
 
-async function loadShellData() {
+async function loadShellData(onProgress, { search = true } = {}) {
+  state.syncing = true;
+  paintStatusPill();
+  try {
+    await loadShellDataBody(onProgress, { search });
+  } finally {
+    state.syncing = false;
+    paintStatusPill();
+  }
+}
+
+async function loadShellDataBody(onProgress, { search = true } = {}) {
   state.org = await window.cci.getOrg();
+  onProgress?.(0.48);
   state.teams = await window.cci.getTeams();
+  onProgress?.(0.58);
   state.ruleset = await window.cci.getCdlRuleset();
-  applyAccent(state.org?.accent);
+  let inviteAccent = null;
+  if (!state.teams.length && window.cci.invites?.pending) {
+    const pending = await Promise.race([
+      window.cci.invites.pending().catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    inviteAccent = pending?.ok ? pending.data?.accent : null;
+  }
+  const accent = resolveAccent({
+    invite: inviteAccent,
+    org: state.org?.accent,
+    shared: state.teams.find((team) => team?.accent)?.accent,
+    firstLaunch: !state.teams.length,
+  });
+  if (state.org) state.org = { ...state.org, accent };
+  applyAccent(accent);
   state.appVersion = await window.cci.getAppVersion();
-  await buildSearchIndex();
+  await loadAccess();
+  onProgress?.(0.68);
+  if (search) await buildSearchIndex();
+  else {
+    state.searchIndex = [];
+    buildSearchIndex().catch((err) => console.error('[renderer] search index failed', err));
+  }
+  onProgress?.(0.8);
+}
+
+async function loadAccess() {
+  try {
+    const auth = await window.cci.auth.getState();
+    state.online = Boolean(auth?.configured && auth.session);
+    if (!auth?.configured || !auth.session) {
+      state.access = localStaffAccess();
+      applyAccessChrome();
+      return;
+    }
+    const listed = await window.cci.auth.listProfiles();
+    const me = listed?.ok ? listed.data?.me : null;
+    state.access = accessFromProfile(me, { local: !me });
+  } catch (err) {
+    console.warn('[renderer] access load failed', err);
+    state.access = localStaffAccess();
+    state.online = false;
+  }
+  applyAccessChrome();
+}
+
+function applyAccessChrome() {
+  document.body.classList.toggle('access-readonly', !state.access?.canEdit);
+}
+
+function allowedRoute(page) {
+  return canAccessPage(state.access?.role, page);
 }
 
 async function buildSearchIndex() {
@@ -203,12 +370,11 @@ async function buildSearchIndex() {
     for (const m of members) {
       index.push({ type: 'Player', label: `${m.gamertag} — ${team.name}`, action: () => navigate('member', `${team.id}/${m.id}`) });
     }
-    // Strats stay canonically inside the Team Hub; search only points at them.
     for (const s of strats) {
       index.push({
         type: 'Strat',
         label: `${s.strategy_name} — ${s.map} ${s.mode}`,
-        action: () => navigate('team-hub', `${team.id}/strats/edit/${s.strategy_id}`),
+        action: () => navigate('playbooks', `${team.id}/edit/${s.strategy_id}`),
       });
     }
     for (const n of notes) {
@@ -227,40 +393,267 @@ async function loadAlerts() {
   state.alerts = count;
 }
 
-function revealAfterSplash(showFn) {
-  const elapsed = performance.now() - bootStart;
-  setTimeout(() => {
-    document.getElementById('splash').classList.add('hide');
-    showFn();
-    document.getElementById('app').classList.add('ready');
-  }, Math.max(0, SPLASH_MIN_MS - elapsed));
+function seenNotificationIds() {
+  return new Set(getPref('seenNotifications') || []);
 }
 
-async function boot() {
-  const authState = await window.cci.auth?.getState().catch(() => ({ configured: false, session: null }));
-  if (authState?.configured && !authState.session) {
-    revealAfterSplash(renderSignIn);
-    return;
+function markNotificationSeen(id) {
+  const seen = getPref('seenNotifications') || [];
+  if (seen.includes(id)) return;
+  setPref('seenNotifications', [...seen, id].slice(-300));
+}
+
+async function loadNotifications() {
+  const rows = [];
+  for (const team of state.teams) {
+    const items = await window.cci.getNotifications(team.id).catch(() => []);
+    for (const n of items) rows.push({ ...n, teamName: team.name });
+  }
+  rows.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+  state.notifications = rows;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function finishSplash(splash) {
+  if (!splash) return;
+  splash.classList.add('hide');
+  splash.setAttribute('aria-hidden', 'true');
+  splash.style.display = 'none';
+}
+
+function restAtmosphere() {
+  const atmosphere = document.getElementById('atmosphere');
+  if (!atmosphere) return;
+  atmosphere.classList.add('rest');
+  const hide = () => { atmosphere.style.display = 'none'; };
+  atmosphere.addEventListener('transitionend', (event) => {
+    if (event.propertyName === 'opacity') hide();
+  }, { once: true });
+  window.setTimeout(hide, 800);
+}
+
+// Lockup is 1024x341. The Ci lives in the left square. Clip hides the type,
+// then the remaining mark flies to the sign-in Ci so this is one motion,
+// not a crossfade between two screens.
+const LOCKUP_CLIP_RIGHT = 66.7;
+const LOCKUP_CLIP_BOTTOM = 16;
+const HAND_OFF_MS = 560;
+const HAND_OFF_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function splashBarFill() {
+  return document.querySelector('#splash .splash-bar-fill');
+}
+
+function runSplashBar() {
+  const bar = splashBarFill();
+  if (!bar?.animate) return null;
+  return bar.animate(
+    [{ transform: 'scaleX(0.04)' }, { transform: 'scaleX(0.92)' }],
+    {
+      duration: Math.max(1, SPLASH_MIN_MS - SPLASH_BAR_MS),
+      easing: 'cubic-bezier(0.15, 0.82, 0.22, 1)',
+      fill: 'forwards',
+    }
+  );
+}
+
+async function completeSplashBar(anim) {
+  const bar = splashBarFill();
+  document.getElementById('splash')?.classList.add('loaded');
+  try { anim?.commitStyles(); anim?.cancel(); } catch { /* ignore */ }
+  if (!bar) return;
+  if (bar.animate) {
+    const fin = bar.animate(
+      [{ transform: 'scaleX(0.92)' }, { transform: 'scaleX(1)' }],
+      { duration: SPLASH_BAR_MS, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' }
+    );
+    await fin.finished.catch(() => {});
+    try { fin.commitStyles(); fin.cancel(); } catch { /* ignore */ }
+  }
+  bar.style.transform = 'scaleX(1)';
+}
+
+const PAGE_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+
+function stopFades(node) {
+  if (!node) return;
+  try { node.getAnimations?.().forEach((anim) => anim.cancel()); } catch { /* ignore */ }
+  node.style.opacity = '';
+}
+
+function fadeEl(node, from, to, ms) {
+  if (!node) return Promise.resolve();
+  if (!node.animate || ms <= 0) {
+    node.style.opacity = String(to);
+    return Promise.resolve();
+  }
+  const anim = node.animate(
+    [{ opacity: from }, { opacity: to }],
+    { duration: ms, easing: PAGE_EASE, fill: 'forwards' }
+  );
+  return anim.finished.then(() => {
+    try { anim.commitStyles(); anim.cancel(); } catch { /* ignore */ }
+  }).catch(() => {});
+}
+
+async function raceTimeout(promise, ms, fallback) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), ms); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function playSignInHandoff(splash, screen) {
+  const fail = (err) => {
+    if (err) console.error('[renderer] sign-in handoff failed', err);
+    screen.classList.add('gate-in');
+    finishSplash(splash);
+  };
+
+  try {
+    const logo = splash.querySelector('.splash-logo');
+    const mark = screen.querySelector('.signin-mark');
+    if (!logo || !mark) {
+      fail();
+      return;
+    }
+
+    splash.classList.add('handoff');
+    logo.classList.add('is-in');
+    logo.style.animation = 'none';
+    logo.style.opacity = '1';
+    logo.style.transform = 'none';
+    logo.style.filter = 'none';
+
+    const logoRect = logo.getBoundingClientRect();
+    const markRect = mark.getBoundingClientRect();
+    const visW = logoRect.width * (1 - LOCKUP_CLIP_RIGHT / 100);
+    const visH = logoRect.height * (1 - LOCKUP_CLIP_BOTTOM / 100);
+    const originX = visW / 2;
+    const originY = visH / 2;
+    const dx = (markRect.left + markRect.width / 2) - (logoRect.left + originX);
+    const dy = (markRect.top + markRect.height / 2) - (logoRect.top + originY);
+    const scale = Math.min(markRect.width / visW, markRect.height / visH);
+    if (!Number.isFinite(scale) || scale <= 0) {
+      fail();
+      return;
+    }
+
+    logo.style.transformOrigin = `${originX}px ${originY}px`;
+
+    let landed = false;
+    const land = () => {
+      if (landed) return;
+      landed = true;
+      screen.classList.add('gate-in');
+      splash.classList.add('landed');
+      window.setTimeout(() => finishSplash(splash), 120);
+    };
+
+    const anim = logo.animate(
+      [
+        { transform: 'translate(0px, 0px) scale(1)', clipPath: 'inset(0 0 0 0)' },
+        {
+          transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
+          clipPath: `inset(0 ${LOCKUP_CLIP_RIGHT}% ${LOCKUP_CLIP_BOTTOM}% 0)`,
+        },
+      ],
+      { duration: HAND_OFF_MS, easing: HAND_OFF_EASE, fill: 'forwards' }
+    );
+    anim.finished.then(land).catch(land);
+    window.setTimeout(land, HAND_OFF_MS + 160);
+  } catch (err) {
+    fail(err);
+  }
+}
+
+function revealFromSplash(showFn) {
+  const splash = document.getElementById('splash');
+  const app = document.getElementById('app');
+  try {
+    showFn();
+  } catch (err) {
+    console.error('[renderer] reveal failed', err);
+  }
+  app.classList.add('ready');
+
+  let started = false;
+  const play = () => {
+    if (started) return;
+    started = true;
+    if (!splash) return;
+    const signin = document.querySelector('.signin-screen');
+    if (signin && !prefersReducedMotion()) {
+      playSignInHandoff(splash, signin);
+      return;
+    }
+    if (signin) signin.classList.add('gate-in');
+    else {
+      app.classList.add('shell');
+      restAtmosphere();
+    }
+    finishSplash(splash);
+  };
+
+  window.setTimeout(play, 32);
+  window.setTimeout(() => {
+    if (splash && splash.style.display !== 'none') finishSplash(splash);
+  }, 700);
+}
+
+async function prepareApp({ fast = false } = {}) {
+  const authState = await raceTimeout(
+    window.cci.auth.getState(),
+    2500,
+    { configured: true, session: null }
+  ).catch(() => ({ configured: false, session: null }));
+
+  if (authState?.configured && !authState.session) return renderSignIn;
+
+  await loadShellData(undefined, { search: !fast });
+  if (authState?.session) {
+    window.cci.syncRoster().catch((err) => console.warn('[renderer] roster sync failed', err));
   }
 
-  await loadShellData();
+  if (!state.teams.length) return renderOnboarding;
 
-  if (!state.teams.length) {
-    revealAfterSplash(renderOnboarding);
-    return;
+  if (!fast) {
+    await loadAlerts();
+    await loadNotifications();
+  } else {
+    loadAlerts().catch((err) => console.error('[renderer] alerts failed', err));
+    loadNotifications().catch((err) => console.error('[renderer] notifications failed', err));
   }
-
-  await loadAlerts();
 
   const redirect = legacyRedirect(parseHash());
   if (redirect) window.location.replace(redirect);
-  else if (!window.location.hash || !routes[parseHash().page]) window.location.hash = '#/dashboard';
+  else {
+    const current = parseHash();
+    if (!window.location.hash || !routes[current.page] || !allowedRoute(current.page)) {
+      const land = defaultLanding(state.access?.role);
+      const teamId = land === 'team-hub' ? rememberedTeamId() : null;
+      window.location.hash = teamId ? `#/${land}/${teamId}` : `#/${land}`;
+    }
+  }
   state.route = parseHash();
 
-  // Narrow screens start collapsed unless the user has already chosen.
   navCollapsed = getPref('navCollapsed', window.innerWidth < 1280);
 
-  revealAfterSplash(() => {
+  return () => {
+    booted = true;
+    document.getElementById('app').classList.add('shell');
     document.getElementById('sidebar').style.display = '';
     document.getElementById('topbar').style.display = '';
     document.getElementById('statusbar').style.display = '';
@@ -269,9 +662,47 @@ async function boot() {
     renderStatusBar();
     renderContent();
     applyResponsiveNav();
-  });
+  };
+}
 
+function paintSplashVersion() {
+  const node = document.getElementById('splash-version');
+  if (!node || !window.cci?.getAppVersion) return;
+  window.cci.getAppVersion().then((version) => {
+    if (!version) return;
+    node.textContent = `Version ${String(version).replace(/^v/i, '')}`;
+  }).catch(() => {});
+}
+
+async function boot() {
+  applyAccent(DEFAULT_ACCENT);
+  paintSplashVersion();
+  const barAnim = runSplashBar();
+  const minTime = wait(SPLASH_MIN_MS - SPLASH_BAR_MS);
+  let showFn = renderSignIn;
+  let finished = false;
+  try {
+    showFn = await Promise.race([
+      prepareApp().then((fn) => { finished = true; return fn; }),
+      wait(BOOT_TIMEOUT_MS).then(() => {
+        if (finished) return showFn;
+        console.warn('[renderer] boot timed out — showing sign-in');
+        return renderSignIn;
+      }),
+    ]);
+  } catch (err) {
+    console.error('[renderer] boot failed', err);
+    showFn = renderSignIn;
+  }
+  await minTime;
+  await completeSplashBar(barAnim);
+  revealFromSplash(showFn);
   window.addEventListener('resize', applyResponsiveNav);
+}
+
+async function enterApp() {
+  const showFn = await prepareApp({ fast: true });
+  showFn();
 }
 
 function renderOnboarding() {
@@ -280,13 +711,15 @@ function renderOnboarding() {
   content.className = '';
   content.style.padding = '0';
   content.innerHTML = '';
-  onboarding.render(content, { onComplete: () => window.location.reload() });
+  onboarding.render(content, {
+    onComplete: () => enterApp(),
+  });
 }
 
 function renderSignIn() {
   for (const id of ['sidebar', 'topbar', 'statusbar']) document.getElementById(id).style.display = 'none';
   const content = document.getElementById('content');
-  content.className = '';
+  content.className = 'flush';
   content.style.padding = '0';
   content.innerHTML = '';
   signIn.render(content, { onComplete: () => window.location.reload() });
@@ -335,7 +768,10 @@ function navLink(item) {
       'aria-label': item.label,
       'aria-current': active ? 'page' : null,
       'data-page': item.page,
-      onclick: () => navigate(item.page),
+      onclick: () => {
+        const needsTeam = item.page === 'team-hub' || item.page === 'playbooks';
+        navigate(item.page, needsTeam ? rememberedTeamId() || undefined : undefined);
+      },
     },
     [
       el('span', { class: 'icon', html: icon(item.icon) }),
@@ -345,18 +781,6 @@ function navLink(item) {
   );
   attachTooltip(node, item.label);
   return node;
-}
-
-function orgMark(org) {
-  const mark = el('div', { class: 'sb-org-logo' }, initials(org.name || 'CI'));
-  if (!org.logo || !window.cci?.dataUrlForPath) return mark;
-  window.cci.dataUrlForPath(org.logo).then((url) => {
-    if (!url || !mark.isConnected) return;
-    const img = el('img', { src: url, alt: org.name || '' });
-    img.onerror = () => img.remove();
-    mark.prepend(img);
-  });
-  return mark;
 }
 
 function renderSidebar() {
@@ -383,21 +807,13 @@ function renderSidebar() {
     ])
   );
 
-  const org = state.org || {};
-  sidebar.append(
-    el('div', { class: 'sb-org' }, [
-      orgMark(org),
-      el('div', { class: 'sb-org-text' }, [
-        el('div', { class: 'sb-org-name' }, org.name || 'My Organization'),
-        el('div', { class: 'sb-org-sub' }, 'Call of Duty'),
-      ]),
-    ])
-  );
-
   const nav = el('div', { class: 'sb-nav' });
+  const role = state.access?.role;
   for (const group of NAV_GROUPS) {
+    const items = group.items.filter((item) => canAccessPage(role, item.page));
+    if (!items.length) continue;
     nav.append(el('div', { class: 'sb-section-label' }, group.label));
-    for (const item of group.items) nav.append(navLink(item));
+    for (const item of items) nav.append(navLink(item));
   }
   sidebar.append(nav);
 
@@ -451,6 +867,19 @@ function setNavCollapsed(collapsed, { persist = true } = {}) {
   window.cci?.setTrafficLights?.(collapsed);
 }
 
+function applyStudioChrome(on) {
+  if (on) {
+    if (!studioForced) {
+      studioForced = true;
+      setNavCollapsed(true, { persist: false });
+    }
+    return;
+  }
+  if (!studioForced) return;
+  studioForced = false;
+  if (!navForced) setNavCollapsed(getPref('navCollapsed', false), { persist: false });
+}
+
 function applyResponsiveNav() {
   const tooNarrow = window.innerWidth < NAV_AUTO_COLLAPSE_PX;
   if (tooNarrow && !navForced) {
@@ -463,6 +892,139 @@ function applyResponsiveNav() {
 }
 
 // ---------- Header ----------
+
+function connectionStatus() {
+  if (state.syncing && state.online) return { cls: 'syncing', label: 'Online · Syncing' };
+  if (state.online) return { cls: 'online', label: 'Online · Synced' };
+  return { cls: 'offline', label: 'Offline · On-device' };
+}
+
+function statusPill() {
+  const { cls, label } = connectionStatus();
+  return el('div', { class: `status-pill ${cls}` }, [
+    el('span', { class: 'status-dot' }),
+    label,
+  ]);
+}
+
+function paintStatusPill() {
+  const host = document.querySelector('#topbar .status-pill');
+  if (!host) return;
+  host.replaceWith(statusPill());
+}
+
+function fmtTimeAgo(iso) {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return '';
+  const min = Math.floor((Date.now() - then) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return new Date(then).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function notificationBell() {
+  const panel = el('div', { class: 'topbar-notif-panel' });
+  panel.style.display = 'none';
+
+  function paintPanel() {
+    panel.innerHTML = '';
+    if (!state.notifications.length) {
+      panel.append(el('div', { class: 'topbar-notif-empty' }, 'Nothing yet — you’ll see it here when a VOD review, meeting or match needs attention.'));
+      return;
+    }
+    for (const n of state.notifications.slice(0, 30)) {
+      const isUnread = !seenNotificationIds().has(n.id);
+      panel.append(
+        el('div', { class: `topbar-notif-row${isUnread ? ' unread' : ''}` }, [
+          el(
+            'div',
+            {
+              class: 'topbar-notif-main',
+              role: 'button',
+              tabindex: '0',
+              onclick: () => {
+                markNotificationSeen(n.id);
+                panel.style.display = 'none';
+                if (n.route) {
+                  const [page, ...rest] = String(n.route).split('/');
+                  if (routes[page]) navigate(page, rest.join('/') || undefined);
+                }
+                paintBell();
+              },
+            },
+            [
+              el('div', { class: 'topbar-notif-title' }, n.title),
+              [n.teamName, n.subtitle].filter(Boolean).length
+                ? el('div', { class: 'topbar-notif-sub' }, [n.teamName, n.subtitle].filter(Boolean).join(' · '))
+                : null,
+              el('div', { class: 'topbar-notif-time' }, fmtTimeAgo(n.created_at)),
+            ]
+          ),
+          el('button', {
+            type: 'button',
+            class: 'topbar-notif-dismiss',
+            'aria-label': `Dismiss ${n.title}`,
+            title: 'Dismiss',
+            html: icon('trash', 12),
+            onclick: async (e) => {
+              e.stopPropagation();
+              try {
+                await window.cci.deleteNotification(n.team_id, n.id);
+              } catch (err) {
+                console.error('[renderer] dismiss notification failed', err);
+              }
+              state.notifications = state.notifications.filter((x) => x.id !== n.id);
+              paintPanel();
+              paintBell();
+            },
+          }),
+        ])
+      );
+    }
+  }
+  paintPanel();
+
+  const unread = state.notifications.filter((n) => !seenNotificationIds().has(n.id)).length;
+  const label = unread ? `Notifications, ${unread} new` : 'Notifications, nothing new';
+
+  const btn = el('button', {
+    type: 'button',
+    class: 'topbar-icon-btn',
+    'aria-label': label,
+    title: label,
+    html: icon('bell', 16),
+    onclick: (e) => {
+      e.stopPropagation();
+      const isOpen = panel.style.display !== 'none';
+      document.querySelectorAll('.topbar-notif-panel').forEach((p) => (p.style.display = 'none'));
+      if (isOpen) return;
+      panel.style.display = 'block';
+      loadNotifications()
+        .then(() => paintBell(true))
+        .catch((err) => console.error('[renderer] notifications refresh failed', err));
+    },
+  });
+
+  const wrap = el('div', { class: 'topbar-notif-wrap' }, [
+    btn,
+    unread ? el('span', { class: 'topbar-notif-badge' }, unread > 9 ? '9+' : String(unread)) : null,
+    panel,
+  ]);
+  return wrap;
+}
+
+function paintBell(keepOpen = false) {
+  const host = document.querySelector('.topbar-notif-wrap');
+  if (!host) return;
+  const wasOpen = keepOpen || host.querySelector('.topbar-notif-panel')?.style.display === 'block';
+  const fresh = notificationBell();
+  if (wasOpen) fresh.querySelector('.topbar-notif-panel').style.display = 'block';
+  host.replaceWith(fresh);
+}
 
 function renderTopbar() {
   const topbar = document.getElementById('topbar');
@@ -518,23 +1080,9 @@ function renderTopbar() {
     el('div', { class: 'topbar-search' }, [el('span', { class: 'topbar-search-icon' }, '⌕'), searchInput, resultsBox])
   );
   topbar.append(el('div', { class: 'topbar-spacer' }));
-  topbar.append(el('div', { class: 'status-pill' }, 'Offline · On-device'));
+  topbar.append(statusPill());
 
-  const alertLabel = state.alerts ? `Notifications, ${state.alerts} items need review` : 'Notifications, nothing pending';
-  topbar.append(
-    el(
-      'button',
-      {
-        type: 'button',
-        class: 'topbar-icon-btn',
-        'aria-label': alertLabel,
-        title: alertLabel,
-        html: icon('bell', 16),
-        onclick: () => navigate('needs-review'),
-      },
-      []
-    )
-  );
+  topbar.append(notificationBell());
   topbar.append(
     el('button', {
       type: 'button',
@@ -547,14 +1095,28 @@ function renderTopbar() {
   );
   topbar.append(el('div', { class: 'topbar-divider' }));
 
-  const coachName = state.org?.coachName || 'Coach';
+  const chip = chipIdentity(state.org, state.access);
+  const titleLine = chip.title || (!state.access?.local && accessRoleLabel(state.access?.role)) || '';
+  const roleBits = [titleLine, !state.access?.canEdit ? 'View only' : ''].filter(Boolean);
   topbar.append(
-    el('div', { class: 'topbar-profile', role: 'button', tabindex: '0', onclick: () => navigate('settings') }, [
+    el('div', {
+      class: 'topbar-profile',
+      role: 'button',
+      tabindex: '0',
+      title: 'Edit your profile',
+      onclick: () => navigate('settings', 'organization'),
+      onkeydown: (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate('settings', 'organization');
+        }
+      },
+    }, [
       el('div', {}, [
-        el('div', { class: 'topbar-profile-name' }, coachName),
-        el('div', { class: 'topbar-profile-role' }, 'Head Coach · Local'),
+        el('div', { class: 'topbar-profile-name' }, chip.name),
+        el('div', { class: 'topbar-profile-role' }, roleBits.join(' · ') || 'Signed in'),
       ]),
-      el('div', { class: 'avatar', style: 'width:28px;height:28px;' }, initials(coachName)),
+      faceMark({ photo: chip.photo, avatarUrl: chip.avatarUrl, name: chip.name, size: 28 }),
     ])
   );
 }
@@ -608,43 +1170,125 @@ function renderStatusBar() {
 // sequence number: a superseded render keeps writing into a detached node and
 // cannot repaint or blank the page the user is now on.
 let renderSeq = 0;
+let swapGen = 0;
+let lastPage = null;
+
+function pageCtx() {
+  return {
+    navigate,
+    param: state.route.param,
+    org: state.org,
+    access: state.access,
+    canEdit: Boolean(state.access?.canEdit),
+    refreshShell: async () => {
+      await loadShellData();
+      renderSidebar();
+      renderTopbar();
+      renderStatusBar();
+    },
+  };
+}
+
+function mountPage(content, incoming, { flush, studio }) {
+  stopFades(content);
+  const sidebar = document.getElementById('sidebar');
+  sidebar?.classList.add('swap-lock');
+  applyStudioChrome(studio);
+  content.className = flush ? 'flush' : '';
+  content.style.padding = '';
+  content.scrollTop = 0;
+  incoming.style.opacity = '';
+  incoming.classList.add('page-shown');
+  if (!incoming.isConnected) content.append(incoming);
+  void sidebar?.offsetWidth;
+  sidebar?.classList.remove('swap-lock');
+  content.classList.remove('is-swapping');
+}
+
+function swapPages(content, outgoing, incoming, { flush, studio, animate }) {
+  if (!incoming.childNodes.length) {
+    stopFades(content);
+    return;
+  }
+
+  const gen = ++swapGen;
+  stopFades(content);
+
+  if (!outgoing || !animate) {
+    if (outgoing) outgoing.remove();
+    mountPage(content, incoming, { flush, studio });
+    return;
+  }
+
+  content.classList.add('is-swapping');
+  const run = async () => {
+    try {
+      await fadeEl(content, 1, 0, 150);
+      if (gen !== swapGen) return;
+      outgoing.remove();
+      stopFades(content);
+      content.style.opacity = '0';
+      mountPage(content, incoming, { flush, studio });
+      await fadeEl(content, 0, 1, 180);
+    } finally {
+      if (gen === swapGen) stopFades(content);
+    }
+  };
+
+  run().catch((err) => {
+    console.error('[renderer] page swap failed', err);
+    if (gen !== swapGen) return;
+    if (outgoing?.isConnected) outgoing.remove();
+    mountPage(content, incoming, { flush, studio });
+  });
+}
 
 async function renderContent() {
   const content = document.getElementById('content');
   const page = routes[state.route.page] || routes.dashboard;
   const token = ++renderSeq;
-  content.className = page.flush ? 'flush' : '';
-  content.style.padding = '';
-  content.innerHTML = '';
-  content.scrollTop = 0;
-  const root = el('div', { class: 'page-root' });
-  content.append(root);
+  const ctx = pageCtx();
 
-  const ctx = {
-    navigate,
-    param: state.route.param,
-    org: state.org,
-    refreshShell: async () => {
-      await loadShellData();
-      renderSidebar();
-      renderStatusBar();
-    },
-  };
+  const liveRoot = content.querySelector('.page-root');
+  if (typeof page.update === 'function' && lastPage === page && liveRoot?.childNodes.length) {
+    try {
+      await page.update(liveRoot, ctx);
+      if (token === renderSeq) lastPage = page;
+      return;
+    } catch (err) {
+      console.error('[renderer] page update failed', err);
+      liveRoot.remove();
+    }
+  }
+
+  const incoming = el('div', { class: 'page-root' });
 
   try {
-    await page.render(root, ctx);
+    await page.render(incoming, ctx);
   } catch (err) {
     console.error('[renderer] page render failed', err);
     if (token !== renderSeq) return;
+    lastPage = null;
     content.className = '';
-    content.innerHTML = '';
-    content.append(
+    content.replaceChildren(
       el('div', { class: 'card inline-error' }, [
         el('div', { class: 'inline-error-title' }, 'This page failed to load'),
         el('div', {}, String(err && err.message ? err.message : err)),
       ])
     );
+    return;
   }
+
+  if (token !== renderSeq) return;
+  if (!incoming.childNodes.length) return;
+
+  lastPage = page;
+  const outgoing = content.querySelector('.page-root');
+  swapPages(content, outgoing, incoming, {
+    flush: !!page.flush,
+    studio: !!page.studio,
+    animate: Boolean(outgoing && booted && !prefersReducedMotion()),
+  });
 }
 
 boot();

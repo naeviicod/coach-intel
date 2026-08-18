@@ -55,6 +55,8 @@ export function el(tag, attrs = {}, children = []) {
     else if (key === 'html') node.innerHTML = value;
     else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2).toLowerCase(), value);
+    } else if ((tag === 'input' || tag === 'textarea' || tag === 'select') && key === 'value') {
+      node.value = value;
     } else if (value !== null && value !== undefined) {
       node.setAttribute(key, value);
     }
@@ -64,6 +66,51 @@ export function el(tag, attrs = {}, children = []) {
     node.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
   return node;
+}
+
+// Text input with a custom-styled suggestion dropdown, replacing native
+// <datalist> (Chromium renders that popup with OS chrome no page CSS can
+// reach). Free text is always allowed — this only ever suggests, never
+// restricts. Shows every option on focus with nothing typed yet, filters as
+// the user types, and lets a click fill the input.
+export function comboInput({ id, value = '', placeholder = '', options = [] } = {}) {
+  const input = el('input', { type: 'text', id, value, placeholder, autocomplete: 'off' });
+  const results = el('div', { class: 'combo-results' });
+  results.style.display = 'none';
+
+  function renderList() {
+    const q = input.value.trim().toLowerCase();
+    const list = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+    results.innerHTML = '';
+    if (!list.length) {
+      results.style.display = 'none';
+      return;
+    }
+    for (const opt of list) {
+      results.append(
+        el(
+          'div',
+          {
+            class: 'combo-row',
+            // mousedown (not click) fires before the input's blur handler hides the list.
+            onmousedown: (e) => {
+              e.preventDefault();
+              input.value = opt;
+              results.style.display = 'none';
+            },
+          },
+          opt
+        )
+      );
+    }
+    results.style.display = 'block';
+  }
+
+  input.addEventListener('focus', renderList);
+  input.addEventListener('input', renderList);
+  input.addEventListener('blur', () => setTimeout(() => (results.style.display = 'none'), 150));
+
+  return el('div', { class: 'combo-wrap' }, [input, results]);
 }
 
 const AVATAR_COUNT = 5;
@@ -78,9 +125,35 @@ export function playerAvatarSrc(seed) {
 
 export function playerAvatar(member, attrs = {}) {
   const classAttr = attrs.class ? `avatar ${attrs.class}` : 'avatar';
-  return el('div', { ...attrs, class: classAttr }, [
+  const mark = el('div', { ...attrs, class: classAttr }, [
     el('img', { src: playerAvatarSrc(member?.id || member?.gamertag), alt: member?.gamertag || 'Player' }),
   ]);
+  if (member?.photo && window.cci?.dataUrlForPath) {
+    window.cci.dataUrlForPath(member.photo).then((url) => {
+      if (!url) return;
+      const img = el('img', { src: url, alt: member.gamertag || '' });
+      img.onerror = () => {};
+      mark.replaceChildren(img);
+    });
+  }
+  return mark;
+}
+
+export function faceMark({ photo, avatarUrl, name, size = 28 } = {}) {
+  const mark = el('div', { class: 'avatar', style: `width:${size}px;height:${size}px;` }, initials(name));
+  if (photo && window.cci?.dataUrlForPath) {
+    window.cci.dataUrlForPath(photo).then((url) => {
+      if (!url) return;
+      mark.replaceChildren(el('img', { src: url, alt: name || '' }));
+    });
+    return mark;
+  }
+  if (avatarUrl) {
+    const img = el('img', { src: avatarUrl, alt: name || '' });
+    img.onerror = () => { img.remove(); mark.textContent = initials(name); };
+    mark.replaceChildren(img);
+  }
+  return mark;
 }
 
 export function roleClass(role) {
@@ -112,16 +185,44 @@ export function roleBadge(role) {
   ]);
 }
 
-export function teamMark(team, attrs = {}) {
-  const mark = el('div', { ...attrs, class: attrs.class || 'team-logo' }, initials(team?.name));
-  if (!team?.logo || !window.cci?.dataUrlForPath) return mark;
-  window.cci.dataUrlForPath(team.logo).then((url) => {
-    if (!url || !mark.isConnected) return;
-    const img = el('img', { src: url, alt: team.name || '' });
-    img.onerror = () => img.remove();
-    mark.prepend(img);
-  });
+function loadMark(logos, name, attrs) {
+  const paths = (Array.isArray(logos) ? logos : [logos]).filter(Boolean);
+  const mark = el('div', attrs, initials(name));
+  if (!paths.length || !window.cci?.dataUrlForPath) return mark;
+  (async () => {
+    for (const logo of paths) {
+      const url = await window.cci.dataUrlForPath(logo);
+      if (!url) continue;
+      const img = el('img', { src: url, alt: name || '' });
+      img.onerror = () => {
+        img.remove();
+        if (!mark.querySelector('img')) mark.textContent = initials(name);
+      };
+      mark.replaceChildren(img);
+      return;
+    }
+  })();
   return mark;
+}
+
+export function orgMark(org, attrs = {}) {
+  const { fallbackLogo, ...rest } = attrs;
+  return loadMark(
+    [
+      org?.logo,
+      fallbackLogo,
+      'org/logos/org-logo.png',
+      'org/logos/org-logo.jpg',
+      'org/logos/org-logo.jpeg',
+      'org/logos/org-logo.webp',
+    ],
+    org?.name || 'CI',
+    { ...rest, class: rest.class || 'sb-org-logo' }
+  );
+}
+
+export function teamMark(team, attrs = {}) {
+  return loadMark(team?.logo, team?.name, { ...attrs, class: attrs.class || 'team-logo' });
 }
 
 export function initials(name) {
@@ -223,6 +324,103 @@ export function teamObjTotal(matches, key) {
     for (const p of m.players || []) total += p[key] || 0;
   }
   return total;
+}
+
+// ---------- Advanced CoD metrics (from match.hp / match.snd / match.overload) ----------
+//
+// These read the optional team-level round/hill counters a coach can add to a
+// match under "Advanced Stats". Every function returns null — not a fabricated
+// 0% — when nothing has been recorded, so the UI can show "no data" instead of
+// a misleadingly confident number.
+
+function sumCounters(matches, modeKey, fields) {
+  const totals = Object.fromEntries(fields.map((f) => [f, 0]));
+  let any = false;
+  for (const m of matches) {
+    const data = m[modeKey];
+    if (!data) continue;
+    for (const f of fields) {
+      if (data[f] !== null && data[f] !== undefined) {
+        totals[f] += data[f];
+        any = true;
+      }
+    }
+  }
+  return any ? totals : null;
+}
+
+function pct(part, whole) {
+  if (!whole) return null;
+  return round((part / whole) * 100, 1);
+}
+
+const HP_COUNTER_KEYS = ['holds_won', 'holds_attempted', 'breaks_won', 'breaks_attempted', 'rotations_won', 'rotations_attempted'];
+const SND_COUNTER_KEYS = [
+  'offense_rounds', 'offense_round_wins', 'defense_rounds', 'defense_round_wins',
+  'first_bloods', 'first_blood_wins', 'first_deaths', 'first_death_wins',
+  'post_plant_rounds', 'post_plant_wins', 'retake_rounds', 'retake_wins',
+];
+const OVERLOAD_COUNTER_KEYS = ['scoring_attempts', 'scoring_wins', 'defensive_attempts', 'defensive_stops'];
+
+export function hpAdvancedMetrics(matches) {
+  const hpMatches = matches.filter((m) => m.mode === 'Hardpoint');
+  const totals = sumCounters(hpMatches, 'hp', HP_COUNTER_KEYS);
+  if (!totals) return null;
+  return {
+    hold_pct: pct(totals.holds_won, totals.holds_attempted),
+    break_pct: pct(totals.breaks_won, totals.breaks_attempted),
+    rotation_pct: pct(totals.rotations_won, totals.rotations_attempted),
+    sample: hpMatches.filter((m) => m.hp).length,
+  };
+}
+
+export function sndAdvancedMetrics(matches) {
+  const sndMatches = matches.filter((m) => m.mode === 'Search & Destroy');
+  const totals = sumCounters(sndMatches, 'snd', SND_COUNTER_KEYS);
+  const withCounters = sndMatches.filter((m) => m.snd);
+  const plants = teamObjTotal(withCounters, 'plants');
+  const offenseRounds = withCounters.reduce((sum, m) => sum + (m.snd?.offense_rounds || 0), 0);
+  if (!totals && !offenseRounds) return null;
+  return {
+    offense_win_pct: totals ? pct(totals.offense_round_wins, totals.offense_rounds) : null,
+    defense_win_pct: totals ? pct(totals.defense_round_wins, totals.defense_rounds) : null,
+    first_blood_conversion_pct: totals ? pct(totals.first_blood_wins, totals.first_bloods) : null,
+    first_death_recovery_pct: totals ? pct(totals.first_death_wins, totals.first_deaths) : null,
+    // Reuses the existing per-player `plants` count against the new team-level
+    // offense-round total, rather than tracking plants a second time.
+    plant_pct: offenseRounds ? pct(plants, offenseRounds) : null,
+    post_plant_win_pct: totals ? pct(totals.post_plant_wins, totals.post_plant_rounds) : null,
+    retake_pct: totals ? pct(totals.retake_wins, totals.retake_rounds) : null,
+    sample: withCounters.length,
+  };
+}
+
+export function overloadAdvancedMetrics(matches) {
+  const ovlMatches = matches.filter((m) => m.mode === 'Overload');
+  const totals = sumCounters(ovlMatches, 'overload', OVERLOAD_COUNTER_KEYS);
+  if (!totals) return null;
+  return {
+    scoring_efficiency_pct: pct(totals.scoring_wins, totals.scoring_attempts),
+    defensive_stop_pct: pct(totals.defensive_stops, totals.defensive_attempts),
+    sample: ovlMatches.filter((m) => m.overload).length,
+  };
+}
+
+export function advancedMetricsForMode(matches, mode) {
+  if (mode === 'Hardpoint') return hpAdvancedMetrics(matches);
+  if (mode === 'Search & Destroy') return sndAdvancedMetrics(matches);
+  if (mode === 'Overload') return overloadAdvancedMetrics(matches);
+  return null;
+}
+
+// Side performance: win rate grouped by the free-text `side` a coach enters
+// per match/scrim-map (e.g. "Offense" / "Defense" / "Attack") — reuses the
+// same statsByKey shape (key, total, wins, losses, winRate) as map/mode stats.
+export function sidePerformance(matches) {
+  return statsByKey(
+    matches.filter((m) => m.side),
+    (m) => m.side
+  );
 }
 
 // ---------- Stat aggregation across matches for one member ----------

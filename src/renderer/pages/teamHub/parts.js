@@ -97,12 +97,12 @@ export function miniEmpty(title, body, action = null) {
   ]);
 }
 
-export function taskRow(task, { onToggle, onOpen } = {}) {
+export function taskRow(task, { onToggle, onOpen, assigneeName } = {}) {
   const due = fmtDue(task.due);
   return el('div', { class: `task-row${task.done ? ' done' : ''}` }, [
     el('button', {
       type: 'button',
-      class: `task-check${task.done ? ' done' : ''}`,
+      class: `task-check edit-only${task.done ? ' done' : ''}`,
       role: 'checkbox',
       'aria-checked': String(!!task.done),
       'aria-label': `${task.done ? 'Reopen' : 'Complete'} ${task.title}`,
@@ -111,7 +111,10 @@ export function taskRow(task, { onToggle, onOpen } = {}) {
     }),
     el('div', { class: 'task-body', style: onOpen ? 'cursor:pointer;' : null, onclick: onOpen ? () => onOpen(task) : null }, [
       el('div', { class: 'task-title' }, task.title),
-      el('div', { class: `task-due${due.overdue && !task.done ? ' overdue' : ''}` }, task.done ? 'Done' : due.label),
+      el('div', { class: 'task-meta-row' }, [
+        el('div', { class: `task-due${due.overdue && !task.done ? ' overdue' : ''}` }, task.done ? 'Done' : due.label),
+        assigneeName ? el('div', { class: 'task-assignee' }, `→ ${assigneeName}`) : null,
+      ]),
     ]),
   ]);
 }

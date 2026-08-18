@@ -1,0 +1,13 @@
+# Copy this file to `.dev.vars` to test locally with `wrangler dev`.
+# `.dev.vars` is git-ignored and never deployed — it only affects your machine.
+# Real deployment secrets are set separately with `wrangler secret put`
+# (see the setup instructions from Claude for the exact commands).
+
+# Which Discord guild maps to which Coach Intel team lives in the
+# discord_guild_links table (scripts/supabase/schema.sql), not an env var —
+# see scripts/supabase/link-guild.js to add a mapping.
+DISCORD_APPLICATION_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=

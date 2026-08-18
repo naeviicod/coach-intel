@@ -2,7 +2,7 @@ import { el, icon } from '../utils.js';
 
 export function scoreboardDrop({ teamId, compact = false, onImported }) {
   const zone = el('div', {
-    class: `sb-drop${compact ? ' compact' : ''}`,
+    class: `sb-drop${compact ? ' compact' : ''} edit-only`,
     tabindex: '0',
     role: 'button',
     'aria-label': 'Drop scoreboard screenshots here',
@@ -116,7 +116,7 @@ export function scoreboardGrid(items, { onOpen, onRemove } = {}) {
       card.append(
         el('button', {
           type: 'button',
-          class: 'btn subtle sm sb-shot-remove',
+          class: 'btn subtle sm sb-shot-remove edit-only',
           onclick: (e) => { e.stopPropagation(); onRemove(item); },
         }, 'Remove')
       );

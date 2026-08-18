@@ -17,7 +17,7 @@ export async function render(container) {
       el(
         'div',
         { style: 'max-width:440px;margin:0 auto;line-height:1.6;' },
-        'Drop everyday scoreboards on Needs Review — that is the inbox. This page is for teaching the reader: import one sample, draw boxes over each stat field, and Coach Intel reuses that template for the same board type.'
+        'Drop everyday scoreboards on the Scoreboard Inbox — that is the inbox. This page is for teaching the reader: import one sample, draw boxes over each stat field, and Coach Intel reuses that template for the same board type.'
       ),
     ])
   );

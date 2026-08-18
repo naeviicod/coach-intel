@@ -34,7 +34,7 @@ export function buildSignals(members, matches, meta) {
   }
 
   // Map signal: strongest map by win rate
-  const mapStats = statsByKey(matches, (m) => m.map).filter((s) => s.total >= 2);
+  const mapStats = statsByKey(matches, (m) => m.map).filter((s) => s.total >= SAMPLE_MIN);
   if (mapStats.length) {
     const strongest = [...mapStats].sort((a, b) => b.winRate - a.winRate)[0];
     signals.push({
@@ -56,21 +56,66 @@ export function buildSignals(members, matches, meta) {
     }
   }
 
-  // Roster insight: best combined K/D pair
+  // Roster insight: best combined K/D pair — same SAMPLE_MIN as every other
+  // signal, so a hot streak over one or two matches can't surface here either.
   const ranked = members
-    .map((m) => ({ member: m, kd: aggregate(statsForMember(matches, m.id)).kd }))
-    .filter((r) => r.kd > 0)
+    .map((m) => {
+      const rows = statsForMember(matches, m.id);
+      return { member: m, kd: aggregate(rows).kd, matches: rows.length };
+    })
+    .filter((r) => r.kd > 0 && r.matches >= SAMPLE_MIN)
     .sort((a, b) => b.kd - a.kd);
   if (ranked.length >= 2) {
+    const sample = Math.min(ranked[0].matches, ranked[1].matches);
     signals.push({
       tone: 'insight',
       glyph: '◆',
       title: 'Roster Insight',
-      body: `${ranked[0].member.gamertag} + ${ranked[1].member.gamertag} currently produce the roster's strongest combined K/D.`,
+      body: `${ranked[0].member.gamertag} + ${ranked[1].member.gamertag} currently produce the roster's strongest combined K/D, over at least ${sample} matches each.`,
       weight: 4,
     });
   }
 
+  return signals.sort((a, b) => b.weight - a.weight);
+}
+
+const SCRIM_SAMPLE_MIN = 3;
+const SCRIM_LOSS_THRESHOLD = 60; // % loss rate worth flagging as a recurring pattern
+
+// Recurring scrim losses on a map, cross-referenced against the tags a coach
+// attached to those losses (e.g. "bad break", "slow rotate") — surfaces a
+// pattern only when both the sample size and the loss rate clear a real bar,
+// same discipline as buildSignals above. Kept separate from match-based
+// signals since scrim results are a different, private dataset.
+export function buildScrimSignals(scrims) {
+  const signals = [];
+  const completed = (scrims || []).filter((s) => s.status === 'completed');
+  const mapRows = completed.flatMap((s) => (s.maps || []).filter((m) => m.result).map((m) => ({ ...m, opponent: s.opponent })));
+  const byMapMode = groupBy(mapRows, (m) => `${m.map || 'Unknown'}::${m.mode || 'Unknown'}`);
+
+  for (const [key, rows] of Object.entries(byMapMode)) {
+    if (rows.length < SCRIM_SAMPLE_MIN) continue;
+    const losses = rows.filter((r) => r.result === 'Loss');
+    const lossRate = Math.round((losses.length / rows.length) * 100);
+    if (lossRate < SCRIM_LOSS_THRESHOLD) continue;
+    const [map, mode] = key.split('::');
+
+    const tagCounts = {};
+    for (const l of losses) for (const tag of l.tags || []) tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    const topTag = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
+
+    signals.push({
+      tone: 'risk',
+      glyph: '▼',
+      title: 'Scrim Pattern',
+      body:
+        topTag && topTag[1] >= 2
+          ? `${map} ${mode} losses in scrims keep coming back to "${topTag[0]}" — ${topTag[1]} of ${losses.length} losses tagged that way, over ${rows.length} scrim maps.`
+          : `${map} ${mode} is a recurring scrim loss — ${losses.length} of ${rows.length} scrim maps lost.`,
+      weight: lossRate,
+      mode,
+    });
+  }
   return signals.sort((a, b) => b.weight - a.weight);
 }
 
@@ -104,8 +149,12 @@ export async function render(container, ctx) {
   const meta = await window.cci.getMetaKnowledge();
   let allSignals = [];
   for (const team of teams) {
-    const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
-    const signals = buildSignals(members, matches, meta).map((s) => ({ ...s, team }));
+    const [members, matches, scrims] = await Promise.all([
+      window.cci.getMembers(team.id),
+      window.cci.getMatches(team.id),
+      window.cci.getScrims(team.id),
+    ]);
+    const signals = [...buildSignals(members, matches, meta), ...buildScrimSignals(scrims)].map((s) => ({ ...s, team }));
     allSignals = allSignals.concat(signals);
   }
   allSignals.sort((a, b) => b.weight - a.weight);
