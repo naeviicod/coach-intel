@@ -18,7 +18,7 @@ async function draw(container, ctx, reload) {
   container.append(
     el('div', { class: 'page-header' }, [
       el('div', { class: 'page-identity' }, [
-        orgMark(org, { class: 'sb-org-logo page-org-logo', fallbackLogo: teams.find((t) => t.logo)?.logo }),
+        orgMark(org, { class: 'sb-org-logo page-org-logo' }),
         el('div', { style: 'min-width:0;' }, [
           el('div', { class: 'page-org-name' }, org?.name || 'Your organization'),
           el('div', { class: 'page-title' }, 'Dashboard'),

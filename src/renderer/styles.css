@@ -103,7 +103,12 @@ img {
   overflow: hidden;
   background: transparent;
 }
-#app.shell { background: var(--bg); }
+#app.shell {
+  background:
+    radial-gradient(60% 40% at 12% -8%, color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 35% at 100% 105%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%),
+    var(--bg);
+}
 #app:not(.shell) #sidebar,
 #app:not(.shell) #topbar,
 #app:not(.shell) #statusbar { display: none !important; }
