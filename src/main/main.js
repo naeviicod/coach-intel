@@ -795,6 +795,7 @@ ipcMain.handle('cci:saveRankings', requireEdit(async (e, rankings) => {
 ipcMain.handle('cci:deleteAllData', requireEdit(() => dataStore.deleteAllData()));
 ipcMain.handle('cci:getAppVersion', () => app.getVersion());
 ipcMain.handle('cci:setTrafficLights', (e, collapsed) => {
+  if (process.platform !== 'darwin') return;
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.setTrafficLightPosition(collapsed ? { x: 14, y: 16 } : { x: 16, y: 18 });
 });

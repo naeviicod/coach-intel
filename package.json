@@ -1,7 +1,7 @@
 {
   "name": "coach-intel",
   "productName": "Coach Intel",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Coach Intel — offline competitive intelligence assistant for Call of Duty",
   "main": "src/main/main.js",
   "author": "IK Studios",
