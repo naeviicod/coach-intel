@@ -4,6 +4,7 @@ import { applyAccent, resolveAccent } from '../lib/accent.js';
 import { accessRoleLabel } from '../lib/invite.js';
 
 function paintInviteAccent(invite) {
+  if (!splashDismissed()) return;
   applyAccent(resolveAccent({
     invite: invite?.accent,
     firstLaunch: !invite?.accent,
@@ -16,6 +17,7 @@ function paintInviteAccent(invite) {
 export function render(container, { onComplete } = {}) {
   const state = { status: 'idle', error: null, invite: null };
   paintInviteAccent(null);
+  document.addEventListener('cci:splash-done', () => paintInviteAccent(state.invite), { once: true });
   draw(container, state);
 
   window.cci.invites?.pending?.().then((result) => {
@@ -49,7 +51,7 @@ export function render(container, { onComplete } = {}) {
 
 function splashDismissed() {
   const splash = document.getElementById('splash');
-  return !splash || splash.classList.contains('hide') || splash.classList.contains('landed') || splash.style.display === 'none';
+  return !splash || splash.dataset.done === '1' || splash.classList.contains('hide') || splash.classList.contains('landed') || splash.style.display === 'none';
 }
 
 function draw(container, state) {

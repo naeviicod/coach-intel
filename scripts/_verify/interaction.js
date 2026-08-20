@@ -532,12 +532,19 @@ async function runCrud(win, teamId) {
   if (!(await text(win)).includes('qa_audit_player')) ok('DELETE player');
   else fail('DELETE player still visible');
 
-  await formCrud(win, '#/calendar', '+ Add League Match', { opponent: 'QA_AUDIT_Event' }, 'Save', 'qa_audit_event');
+  await formCrud(win, '#/calendar', 'Add Event', { opponent: 'QA_AUDIT_Event' }, 'Save', 'qa_audit_event');
   await formCrud(win, '#/scrim-hub', 'Book Scrim', { opponent: 'QA_AUDIT_OppScrim' }, 'Book', 'qa_audit_oppscrim');
   await formCrud(win, '#/vod-library', '+ Add VOD', { title: 'QA_AUDIT_Vod' }, 'Save', 'qa_audit_vod');
   await formCrud(win, '#/scouting', 'Add Opponent', { name: 'QA_AUDIT_Scout' }, 'Save', 'qa_audit_scout');
   await formCrud(win, '#/rankings', 'Add Team', { name: 'QA_AUDIT_Rank' }, 'Save', 'qa_audit_rank');
-  await formCrud(win, '#/matches', '+ Log Match', { opponent: 'QA_AUDIT_MatchOpp' }, 'Save', 'qa_audit_matchopp');
+  await evalJs(win, `window.cci.saveEvent(${JSON.stringify(teamId)}, { type: 'league-match', date: '2026-08-19', opponent: 'QA_AUDIT_MatchOpp', maps: ['Den'] })`);
+  await goto(win, '#/matches');
+  await sleep(500);
+  if ((await text(win)).toLowerCase().includes('qa_audit_matchopp')) ok('Match Log shows calendar league match');
+  else fail('Match Log missing calendar league match');
+  const matchModes = await evalJs(win, `([...document.querySelectorAll('#mode-filter option')].map((o) => o.textContent).join('|'))`);
+  if (String(matchModes).includes('Hardpoint') && String(matchModes).includes('Overload')) ok('Match Log lists ruleset modes');
+  else fail('Match Log missing ruleset modes');
   await closeModals(win);
 
   await goto(win, `#/playbooks/${teamId}`);
@@ -632,7 +639,7 @@ async function runFilters(win) {
   else fail(`maps mode chip did not activate (got ${activeChip})`);
 
   await goto(win, '#/settings');
-  for (const section of ['Game Rules', 'Integrations', 'Team Access', 'Data & Storage', 'About', 'Organization']) {
+  for (const section of ['Game Rules', 'Integrations', 'Team Access', 'Data & Storage', 'Feedback', 'About', 'Organization', 'Profile']) {
     await clickText(win, section);
     await sleep(400);
     const t = await text(win);

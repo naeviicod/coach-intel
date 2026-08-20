@@ -74,21 +74,4 @@ export async function render(panel, ctx) {
     );
   }
   panel.append(card);
-
-  panel.append(
-    el('div', { class: 'card section' }, [
-      el('div', { class: 'section-title' }, 'Session'),
-      el(
-        'button',
-        {
-          class: 'btn subtle danger',
-          onclick: async () => {
-            await window.cci.auth.signOut();
-            window.location.reload();
-          },
-        },
-        'Sign out'
-      ),
-    ])
-  );
 }

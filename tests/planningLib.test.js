@@ -244,3 +244,57 @@ test('calendar: org overview includes meetings, tasks and every team', async () 
   assert.equal(cal.chipClass('vod-review'), 'vod');
   assert.equal(cal.chipClass('task'), 'task');
 });
+
+test('match log: calendar maps and scrim maps show up without a separate log', async () => {
+  const { collectMatchLogRows, rulesetFilterOptions, inferMapMode } = await import(libUrl('matchLog.js'));
+  const team = { id: 't1', name: 'Naevii' };
+  const ruleset = {
+    modes: RULESET_MODES,
+    maps: [
+      { name: 'Den', modes: ['Hardpoint', 'Search & Destroy', 'Overload'], active: true },
+      { name: 'Fringe', modes: ['Search & Destroy'], active: true },
+      { name: 'Colossus', modes: ['Hardpoint'], active: true },
+    ],
+  };
+
+  assert.equal(inferMapMode(ruleset, 'Fringe'), 'Search & Destroy');
+
+  const rows = collectMatchLogRows({
+    teams: [team],
+    matchesByTeam: { t1: [{ match_id: 'm1', date: '2026-08-10', opponent: 'FaZe', map: 'Den', mode: 'Hardpoint', result: 'Win', score: '250-180' }] },
+    eventsByTeam: {
+      t1: [
+        { event_id: 'e1', type: 'league-match', date: '2026-08-10', opponent: 'FaZe', maps: ['Den', 'Fringe'] },
+        { event_id: 'e2', type: 'meeting', date: '2026-08-11', title: 'Skip me' },
+        { event_id: 'e3', type: 'league-match', date: '2026-08-18', opponent: 'LAT', maps: ['Colossus'] },
+      ],
+    },
+    scrimsByTeam: {
+      t1: [{
+        scrim_id: 's1',
+        date: '2026-08-12',
+        opponent: 'Optic',
+        status: 'completed',
+        maps: [{ map: 'Gridlock', mode: 'Overload', result: 'Loss', us: 1, them: 3 }],
+      }],
+    },
+    ruleset,
+  });
+
+  assert.equal(rows.some((r) => r.source === 'match' && r.map === 'Den'), true);
+  assert.equal(rows.some((r) => r.source === 'event' && r.map === 'Den'), false);
+  const fringe = rows.find((r) => r.map === 'Fringe');
+  assert.equal(fringe.source, 'event');
+  assert.equal(fringe.mode, 'Search & Destroy');
+  const colossus = rows.find((r) => r.map === 'Colossus');
+  assert.equal(colossus.opponent, 'LAT');
+  const scrim = rows.find((r) => r.source === 'scrim');
+  assert.equal(scrim.map, 'Gridlock');
+  assert.equal(scrim.score, '1-3');
+  assert.equal(rows.some((r) => r.title === 'Skip me' || r.source === 'meeting'), false);
+
+  const filters = rulesetFilterOptions(ruleset, rows);
+  assert.equal(filters.modes.includes('Hardpoint'), true);
+  assert.equal(filters.maps.includes('Colossus'), true);
+  assert.equal(filters.maps.includes('Gridlock'), true);
+});

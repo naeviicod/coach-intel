@@ -46,7 +46,6 @@ async function draw(container, ctx, reload) {
     })
   );
 
-  const meta = await window.cci.getMetaKnowledge();
   const allMatches = perTeam.flatMap((t) => t.matches);
   const openTasks = perTeam.flatMap((t) => t.tasks.filter((task) => !task.done).map((task) => ({ ...task, team: t.team })));
   const reviewCount = perTeam.reduce((n, t) => n + t.review.length, 0);
@@ -72,7 +71,7 @@ async function draw(container, ctx, reload) {
       kpi({
         label: 'Matches',
         value: allMatches.length,
-        meta: allMatches.length ? `${teamWinRate(allMatches)}% win rate` : 'None logged',
+        meta: allMatches.length ? `${teamWinRate(allMatches)}% win rate` : 'None yet',
         onClick: () => ctx.navigate('matches'),
       }),
     ])
@@ -80,7 +79,7 @@ async function draw(container, ctx, reload) {
 
   const grid = el('div', { class: 'grid cols-2', style: 'margin-bottom:14px;' });
   grid.append(attentionCard(ctx, perTeam, openTasks, reload));
-  grid.append(intelCard(ctx, perTeam, meta));
+  grid.append(intelCard(ctx, perTeam));
   container.append(grid);
 
   container.append(teamsCard(ctx, perTeam));
@@ -126,7 +125,7 @@ function attentionCard(ctx, perTeam, openTasks, reload) {
   return card;
 }
 
-function intelCard(ctx, perTeam, meta) {
+function intelCard(ctx, perTeam) {
   const card = el('div', { class: 'card compact' }, [
     el('div', { class: 'card-head' }, [
       el('h2', {}, 'Recent Intel'),
@@ -135,11 +134,11 @@ function intelCard(ctx, perTeam, meta) {
   ]);
 
   const signals = perTeam
-    .flatMap((t) => buildSignals(t.members, t.matches, meta).map((s) => ({ ...s, team: t.team })))
+    .flatMap((t) => buildSignals(t.members, t.matches).map((s) => ({ ...s, team: t.team })))
     .slice(0, 5);
 
   if (!signals.length) {
-    card.append(miniEmpty('No signals yet', 'Signals surface once enough matches are logged to spot a trend.'));
+    card.append(miniEmpty('No signals yet', 'Signals surface once teams have enough matches and scrims on the books.'));
     return card;
   }
   for (const s of signals) {

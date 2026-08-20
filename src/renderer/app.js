@@ -1,6 +1,7 @@
-import { el, icon, faceMark } from './utils.js';
+import { el, icon, faceMark, verifiedMark } from './utils.js';
 import { asset } from './lib/assets.js';
 import { applyAccent, resolveAccent, DEFAULT_ACCENT } from './lib/accent.js';
+import { applyBackground, preloadBackground, DEFAULT_BACKGROUND } from './lib/background.js';
 import { getPref, setPref } from './prefs.js';
 import {
   canAccessPage,
@@ -11,6 +12,7 @@ import {
 } from './lib/access.js';
 import { chipIdentity } from './lib/profile.js';
 import { toast } from './components/modal.js';
+import { openFeedbackModal, stashFeedback } from './components/feedback.js';
 import * as onboarding from './pages/onboarding.js';
 import * as signIn from './pages/signIn.js';
 import * as dashboard from './pages/dashboard.js';
@@ -130,6 +132,10 @@ const LEGACY_TAB_ROUTES = {
 
 const SPLASH_MIN_MS = 5000;
 const SPLASH_BAR_MS = 280;
+// Keep in step with --dur-splash and --dur-look in styles.css.
+const SPLASH_FADE_MS = 380;
+const LOOK_SHIFT_MS = 520;
+const ART_PRELOAD_MS = 1500;
 const BOOT_TIMEOUT_MS = 8000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
 const TEAM_NAV_PAGES = new Set([
@@ -321,7 +327,7 @@ async function loadShellDataBody(onProgress, { search = true } = {}) {
     firstLaunch: !state.teams.length,
   });
   if (state.org) state.org = { ...state.org, accent };
-  applyAccent(accent);
+  // Splash stays Intel Lime. Accent and wallpaper wait until the splash hides.
   state.appVersion = await window.cci.getAppVersion();
   await loadAccess();
   onProgress?.(0.68);
@@ -425,6 +431,39 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// Accent and wallpaper land while the splash is still up, so the app is
+// revealed onto the finished backdrop instead of snapping to it a frame later.
+// `look-shift` is what makes that a crossfade rather than a cut; it comes off
+// again so the Settings colour picker stays live under the cursor.
+let lookApplied = false;
+let splashSignalled = false;
+let lookShiftTimer = 0;
+
+function beginLookShift() {
+  if (prefersReducedMotion()) return;
+  const root = document.documentElement;
+  root.classList.add('look-shift');
+  window.clearTimeout(lookShiftTimer);
+  lookShiftTimer = window.setTimeout(() => root.classList.remove('look-shift'), LOOK_SHIFT_MS + 240);
+}
+
+function applySavedLook() {
+  if (lookApplied) return;
+  lookApplied = true;
+  beginLookShift();
+  applyAccent(state.org?.accent || DEFAULT_ACCENT);
+  applyBackground(getPref('background', DEFAULT_BACKGROUND));
+}
+
+// The sign-in gate repaints to the inviting org's accent on this event, so keep
+// the crossfade window open across it.
+function signalSplashDone() {
+  if (splashSignalled) return;
+  splashSignalled = true;
+  beginLookShift();
+  document.dispatchEvent(new CustomEvent('cci:splash-done'));
+}
+
 function finishSplash(splash) {
   if (!splash || splash.dataset.done === '1') return;
   splash.dataset.done = '1';
@@ -432,6 +471,8 @@ function finishSplash(splash) {
   const done = () => {
     splash.classList.add('hide');
     splash.style.display = 'none';
+    applySavedLook();
+    signalSplashDone();
   };
   if (prefersReducedMotion() || splash.classList.contains('landed')) {
     done();
@@ -451,13 +492,18 @@ function finishSplash(splash) {
     settle();
   };
   splash.addEventListener('transitionend', onEnd);
-  window.setTimeout(settle, 320);
+  window.setTimeout(settle, SPLASH_FADE_MS + 120);
 }
 
 function restAtmosphere() {
   const atmosphere = document.getElementById('atmosphere');
   if (!atmosphere) return;
   atmosphere.classList.add('arena');
+  const splash = document.getElementById('splash');
+  if (!splash || splash.dataset.done === '1' || splash.style.display === 'none') {
+    applySavedLook();
+    signalSplashDone();
+  }
 }
 
 // Lockup is 2172x724 (3:1). The Ci lives in the left square. Clip hides the type,
@@ -703,6 +749,9 @@ function paintSplashVersion() {
 async function boot() {
   if (/Mac/i.test(navigator.platform || '')) document.documentElement.classList.add('is-mac');
   applyAccent(DEFAULT_ACCENT);
+  applyBackground(DEFAULT_BACKGROUND);
+  // Starts decoding now; the splash has seconds of runway to spend on it.
+  const artReady = preloadBackground(getPref('background', DEFAULT_BACKGROUND));
   paintSplashVersion();
   const barAnim = runSplashBar();
   const minTime = wait(SPLASH_MIN_MS - SPLASH_BAR_MS);
@@ -722,6 +771,8 @@ async function boot() {
     showFn = renderSignIn;
   }
   await minTime;
+  await raceTimeout(artReady, ART_PRELOAD_MS, null).catch(() => {});
+  applySavedLook();
   await completeSplashBar(barAnim);
   revealFromSplash(showFn);
   window.addEventListener('resize', applyResponsiveNav);
@@ -810,6 +861,30 @@ function navLink(item) {
   return node;
 }
 
+function openFeedback(prefill) {
+  const teamId = rememberedTeamId();
+  const payload = {
+    org: state.org,
+    access: state.access,
+    page: state.route.page,
+    teamId,
+    teamName: state.teams.find((t) => t.id === teamId)?.name || '',
+    prefill,
+  };
+  // Settings itself crashing has nowhere else to go — keep the modal as a last door.
+  if (state.route.page === 'settings') {
+    openFeedbackModal(payload);
+    return;
+  }
+  stashFeedback({
+    ...prefill,
+    page: payload.page,
+    teamId,
+    teamName: payload.teamName,
+  });
+  navigate('settings', 'feedback');
+}
+
 function renderSidebar() {
   const sidebar = document.getElementById('sidebar');
   sidebar.innerHTML = '';
@@ -817,12 +892,10 @@ function renderSidebar() {
 
   sidebar.append(
     el('div', { class: 'sb-brand' }, [
-      el('img', {
-        class: 'sb-wordmark brand-tint',
-        src: asset('logo-mark.png'),
-        alt: 'Coach Intel',
-      }),
-      el('img', { class: 'sb-brand-icon brand-tint', src: asset('ci-mark.png'), alt: '' }),
+      el('div', { class: 'sb-wordmark', 'aria-label': 'Coach Intel' }, [
+        el('img', { class: 'sb-wordmark-coach', src: asset('wordmark-coach.png'), alt: '' }),
+        el('span', { class: 'sb-wordmark-intel' }),
+      ]),
     ])
   );
 
@@ -1135,7 +1208,6 @@ function renderTopbar() {
   topbar.append(notificationBell());
   topbar.append(el('div', { class: 'topbar-divider' }));
 
-  const hideVerified = state.route.page === 'players' || state.route.page === 'database';
   const chip = chipIdentity(state.org, state.access);
   const titleLine = chip.title || (!state.access?.local && accessRoleLabel(state.access?.role)) || '';
   const roleBits = [titleLine, !state.access?.canEdit ? 'View only' : ''].filter(Boolean);
@@ -1145,20 +1217,18 @@ function renderTopbar() {
       role: 'button',
       tabindex: '0',
       title: 'Edit your profile',
-      onclick: () => navigate('settings', 'organization'),
+      onclick: () => navigate('settings', 'profile'),
       onkeydown: (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          navigate('settings', 'organization');
+          navigate('settings', 'profile');
         }
       },
     }, [
       el('div', {}, [
         el('div', { class: 'topbar-profile-name' }, [
           chip.name,
-          chip.verified && !hideVerified
-            ? el('span', { class: 'verified-mark', title: 'Verified', html: icon('check', 9) })
-            : null,
+          chip.verified ? verifiedMark() : null,
         ]),
         el('div', { class: 'topbar-profile-role' }, roleBits.join(' · ') || 'Signed in'),
       ]),
@@ -1316,10 +1386,22 @@ async function renderContent() {
     if (token !== renderSeq) return;
     lastPage = null;
     content.className = '';
+    const message = String(err && err.message ? err.message : err);
     content.replaceChildren(
       el('div', { class: 'card inline-error' }, [
         el('div', { class: 'inline-error-title' }, 'This page failed to load'),
-        el('div', {}, String(err && err.message ? err.message : err)),
+        el('div', {}, message),
+        el('div', { style: 'margin-top:10px;' }, [
+          el('button', {
+            class: 'btn subtle sm',
+            onclick: () =>
+              openFeedback({
+                category: 'bug',
+                subject: `Page failed to load: ${state.route.page}`,
+                description: `Error: ${message}\n\nPage: ${state.route.page}${state.route.param ? '/' + state.route.param : ''}`,
+              }),
+          }, 'Report this issue'),
+        ]),
       ])
     );
     return;

@@ -12,7 +12,7 @@ export async function render(panel) {
         el('img', { class: 'brand-tint', src: asset('logo-mark.png'), alt: 'Coach Intel' }),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
-      aboutRow('Version', `v${version || '0.8.1'}`),
+      aboutRow('Version', `v${version || '0.9.5'}`),
       aboutRow('Mode', 'Offline · On-device only'),
       ruleset ? aboutRow('Ruleset', `${ruleset.game} · Season ${ruleset.season} · v${ruleset.version}`) : null,
       ruleset ? aboutRow('Ruleset checked', ruleset.last_checked) : null,

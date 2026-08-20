@@ -1,6 +1,7 @@
 import { el, fmtDate, playerAvatar, OBJ_STATS, fmtObj } from '../utils.js';
 import { pageHeader, emptyState, openForm, confirmModal, toast } from './planningShared.js';
 import { openModal, modalActions } from '../components/modal.js';
+import { collectMatchLogRows, rulesetFilterOptions } from '../lib/matchLog.js';
 
 const RESULTS = ['Win', 'Loss'];
 
@@ -16,31 +17,34 @@ export async function render(container, ctx) {
   container.append(
     pageHeader(
       'Match Log',
-      'Org-wide match history, filterable by team, mode, and map',
-      teams.length
-        ? el(
-            'button',
-            { class: 'btn primary edit-only', onclick: () => logMatch(teams, teamScoped ? ctx.param : teams[0]?.id, reload) },
-            '+ Log Match'
-          )
-        : null
+      'Maps and modes from league matches and scrims, as teams put them in'
     )
   );
 
   if (!teams.length) {
-    container.append(emptyState('No teams yet', 'Create a team before logging matches.'));
+    container.append(emptyState('No teams yet', 'Create a team, then add a league match on the calendar or record maps in Scrim Hub.'));
     return;
   }
 
-  const allMatches = [];
-  for (const team of teams) {
-    const matches = await window.cci.getMatches(team.id);
-    for (const m of matches) allMatches.push({ ...m, teamId: team.id, teamName: team.name });
-  }
-  allMatches.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const ruleset = await window.cci.getCdlRuleset();
+  const matchesByTeam = {};
+  const eventsByTeam = {};
+  const scrimsByTeam = {};
+  await Promise.all(
+    teams.map(async (team) => {
+      const [matches, events, scrims] = await Promise.all([
+        window.cci.getMatches(team.id),
+        window.cci.getEvents(team.id),
+        window.cci.getScrims(team.id),
+      ]);
+      matchesByTeam[team.id] = matches;
+      eventsByTeam[team.id] = events;
+      scrimsByTeam[team.id] = scrims;
+    })
+  );
 
-  const modes = [...new Set(allMatches.map((m) => m.mode))];
-  const maps = [...new Set(allMatches.map((m) => m.map))];
+  const allMatches = collectMatchLogRows({ teams, matchesByTeam, eventsByTeam, scrimsByTeam, ruleset });
+  const { modes, maps } = rulesetFilterOptions(ruleset, allMatches);
 
   const filterBar = el('div', { class: 'filter-bar' }, [
     selectFilter('team-filter', 'All Teams', teams.map((t) => [t.id, t.name]), teamScoped ? ctx.param : ''),
@@ -79,10 +83,29 @@ export async function render(container, ctx) {
       tableWrap.append(
         el('div', { class: 'empty-state' }, [
           el('div', { class: 'icon' }, '📋'),
-          el('div', { class: 'title' }, allMatches.length ? 'No matches match these filters' : 'No matches logged yet'),
+          el('div', { class: 'title' }, allMatches.length ? 'No matches match these filters' : 'No matches yet'),
+          allMatches.length
+            ? null
+            : el('div', {}, 'League matches from the calendar and maps recorded in Scrim Hub show up here automatically.'),
         ])
       );
       return;
+    }
+
+    function openRow(m) {
+      const team = teams.find((t) => t.id === m.teamId);
+      if (m.source === 'match' && m.match_id) {
+        matchDetail(m, team, reload);
+        return;
+      }
+      if (m.source === 'scrim') ctx.navigate('scrim-hub', m.teamId);
+      else ctx.navigate('calendar', m.teamId);
+    }
+
+    function resultCell(m) {
+      if (!m.result) return '—';
+      const cls = m.result === 'Win' ? 'win' : m.result === 'Loss' ? 'loss' : '';
+      return el('span', { class: cls ? `pill ${cls}` : 'pill' }, m.result);
     }
 
     tableWrap.append(
@@ -105,32 +128,32 @@ export async function render(container, ctx) {
           {},
           filtered.map((m) => {
             const top = [...(m.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0))[0];
-            const team = teams.find((t) => t.id === m.teamId);
+            const canDelete = m.source === 'match' && m.match_id;
             return el(
               'tr',
-              { class: 'clickable-row', onclick: () => matchDetail(m, team, reload) },
+              { class: 'clickable-row', onclick: () => openRow(m) },
               [
                 el('td', {}, fmtDate(m.date)),
                 el('td', {}, m.teamName),
                 el('td', {}, m.opponent || '—'),
-                el('td', { class: 'mode-tag' }, m.mode),
-                el('td', {}, m.map),
-                el('td', {}, m.score),
-                el('td', {}, el('span', { class: `pill ${m.result === 'Win' ? 'win' : 'loss'}` }, m.result)),
+                el('td', { class: 'mode-tag' }, m.mode || '—'),
+                el('td', {}, m.map || '—'),
+                el('td', {}, m.score || '—'),
+                el('td', {}, resultCell(m)),
                 el('td', {}, top ? `${top.member_id} (${top.kills || 0}K)` : '—'),
-                el('td', { class: 'edit-only' }, [
-                  el(
-                    'button',
-                    {
-                      class: 'btn subtle sm danger',
-                      onclick: (e) => {
-                        e.stopPropagation();
-                        deleteMatch(m, reload);
+                el('td', { class: 'edit-only' }, canDelete
+                  ? el(
+                      'button',
+                      {
+                        class: 'btn subtle sm danger',
+                        onclick: (e) => {
+                          e.stopPropagation();
+                          deleteMatch(m, reload);
+                        },
                       },
-                    },
-                    'Delete'
-                  ),
-                ]),
+                      'Delete'
+                    )
+                  : null),
               ]
             );
           })
@@ -292,30 +315,6 @@ function advancedStatsForm(match, team, adv, onDone) {
 
 function combineScore(us, them, fallback) {
   return us != null || them != null ? `${us ?? 0}-${them ?? 0}` : fallback || '';
-}
-
-function logMatch(teams, defaultTeamId, reload) {
-  window.cci.getCdlRuleset().then((ruleset) => {
-    openForm({
-      title: 'Log Match',
-      submitLabel: 'Save',
-      fields: matchFormFields(ruleset, { includeTeam: true, teams }),
-      values: {
-        team_id: defaultTeamId,
-        date: new Date().toISOString().slice(0, 10),
-        mode: ruleset?.modes?.[0] || 'Hardpoint',
-      },
-      onSubmit: async (values) => {
-        const { team_id, us, them, ...rest } = values;
-        const score = combineScore(us, them);
-        const match = await window.cci.saveMatch(team_id, { ...rest, score, players: [] });
-        toast('Match logged', 'ok');
-        const team = teams.find((t) => t.id === team_id);
-        reload();
-        matchDetail(match, team, reload);
-      },
-    });
-  });
 }
 
 function editMatch(match, team, reload) {

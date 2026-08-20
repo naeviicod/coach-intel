@@ -12,7 +12,10 @@ const ALLOWED_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const BUCKETS = ['inbox', 'needs-review'];
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const EU_DATE = /^(\d{2})-(\d{2})-(\d{4})$/;
-const DEFAULT_SCRIM_SB_DIR = '/Users/Ion/Library/Mobile Documents/com~apple~CloudDocs/Naevii/Scrim SBs';
+// Opt-in only — set CCI_SCRIM_SB_DIR to pre-fill the scoreboard picker's
+// starting folder on your machine. Unset on every other machine (main.js
+// falls back to no default when this path doesn't exist).
+const DEFAULT_SCRIM_SB_DIR = process.env.CCI_SCRIM_SB_DIR || null;
 
 function dataRoot() {
   return process.env.CCI_DATA_ROOT || DATA_ROOT;

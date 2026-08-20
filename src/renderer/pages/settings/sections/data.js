@@ -22,7 +22,7 @@ export async function render(panel) {
           el(
             'div',
             { class: 'field-hint', style: 'max-width:560px;line-height:1.5;' },
-            'The CDL ruleset and meta-knowledge files ship with the app. They are never erased by the actions below.'
+            'The CDL ruleset ships with the app. It is never erased by the actions below.'
           ),
         ]),
         el('span', { class: 'role-badge' }, 'Bundled'),
@@ -39,7 +39,7 @@ export async function render(panel) {
           el(
             'div',
             { class: 'field-hint', style: 'max-width:560px;line-height:1.5;' },
-            'Permanently erases the organization, every team, roster, match, veto and strat. The CDL ruleset and meta-knowledge reference data are kept. This cannot be undone.'
+            'Permanently erases the organization, every team, roster, match, veto and strat. The CDL ruleset is kept. This cannot be undone.'
           ),
         ]),
         el('button', { class: 'btn danger', onclick: openDeleteAllModal }, 'Delete All Data'),

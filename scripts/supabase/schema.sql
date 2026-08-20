@@ -541,3 +541,106 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- ---------- User feedback ----------
+-- Bug reports, feature requests, and other feedback from any signed-in user —
+-- not routed through shared_docs, since that table is staff-write-only and
+-- globally readable by every signed-in teammate once team_id = '' (see above),
+-- neither of which is right for feedback: any role must be able to submit, and
+-- one user's feedback must not be readable by another user who isn't staff.
+
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete set null,
+  team_id text references public.teams (id) on delete set null,
+  category text not null default 'other'
+    check (category in ('bug', 'incorrect_data', 'ui_ux', 'feature_request', 'performance', 'strategy_map_data', 'other')),
+  subject text not null,
+  description text not null,
+  contact_email text,
+  page text,
+  app_version text,
+  platform text,
+  status text not null default 'new'
+    check (status in ('new', 'reviewing', 'resolved', 'closed')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_user_id_idx on public.feedback (user_id);
+create index if not exists feedback_status_idx on public.feedback (status);
+
+alter table public.feedback enable row level security;
+
+-- Any signed-in user may submit feedback, but only attributed to themselves.
+drop policy if exists "users can submit their own feedback" on public.feedback;
+create policy "users can submit their own feedback"
+  on public.feedback for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+-- A user reads only their own submissions; org-wide staff can read all of them
+-- to triage, mirroring the role set already used to gate shared_docs writes.
+drop policy if exists "users read own feedback, staff reads all" on public.feedback;
+create policy "users read own feedback, staff reads all"
+  on public.feedback for select
+  to authenticated
+  using (
+    user_id = auth.uid()
+    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+  );
+
+-- No UI reads or writes `status` yet — this policy exists so a future triage
+-- screen doesn't need another migration, not because one exists today.
+drop policy if exists "staff can update feedback status" on public.feedback;
+create policy "staff can update feedback status"
+  on public.feedback for update
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
+
+-- ---------- Cloud asset storage (member photos, team/org logos, map art) ----------
+-- teams.logo and members.photo already sync as relative-path strings, but the
+-- image bytes those paths point to only ever lived on whichever one machine did
+-- the upload — a second machine had the path and nothing at the end of it. This
+-- bucket is what a fresh install (or scripts/supabase/migrate-images.js, for
+-- images uploaded before this existed) actually resolves those paths against.
+-- Private, not public: readable by any signed-in teammate, writable only by the
+-- same staff roles already allowed to edit teams/members/org (RLS here backs up
+-- the requireEdit() gate the app already enforces on every upload IPC call).
+
+insert into storage.buckets (id, name, public)
+values ('org-assets', 'org-assets', false)
+on conflict (id) do nothing;
+
+drop policy if exists "org-assets readable by any signed-in teammate" on storage.objects;
+create policy "org-assets readable by any signed-in teammate"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'org-assets');
+
+drop policy if exists "org-assets writable by staff" on storage.objects;
+create policy "org-assets writable by staff"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'org-assets'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach'))
+  );
+
+drop policy if exists "org-assets updatable by staff" on storage.objects;
+create policy "org-assets updatable by staff"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'org-assets'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach'))
+  );
+
+drop policy if exists "org-assets deletable by staff" on storage.objects;
+create policy "org-assets deletable by staff"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'org-assets'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach'))
+  );

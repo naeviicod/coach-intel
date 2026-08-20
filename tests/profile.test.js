@@ -74,3 +74,10 @@ test('top-bar chip uses the signed-in person, not a generic Coach', async () => 
   assert.equal(filled.verified, true);
   assert.equal(discordFallback.verified, true);
 });
+
+test('a Discord-linked member is confirmed', async () => {
+  const { memberDiscordVerified } = await import(libUrl('profile.js'));
+  assert.equal(memberDiscordVerified({ gamertag: 'Abloh' }), false);
+  assert.equal(memberDiscordVerified({ gamertag: 'NaeviiSZN', user_id: 'u-1' }), true);
+  assert.equal(memberDiscordVerified({ gamertag: 'vxlt', linked: { id: 'u-2', discord_username: 'vxlt' } }), true);
+});

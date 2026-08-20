@@ -65,14 +65,6 @@ function rosterCard(team, members, matches, ctx, teams) {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: defaultSlot(members) }),
         }, '+ Add Player'),
-        el('button', {
-          class: 'btn primary',
-          onclick: () => openMemberModal(ctx, team.id, null, { slot: 'bench' }),
-        }, '+ Add Bench'),
-        el('button', {
-          class: 'btn primary',
-          onclick: () => openMemberModal(ctx, team.id, null, { slot: 'staff' }),
-        }, '+ Add Staff'),
         ctx.canEdit ? transferSelected : null,
       ]),
     ]),
@@ -85,7 +77,7 @@ function rosterCard(team, members, matches, ctx, teams) {
   });
 
   if (!members.length) {
-    card.append(el('div', { class: 'field-hint' }, 'No members yet. Add a player or staff member to this roster.'));
+    card.append(el('div', { class: 'field-hint' }, 'No members yet. Add a player to this roster.'));
     return card;
   }
 

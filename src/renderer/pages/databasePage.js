@@ -1,18 +1,36 @@
-import { el, roleBadge, statsForMember, aggregate } from '../utils.js';
-import { memberStaffTitle } from '../lib/profile.js';
+import { el, roleBadge, statsForMember, aggregate, verifiedMark } from '../utils.js';
+import { memberStaffTitle, memberDiscordVerified } from '../lib/profile.js';
 import { isStaffMember } from '../lib/roster.js';
+import { openMemberModal } from '../lib/teamManage.js';
+import { toast } from '../components/modal.js';
 
 export async function render(container, ctx) {
+  const teams = await window.cci.getTeams();
+
   container.append(
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Member Database'),
         el('div', { class: 'page-subtitle' }, 'Everyone in the organization — players, staff, and creatives — and their org role'),
       ]),
+      ctx.canEdit
+        ? el('button', {
+            class: 'btn primary edit-only',
+            onclick: () => {
+              if (!teams.length) {
+                toast('Create a team first, then add staff.');
+                return;
+              }
+              openMemberModal(ctx, teams[0].id, null, {
+                slot: 'staff',
+                teams,
+                onSaved: () => ctx.navigate('database'),
+              });
+            },
+          }, '+ Add Staff')
+        : null,
     ])
   );
-
-  const teams = await window.cci.getTeams();
   const rows = [];
   for (const team of teams) {
     const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
@@ -79,7 +97,10 @@ export async function render(container, ctx) {
                 { class: 'clickable-row', onclick: () => ctx.navigate('member', `${r.team.id}/${r.member.id}`) },
                 [
                   el('td', {}, [
-                    el('div', { class: 'gamertag' }, r.member.gamertag),
+                    el('div', { class: 'gamertag' }, [
+                      r.member.gamertag,
+                      memberDiscordVerified(r.member) ? verifiedMark() : null,
+                    ]),
                     r.member.name && r.member.name !== r.member.gamertag
                       ? el('div', { class: 'member-name' }, r.member.name)
                       : null,

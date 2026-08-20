@@ -37,3 +37,11 @@ test('missing or invalid colors fall back to lime', async () => {
   assert.equal(normalizeHex('ff0000'), '#ff0000');
   assert.equal(normalizeHex('not-a-color'), null);
 });
+
+test('light accents keep dark ink; red and other dark fills flip to light ink', async () => {
+  const { DEFAULT_ACCENT, accentInk } = await import(libUrl);
+  assert.equal(accentInk(DEFAULT_ACCENT), '#080a0c');
+  assert.equal(accentInk('#e8c15a'), '#080a0c');
+  assert.equal(accentInk('#ff0000'), '#f4f6f8');
+  assert.equal(accentInk('#e10600'), '#f4f6f8');
+});

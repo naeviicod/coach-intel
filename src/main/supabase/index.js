@@ -10,6 +10,8 @@ const { createProfilesService } = require('./profiles');
 const { createTeamsService } = require('./teams');
 const { createInviteService } = require('./invites');
 const { createRecordsService } = require('./records');
+const { createFeedbackService } = require('./feedback');
+const { createAssetsService } = require('./assets');
 
 let service = null;
 
@@ -21,6 +23,8 @@ function createService({ dataRoot, secretStore }) {
   const teams = createTeamsService({ client });
   const invites = createInviteService({ client, dataRoot });
   const records = createRecordsService({ client });
+  const feedback = createFeedbackService({ client });
+  const assets = createAssetsService({ client });
 
   async function getState() {
     if (!client) return { configured: false, session: null };
@@ -57,6 +61,9 @@ function createService({ dataRoot, secretStore }) {
     listProfiles: profiles.list,
     updateProfileRole: profiles.updateRole,
     ensureProfile: profiles.ensure,
+    submitFeedback: feedback.submit,
+    uploadAsset: assets.upload,
+    downloadAsset: assets.download,
     subscribeRealtime,
     ...teams,
     ...auth,

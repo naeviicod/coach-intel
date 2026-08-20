@@ -171,4 +171,7 @@ contextBridge.exposeInMainWorld('cci', {
   },
 
   copyText: (text) => ipcRenderer.invoke('cci:copyText', text),
+
+  submitFeedback: (entry) => ipcRenderer.invoke('cci:submitFeedback', entry),
+  sendFeedbackEmail: (entry) => ipcRenderer.invoke('cci:sendFeedbackEmail', entry),
 });

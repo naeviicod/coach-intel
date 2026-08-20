@@ -60,12 +60,36 @@ export function resolveAccent({ invite, shared, org, firstLaunch } = {}) {
   return fromInvite || normalizeHex(shared) || normalizeHex(org) || DEFAULT_ACCENT;
 }
 
+function srgbChannel(c) {
+  const s = c / 255;
+  return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
+
+export function accentInk(hex) {
+  const color = normalizeHex(hex) || DEFAULT_ACCENT;
+  const n = parseInt(color.slice(1), 16);
+  const L = 0.2126 * srgbChannel((n >> 16) & 255)
+    + 0.7152 * srgbChannel((n >> 8) & 255)
+    + 0.0722 * srgbChannel(n & 255);
+  return L > 0.45 ? '#080a0c' : '#f4f6f8';
+}
+
+function dimHex(hex) {
+  const { l, s } = hexToHsl(hex);
+  // Dark saturated colours (red) disappear at 26% on charcoal; keep lime airy.
+  const alpha = l < 0.5 && s > 0.4 ? 0x70 : 0x42;
+  return `${hex}${alpha.toString(16).padStart(2, '0')}`;
+}
+
 export function applyAccent(hex) {
   const color = normalizeHex(hex) || DEFAULT_ACCENT;
   const root = document.documentElement;
   root.style.setProperty('--accent', color);
   root.style.setProperty('--accent-bright', lighten(color));
-  root.style.setProperty('--accent-dim', `${color}42`);
+  root.style.setProperty('--accent-dim', dimHex(color));
+  root.style.setProperty('--accent-ink', accentInk(color));
   root.style.setProperty('--brand-tint', brandTintFilter(color));
+  root.classList.toggle('accent-tinted', color !== DEFAULT_ACCENT);
+  root.classList.toggle('accent-neutral', hexToHsl(color).s < 0.12);
   return color;
 }

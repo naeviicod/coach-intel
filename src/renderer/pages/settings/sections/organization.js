@@ -1,48 +1,21 @@
-import { el, faceMark, orgMark } from '../../../utils.js';
+import { el, orgMark } from '../../../utils.js';
 import { ACCENT_PRESETS, DEFAULT_ACCENT, applyAccent, normalizeHex } from '../../../lib/accent.js';
-import { TITLE_SUGGESTIONS, chipIdentity, isNaevii } from '../../../lib/profile.js';
 import { toast } from '../../../components/modal.js';
 
+// Org-wide chrome only: what every teammate sees. The signed-in person's own
+// name, photo and wallpaper live in Profile, which every role can open.
 export async function render(panel, ctx) {
   const org = await window.cci.getOrg();
-  const chip = chipIdentity(org, ctx.access);
-  const defaultTitle = org.profileTitle
-    || (isNaevii(chip.name) || isNaevii(ctx.access?.me?.discord_username) ? 'Developer' : '')
-    || (ctx.access?.local ? 'Local' : '');
 
   const nameInput = el('input', { type: 'text', id: 'org-name-input', value: org.name || '' });
   const tagInput = el('input', { type: 'text', id: 'org-tag-input', value: org.tag || '' });
-  const profileNameInput = el('input', {
-    type: 'text',
-    id: 'org-profile-name',
-    value: org.profileName || ctx.access?.me?.discord_username || org.coachName || '',
-    placeholder: 'Your name',
-  });
-  const profileTitleInput = el('input', {
-    type: 'text',
-    id: 'org-profile-title',
-    value: defaultTitle,
-    list: 'org-title-suggestions',
-    placeholder: 'Head Coach',
-  });
-  const titleList = el(
-    'datalist',
-    { id: 'org-title-suggestions' },
-    TITLE_SUGGESTIONS.map((title) => el('option', { value: title }))
-  );
 
   const save = async (extra = {}) => {
-    const profileName = String(profileNameInput.value || '').trim();
-    const profileTitle = String(profileTitleInput.value || '').trim();
     try {
       await window.cci.saveOrg({
+        ...org,
         name: nameInput.value.trim() || 'My Organization',
         tag: tagInput.value.trim() || null,
-        coachName: profileName || org.coachName || 'Coach',
-        profileName,
-        profileTitle,
-        profilePhoto: extra.profilePhoto !== undefined ? extra.profilePhoto : org.profilePhoto,
-        logo: extra.logo !== undefined ? extra.logo : org.logo,
         accent: extra.accent !== undefined ? extra.accent : org.accent || DEFAULT_ACCENT,
         ...extra,
       });
@@ -51,7 +24,7 @@ export async function render(panel, ctx) {
       toast('Saved.');
     } catch (err) {
       console.error('[settings] save org failed', err);
-      toast(err?.message || 'Could not save profile.', 'error');
+      toast(err?.message || 'Could not save the organization.', 'error');
     }
   };
 
@@ -64,46 +37,6 @@ export async function render(panel, ctx) {
       ]),
       el('div', { class: 'settings-actions' }, [
         el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Changes'),
-      ]),
-    ])
-  );
-
-  panel.append(
-    el('div', { class: 'card section' }, [
-      el('div', { class: 'section-title' }, 'Your Profile'),
-      el('div', { class: 'field-hint', style: 'margin-bottom:14px;max-width:620px;line-height:1.5;' },
-        'This is the person signed in on this Mac — name, title, and photo in the top-right chip.'),
-      el('div', { class: 'profile-photo-row' }, [
-        faceMark({ photo: org.profilePhoto, avatarUrl: ctx.access?.me?.avatar_url, name: chip.name, size: 52 }),
-        el('div', { style: 'flex:1;' }, [
-          el('div', { class: 'settings-row-title' }, 'Profile photo'),
-          el('div', { class: 'field-hint' }, 'Square PNG or JPG. Falls back to your Discord avatar when signed in.'),
-        ]),
-        el('button', {
-          class: 'btn',
-          onclick: async () => {
-            const src = await window.cci.pickImage();
-            if (!src) return;
-            const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-            const rel = await window.cci.copyImage(src, `org/profile-photo.${ext}`);
-            if (!rel) return;
-            await save({ profilePhoto: rel });
-          },
-        }, org.profilePhoto ? 'Change Photo' : 'Upload Photo'),
-      ]),
-      el('div', { class: 'inline-fields' }, [
-        el('div', { class: 'field' }, [
-          el('label', { for: 'org-profile-name' }, 'Your Name'),
-          profileNameInput,
-        ]),
-        el('div', { class: 'field' }, [
-          el('label', { for: 'org-profile-title' }, 'Title'),
-          profileTitleInput,
-          titleList,
-        ]),
-      ]),
-      el('div', { class: 'settings-actions' }, [
-        el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Profile'),
       ]),
     ])
   );

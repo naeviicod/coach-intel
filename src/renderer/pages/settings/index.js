@@ -1,35 +1,34 @@
 import { el, icon } from '../../utils.js';
+import { SETTINGS_SECTIONS, resolveSettingsSection } from '../../lib/settingsAccess.js';
+import * as profile from './sections/profile.js';
 import * as organization from './sections/organization.js';
 import * as gameRules from './sections/gameRules.js';
 import * as integrations from './sections/integrations.js';
 import * as teamAccess from './sections/teamAccess.js';
 import * as data from './sections/data.js';
 import * as about from './sections/about.js';
+import * as feedback from './sections/feedback.js';
 
-const SECTION_DEFS = [
-  { key: 'organization', label: 'Organization', icon: 'teams', sub: 'Org identity, your profile, and logo', module: organization },
-  { key: 'game-rules', label: 'Game Rules', icon: 'mapsModes', sub: 'CDL ruleset and the active map pool', module: gameRules },
-  { key: 'integrations', label: 'Integrations', icon: 'integrations', sub: 'Discord and outside data sources', module: integrations },
-  { key: 'team-access', label: 'Team Access', icon: 'players', sub: 'Who can sign in, and their role', module: teamAccess },
-  { key: 'data', label: 'Data & Storage', icon: 'database', sub: 'Where your data lives, and how to erase it', module: data },
-  { key: 'about', label: 'About', icon: 'help', sub: 'Version and build information', module: about },
-];
+// The catalog (and who may see each section) lives in lib/settingsAccess.js so
+// the rule is testable without a DOM; this map is only the wiring.
+const MODULES = {
+  profile,
+  organization,
+  'game-rules': gameRules,
+  integrations,
+  'team-access': teamAccess,
+  data,
+  feedback,
+  about,
+};
 
-export const SECTIONS = SECTION_DEFS.map((s) => s.key);
+export const SECTIONS = SETTINGS_SECTIONS.map((s) => s.key);
 export const flush = true;
 
 let live = null;
 
-function visibleSections(canEdit) {
-  return canEdit
-    ? SECTION_DEFS
-    : SECTION_DEFS.filter((s) => s.key === 'team-access' || s.key === 'about');
-}
-
 function resolveSection(ctx) {
-  const visible = visibleSections(ctx.canEdit);
-  const sectionKey = visible.some((s) => s.key === ctx.param) ? ctx.param : visible[0].key;
-  return { visible, sectionKey, def: visible.find((s) => s.key === sectionKey) };
+  return resolveSettingsSection(ctx.access, ctx.param);
 }
 
 export async function render(container, ctx) {
@@ -118,7 +117,7 @@ async function paintPanel(def, ctx, { animate = true } = {}) {
   const sectionCtx = { ...ctx, reload: () => paintPanel(def, ctx, { animate: false }) };
   const holder = el('div');
   try {
-    await def.module.render(holder, sectionCtx);
+    await MODULES[def.key].render(holder, sectionCtx);
   } catch (err) {
     console.error(`[settings] section "${def.key}" failed`, err);
     panel.innerHTML = '';

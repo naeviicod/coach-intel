@@ -1,21 +1,7 @@
 {
-  "updated": "2026-08-16",
-  "source_note": "Seed data compiled from public CDL/competitive coverage. Refresh periodically — meta shifts each season. The active map pool lives in cdl-ruleset.json (Settings -> Game Rules) — it is the single source of truth, so it is intentionally not duplicated here.",
-  "modes": ["Hardpoint", "Search & Destroy", "Overload"],
-  "current_meta_weapons": {
-    "hardpoint_primary": ["M15 Mod 0", "Dravec 45", "Sturmwolf 45"],
-    "snd_primary": ["M15 Mod 0", "Dravec 45"],
-    "sniper": ["Hawker HX — favored for long lanes and power positions"]
-  },
-  "restricted_items_categories": [
-    "LMGs (all)", "Marksman rifles (all)", "Shotguns (all)", "Launchers (all)",
-    "Certain snipers", "Fire mods", "Lasers (all)", "Certain optics/muzzles/underbarrels"
-  ],
-  "general_pro_principles": [
-    "Hardpoint: rotation discipline and 'money hill' control matter more than raw kills — teams that trade hill control efficiently win map control over time.",
-    "Search & Destroy: round-based, timing and utility usage decide rounds more than gunskill alone — smart plant/defuse timing and info gathering are high-value.",
-    "Overload: hybrid attack/defend objective mode, rewards vertical positioning and coordinated multi-elevation pressure.",
-    "Across all modes: staying alive as primary AR/anchor matters for team spawn control — trading your life for a kill isn't always a good trade.",
-    "Flak Jacket and Fast Hands are common competitive perk picks given current grenade/utility meta."
-  ]
+  "updated": "2026-08-19",
+  "source_note": "Intel Feed is built from matches, scrims, and the CDL ruleset. This file is not a demo meta overlay and is not shown in the UI.",
+  "current_meta_weapons": {},
+  "restricted_items_categories": [],
+  "general_pro_principles": []
 }

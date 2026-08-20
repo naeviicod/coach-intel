@@ -387,13 +387,15 @@ async function run(win) {
   await runShell(win);
   await runPlanning(win);
 
-  // Settings is sectioned: the bare route lands on Organization, and every
-  // section is reachable by its own deep link.
+  // Settings is sectioned: the bare route lands on Profile (the one section
+  // every role can open), and every section is reachable by its own deep link.
   const settingsSections = [
-    ['', ['Settings', 'Organization', 'Game Rules', 'Identity', 'Org Name'], '19-settings-organization'],
+    ['', ['Settings', 'Profile', 'Organization', 'Your Profile', 'Background'], '19-settings-profile'],
+    ['/organization', ['Identity', 'Org Name', 'Logo', 'Highlight Color'], '19a-settings-organization'],
     ['/game-rules', ['Game & Season', 'Add Map'], '19b-settings-game-rules'],
     ['/integrations', ['Connected Services', 'Discord', 'Not Connected', 'Set Up', 'External Data'], '19c-settings-integrations'],
     ['/data', ['Storage', 'On-device only', 'Danger Zone', 'Delete All Data'], '19d-settings-data'],
+    ['/feedback', ['Feedback', 'Category', 'Subject', 'Send Feedback'], '19f-settings-feedback'],
     ['/about', ['Coach Intel', 'Version', 'Ruleset'], '19e-settings-about'],
   ];
   for (const [suffix, needles, shotName] of settingsSections) {

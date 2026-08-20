@@ -40,11 +40,20 @@ const ICON_SHAPES = {
   edit: '<path d="M3 13l.9-3.1 6.6-6.6 2.2 2.2-6.6 6.6L3 13z"/><path d="M9.4 4.4l2.2 2.2"/>',
   trash: '<path d="M2.9 4.4h10.2M6.4 4.4V3a.8.8 0 01.8-.8h1.6a.8.8 0 01.8.8v1.4"/><path d="M4.4 4.4l.6 8.3a1 1 0 001 .9h4a1 1 0 001-.9l.6-8.3"/>',
   copy: '<rect x="5.4" y="5.4" width="8" height="8" rx="1.4"/><path d="M10.6 5.4V4a1.4 1.4 0 00-1.4-1.4H4a1.4 1.4 0 00-1.4 1.4v5.2A1.4 1.4 0 004 10.6h1.4"/>',
+  feedback: '<path d="M2 3.4h12v7.6H8.6L5.6 13.6v-2.6H2z"/><path d="M5 6.4h6M5 8.4h3.6"/>',
 };
 
 export function icon(name, size = 15) {
   const shape = ICON_SHAPES[name] || ICON_SHAPES.settings;
   return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${shape}</svg>`;
+}
+
+export function verifiedMark() {
+  return el('span', {
+    class: 'verified-mark',
+    title: 'Confirmed · signed in with Discord',
+    html: icon('check', 9),
+  });
 }
 
 export function el(tag, attrs = {}, children = []) {

@@ -5,7 +5,7 @@ const TREND_WINDOW = 3;
 const TREND_THRESHOLD = 10; // % change vs season avg worth flagging
 const SAMPLE_MIN = 3; // matches needed before a map/mode signal counts
 
-export function buildSignals(members, matches, meta) {
+export function buildSignals(members, matches) {
   const signals = [];
 
   // Performance signals: per member, per mode, recent vs season K/D
@@ -28,7 +28,6 @@ export function buildSignals(members, matches, meta) {
         weight: Math.abs(delta),
         member,
         mode,
-        tip: findTip(meta, mode),
       });
     }
   }
@@ -119,12 +118,6 @@ export function buildScrimSignals(scrims) {
   return signals.sort((a, b) => b.weight - a.weight);
 }
 
-function findTip(meta, mode) {
-  if (!meta?.general_pro_principles) return null;
-  const match = meta.general_pro_principles.find((p) => p.toLowerCase().startsWith(mode.toLowerCase()));
-  return match || meta.general_pro_principles.find((p) => p.toLowerCase().includes(mode.toLowerCase()));
-}
-
 function groupBy(arr, fn) {
   return arr.reduce((acc, item) => {
     const key = fn(item);
@@ -138,7 +131,7 @@ export async function render(container, ctx) {
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Intel Feed'),
-        el('div', { class: 'page-subtitle' }, 'System-detected performance, map, and roster signals — cross-referenced against the current competitive meta'),
+        el('div', { class: 'page-subtitle' }, 'Performance, map, and roster signals from your matches and scrims'),
       ]),
     ])
   );
@@ -146,7 +139,6 @@ export async function render(container, ctx) {
   const allTeams = await window.cci.getTeams();
   const teamScoped = allTeams.find((t) => t.id === ctx.param);
   const teams = teamScoped ? [teamScoped] : allTeams;
-  const meta = await window.cci.getMetaKnowledge();
   let allSignals = [];
   for (const team of teams) {
     const [members, matches, scrims] = await Promise.all([
@@ -154,7 +146,7 @@ export async function render(container, ctx) {
       window.cci.getMatches(team.id),
       window.cci.getScrims(team.id),
     ]);
-    const signals = [...buildSignals(members, matches, meta), ...buildScrimSignals(scrims)].map((s) => ({ ...s, team }));
+    const signals = [...buildSignals(members, matches), ...buildScrimSignals(scrims)].map((s) => ({ ...s, team }));
     allSignals = allSignals.concat(signals);
   }
   allSignals.sort((a, b) => b.weight - a.weight);
@@ -164,7 +156,7 @@ export async function render(container, ctx) {
       el('div', { class: 'card empty-state section' }, [
         el('div', { class: 'icon' }, '◆'),
         el('div', { class: 'title' }, 'No signals yet' ),
-        el('div', {}, 'Log a few more matches and Intel Feed will start surfacing trends automatically.'),
+        el('div', {}, 'Once teams have enough matches and scrims on the books, trends show up here automatically.'),
       ])
     );
   } else {
@@ -179,7 +171,6 @@ export async function render(container, ctx) {
               el('div', { style: 'flex:1;' }, [
                 el('div', { class: 'intel-signal-title' }, [s.title, teams.length > 1 ? el('span', { class: 'field-hint' }, `  ·  ${s.team.name}`) : null]),
                 el('div', { class: 'intel-signal-body' }, s.body),
-                s.tip ? el('div', { class: 'tip-card', style: 'margin-top:8px;' }, [el('b', {}, `${s.mode} tip: `), s.tip]) : null,
               ]),
               shareButton(() => ({
                 kind: 'Intel',
@@ -197,37 +188,4 @@ export async function render(container, ctx) {
     );
   }
 
-  if (meta) {
-    container.append(
-      el('div', { class: 'section' }, [
-        el('div', { class: 'section-title' }, 'Current Meta Reference'),
-        el('div', { class: 'grid cols-3' }, [
-          metaCard('Hardpoint Primaries', meta.current_meta_weapons?.hardpoint_primary),
-          metaCard('S&D Primaries', meta.current_meta_weapons?.snd_primary),
-          metaCard('Sniper', meta.current_meta_weapons?.sniper),
-        ]),
-      ])
-    );
-    container.append(
-      el('div', { class: 'card section' }, [
-        el('div', { class: 'section-title' }, 'General Principles'),
-        el(
-          'div',
-          { style: 'display:flex;flex-direction:column;gap:8px;' },
-          (meta.general_pro_principles || []).map((p) => el('div', { class: 'tip-card' }, p))
-        ),
-      ])
-    );
-  }
-}
-
-function metaCard(label, items) {
-  return el('div', { class: 'card' }, [
-    el('div', { class: 'stat-label' }, label),
-    el(
-      'div',
-      { style: 'margin-top:8px;display:flex;flex-direction:column;gap:5px;' },
-      (items || []).map((i) => el('div', { style: 'font-size:12px;' }, i))
-    ),
-  ]);
 }

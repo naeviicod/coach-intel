@@ -94,9 +94,10 @@ function memberHeading(isEdit, member, slot) {
   return 'Add Player';
 }
 
-export function openMemberModal(ctx, teamId, member, { onSaved, slot } = {}) {
+export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = {}) {
   const isEdit = Boolean(member);
   const initialSlot = normalizeSlot(member?.slot || slot);
+  const teamChoices = !isEdit && Array.isArray(teams) && teams.length > 1 ? teams : null;
   let photoRel = member?.photo || null;
   let pendingSrc = null;
   const previewHost = el('div', {});
@@ -110,6 +111,18 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot } = {}) {
   const handles = member?.handles || {};
   const body = el('div', {}, [
     el('h3', {}, memberHeading(isEdit, member, initialSlot)),
+    teamChoices
+      ? el('div', { class: 'field' }, [
+          el('label', { for: 'member-team' }, 'Team'),
+          el(
+            'select',
+            { id: 'member-team' },
+            teamChoices.map((t) =>
+              el('option', { value: t.id, selected: t.id === teamId ? 'selected' : null }, t.name)
+            )
+          ),
+        ])
+      : null,
     el('div', { class: 'profile-photo-row' }, [
       previewHost,
       el('div', { style: 'flex:1;' }, [
@@ -214,12 +227,13 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot } = {}) {
             collected[key] = body.querySelector(`#member-handle-${key}`)?.value || '';
           }
           const id = member?.id || memberSlug(gamertag);
+          const saveTeamId = teamChoices ? body.querySelector('#member-team').value : teamId;
           if (pendingSrc && id) {
-            const rel = await window.cci.copyImage(pendingSrc, `org/members/${teamId}/${id}.${imageExt(pendingSrc)}`);
+            const rel = await window.cci.copyImage(pendingSrc, `org/members/${saveTeamId}/${id}.${imageExt(pendingSrc)}`);
             if (rel) photoRel = rel;
           }
           try {
-            const saved = await window.cci.saveMember(teamId, {
+            const saved = await window.cci.saveMember(saveTeamId, {
               id: member?.id || id,
               gamertag,
               name: name || gamertag,

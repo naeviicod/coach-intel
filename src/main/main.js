@@ -18,6 +18,7 @@ const { assertCanEdit, seesAllTeams } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
+const { buildFeedbackMailto } = require('./feedbackMailto');
 const { autoUpdater } = require('electron-updater');
 
 app.setName('Coach Intel');
@@ -925,12 +926,33 @@ ipcMain.handle('cci:pickImageFolder', async () => {
 });
 ipcMain.handle('cci:listFolderImages', (e, folderPath) => dataStore.listFolderImages(folderPath));
 
-ipcMain.handle('cci:copyImage', requireEdit((e, sourcePath, destRelative) =>
-  dataStore.copyImage(sourcePath, destRelative)
-));
-ipcMain.handle('cci:saveMapArt', requireEdit((e, sourcePath, mapName, layoutKey) =>
-  dataStore.saveMapArt(sourcePath, mapName, layoutKey)
-));
+// Local write is what the UI waits on; the cloud copy is best-effort and never
+// blocks the upload — same "local succeeds regardless" shape as cloudSave. This
+// is what makes an uploaded photo/logo visible from a second machine at all,
+// not just the relative-path string that already synced through teams/members.
+async function syncAssetToCloud(relative) {
+  try {
+    const fullPath = dataStore.resolveDataPath(relative);
+    if (!fullPath) return;
+    const buffer = await fs.readFile(fullPath);
+    const ext = path.extname(fullPath).slice(1).toLowerCase();
+    const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext || 'png'}`;
+    await supabase.get().uploadAsset(relative, buffer, mime);
+  } catch (err) {
+    console.warn('[main] asset cloud sync failed (non-fatal):', err.message);
+  }
+}
+
+ipcMain.handle('cci:copyImage', requireEdit(async (e, sourcePath, destRelative) => {
+  const rel = await dataStore.copyImage(sourcePath, destRelative);
+  syncAssetToCloud(rel).catch(() => {});
+  return rel;
+}));
+ipcMain.handle('cci:saveMapArt', requireEdit(async (e, sourcePath, mapName, layoutKey) => {
+  const rel = await dataStore.saveMapArt(sourcePath, mapName, layoutKey);
+  syncAssetToCloud(rel).catch(() => {});
+  return rel;
+}));
 
 // ---------- Discord integration ----------
 //
@@ -992,6 +1014,23 @@ ipcMain.handle('cci:inviteRevoke', requireEdit((e, teamId, memberId) =>
 ));
 ipcMain.handle('cci:invitePending', () => safeSupabaseCall(() => supabase.get().pending()));
 ipcMain.handle('cci:inviteRedeem', (e, token) => safeSupabaseCall(() => supabase.get().redeem(token)));
+
+// ---------- Feedback ----------
+//
+// Primary path is a Supabase row (durable, RLS-scoped to the sender). The
+// mailto fallback is used when there is no signed-in session to write with,
+// or the renderer chooses "Open in email instead" — the recipient is fixed in
+// feedbackMailto.js, never taken from this call's payload.
+ipcMain.handle('cci:submitFeedback', (e, entry) => safeSupabaseCall(() => supabase.get().submitFeedback(entry || {})));
+ipcMain.handle('cci:sendFeedbackEmail', async (e, entry) => {
+  try {
+    await shell.openExternal(buildFeedbackMailto(entry || {}));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle('cci:copyText', (e, text) => {
   clipboard.writeText(String(text || ''));
   return true;
@@ -1039,15 +1078,38 @@ ipcMain.handle('cci:openMedia', async (e, url) => {
   }
 });
 
+function toDataUrl(fullPath, buf) {
+  const ext = path.extname(fullPath).slice(1).toLowerCase();
+  const mime = ext === 'jpg' ? 'jpeg' : ext || 'png';
+  return `data:image/${mime};base64,${buf.toString('base64')}`;
+}
+
+// Falls back to the org-assets Storage bucket only when the file doesn't exist
+// on this machine — e.g. a fresh install, or a machine that never uploaded this
+// particular photo itself. A hit is cached to disk so it's a normal fast local
+// read from then on, same as everything else this app treats as local-cache-of-
+// cloud-truth. Any failure here (offline, not signed in, never uploaded) just
+// falls through to null, exactly like today's "no image" case.
+async function downloadAssetFallback(relative, fullPath) {
+  try {
+    const buf = await supabase.get().downloadAsset(relative);
+    if (!buf) return null;
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, buf);
+    return toDataUrl(fullPath, buf);
+  } catch (err) {
+    console.warn('[main] asset cloud download failed:', err.message);
+    return null;
+  }
+}
+
 ipcMain.handle('cci:dataUrlForPath', async (e, relative) => {
   const fullPath = dataStore.resolveDataPath(relative);
   if (!fullPath) return null;
   try {
     const buf = await fs.readFile(fullPath);
-    const ext = path.extname(fullPath).slice(1).toLowerCase();
-    const mime = ext === 'jpg' ? 'jpeg' : ext || 'png';
-    return `data:image/${mime};base64,${buf.toString('base64')}`;
+    return toDataUrl(fullPath, buf);
   } catch {
-    return null;
+    return downloadAssetFallback(relative, fullPath);
   }
 });

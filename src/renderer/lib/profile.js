@@ -64,6 +64,10 @@ export function normalizeHandles(raw) {
   return out;
 }
 
+export function memberDiscordVerified(member) {
+  return Boolean(member?.user_id || member?.linked);
+}
+
 export function chipIdentity(org, access) {
   const me = access?.me;
   const name = String(org?.profileName || me?.discord_username || org?.coachName || '').trim() || 'Coach';
