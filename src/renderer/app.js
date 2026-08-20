@@ -222,13 +222,16 @@ window.cci?.onDeepLink?.((route) => {
 
 // Another signed-in teammate changed shared data — refresh so everyone sees
 // the same roster, K/D, and match history live instead of needing a reload.
-window.cci?.onDataChanged?.(() => {
+window.cci?.onDataChanged?.((payload) => {
   if (!booted) return;
+  const event = new CustomEvent('cci:remote-data-change', { cancelable: true, detail: payload || {} });
+  document.dispatchEvent(event);
+  const deferContent = event.defaultPrevented;
   loadShellData()
     .then(() => {
       renderSidebar();
       renderStatusBar();
-      renderContent();
+      if (!deferContent) renderContent();
     })
     .catch((err) => console.error('[renderer] data refresh failed', err));
   loadNotifications()
