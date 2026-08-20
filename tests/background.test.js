@@ -23,7 +23,7 @@ test('known background ids resolve as-is and cycle through every supplied option
   assert.equal(backgroundOption('lattice').name, 'Lattice');
   assert.equal(backgroundOption('pit').src, null);
   assert.deepEqual(BACKGROUND_OPTIONS.map((opt) => opt.id), [
-    'pit', 'hex', 'lattice', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit',
+    'pit', 'hex', 'lattice', 'sector', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit',
   ]);
   assert.equal(nextBackground('pit'), 'hex');
   assert.equal(nextBackground('orbit'), 'pit');
@@ -37,7 +37,7 @@ test('the retired frame wallpaper maps onto hex', async () => {
 test('art files are real PNGs, not chat-compressed JPEGs', async () => {
   const { BACKGROUND_OPTIONS } = await import(libUrl);
   const ids = BACKGROUND_OPTIONS.map((opt) => opt.id);
-  assert.deepEqual(ids, ['pit', 'hex', 'lattice', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit']);
+  assert.deepEqual(ids, ['pit', 'hex', 'lattice', 'sector', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit']);
   const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
   for (const opt of BACKGROUND_OPTIONS) {
     if (opt.id === 'pit') {

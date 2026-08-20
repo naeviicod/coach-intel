@@ -11,6 +11,8 @@ export const BACKGROUND_OPTIONS = [
   { id: 'pit', name: 'Pit', src: null, zoom: 1, hint: 'Soft honeycomb wash in the gutters' },
   { id: 'hex', name: 'Hex', src: 'backgrounds/hex.png', zoom: 1.08, hint: 'Hex grid and topography' },
   { id: 'lattice', name: 'Lattice', src: 'backgrounds/lattice.png', zoom: 1.32, hint: 'Crystal lattice on the sides' },
+  { id: 'sector', name: 'Sector', src: 'backgrounds/sector.png', zoom: 1.16, hint: 'Honeycomb command perimeter' },
+  { id: 'focus', name: 'Focus', src: 'backgrounds/focus.png', zoom: 1.14, hint: 'Angular formation around a quiet center' },
   { id: 'command-ring', name: 'Command Ring', src: 'backgrounds/command-ring.png', zoom: 1.16, hint: 'Tactical rings and a quiet center' },
   { id: 'blackout', name: 'Blackout', src: 'backgrounds/blackout.png', zoom: 1.14, hint: 'Dark steel with lime edge light' },
   { id: 'prism', name: 'Prism', src: 'backgrounds/prism.png', zoom: 1.2, hint: 'Symmetric crystal formation' },
