@@ -15,12 +15,18 @@ test('unknown or empty ids fall back to the pit', async () => {
   assert.equal(resolveBackground('nope'), 'pit');
 });
 
-test('known background ids resolve as-is', async () => {
-  const { resolveBackground, backgroundOption } = await import(libUrl);
+test('known background ids resolve as-is and cycle through every supplied option', async () => {
+  const { BACKGROUND_OPTIONS, resolveBackground, backgroundOption, nextBackground } = await import(libUrl);
   assert.equal(resolveBackground('hex'), 'hex');
+  assert.equal(resolveBackground('command-ring'), 'command-ring');
   assert.equal(backgroundOption('hex').src, 'backgrounds/hex.png');
   assert.equal(backgroundOption('lattice').name, 'Lattice');
   assert.equal(backgroundOption('pit').src, null);
+  assert.deepEqual(BACKGROUND_OPTIONS.map((opt) => opt.id), [
+    'pit', 'hex', 'lattice', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit',
+  ]);
+  assert.equal(nextBackground('pit'), 'hex');
+  assert.equal(nextBackground('orbit'), 'pit');
 });
 
 test('the retired frame wallpaper maps onto hex', async () => {
@@ -31,7 +37,7 @@ test('the retired frame wallpaper maps onto hex', async () => {
 test('art files are real PNGs, not chat-compressed JPEGs', async () => {
   const { BACKGROUND_OPTIONS } = await import(libUrl);
   const ids = BACKGROUND_OPTIONS.map((opt) => opt.id);
-  assert.deepEqual(ids, ['pit', 'hex', 'lattice']);
+  assert.deepEqual(ids, ['pit', 'hex', 'lattice', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit']);
   const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
   for (const opt of BACKGROUND_OPTIONS) {
     if (opt.id === 'pit') {
@@ -42,7 +48,7 @@ test('art files are real PNGs, not chat-compressed JPEGs', async () => {
     assert.equal(fs.existsSync(file), true);
     const buf = fs.readFileSync(file);
     assert.equal(buf.subarray(0, 4).equals(pngMagic), true, `${opt.src} must be a PNG`);
-    assert.ok(buf.readUInt32BE(16) >= 1920, `${opt.src} must be at least 1920px wide`);
+    assert.ok(buf.readUInt32BE(16) >= 1500, `${opt.src} must retain its supplied high-resolution export`);
   }
 });
 

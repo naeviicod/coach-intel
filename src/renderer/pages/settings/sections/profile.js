@@ -1,6 +1,6 @@
 import { el, faceMark } from '../../../utils.js';
 import { roleLabel } from '../../../lib/access.js';
-import { BACKGROUND_OPTIONS, DEFAULT_BACKGROUND, applyBackground, backgroundUrl } from '../../../lib/background.js';
+import { BACKGROUND_OPTIONS, DEFAULT_BACKGROUND, applyBackground, backgroundUrl, nextBackground } from '../../../lib/background.js';
 import { TITLE_SUGGESTIONS, chipIdentity, isNaevii } from '../../../lib/profile.js';
 import { getPref, setPref } from '../../../prefs.js';
 import { toast } from '../../../components/modal.js';
@@ -156,7 +156,14 @@ function backgroundCard() {
   );
 
   return el('div', { class: 'card section' }, [
-    el('div', { class: 'section-title' }, 'Background'),
+    el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px;' }, [
+      el('div', { class: 'section-title', style: 'margin-bottom:0;' }, 'Background'),
+      el('button', {
+        type: 'button',
+        class: 'btn subtle sm',
+        onclick: () => pick(nextBackground(getPref('background', DEFAULT_BACKGROUND))),
+      }, 'Next background'),
+    ]),
     el('div', { class: 'field-hint', style: 'margin-bottom:12px;max-width:620px;line-height:1.5;' },
       'Stays on this Mac. Highlight color retints the art as you change it.'),
     grid,
