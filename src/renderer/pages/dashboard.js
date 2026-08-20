@@ -155,27 +155,70 @@ function intelCard(ctx, perTeam) {
   return card;
 }
 
+// One or two teams read best as full-width rows. Past that a list only gets
+// longer, so the block switches to tiles and tightens again once the org is
+// big enough that name and form are all that fit.
+function teamsDensity(count) {
+  if (count <= 2) return 'roomy';
+  return count <= 8 ? 'compact' : 'dense';
+}
+
 function teamsCard(ctx, perTeam) {
+  const density = teamsDensity(perTeam.length);
   const card = el('div', { class: 'card compact' }, [
-    el('div', { class: 'card-head' }, [el('h2', {}, 'Teams')]),
+    el('div', { class: 'card-head' }, [
+      el('h2', {}, 'Teams'),
+      density === 'roomy' ? null : el('div', { class: 'card-meta' }, `${perTeam.length} teams`),
+    ]),
   ]);
+  const list = el('div', { class: 'team-grid', 'data-density': density });
   for (const entry of perTeam) {
-    const { team, members, matches, notes } = entry;
-    const lastNote = notes[0];
-    card.append(
-      el('button', { type: 'button', class: 'crow', onclick: () => ctx.navigate('team-hub', team.id) }, [
-        teamMark(team),
-        el('div', { class: 'crow-main' }, [
-          el('div', { class: 'crow-title' }, team.name),
-          el('div', { class: 'crow-sub' }, [
-            `${members.length} player${members.length === 1 ? '' : 's'}`,
-            el('span', {}, '·'),
-            matches.length ? `${matches.length} matches · ${teamWinRate(matches)}%` : 'No matches',
-          ]),
-        ]),
-        el('div', { class: 'crow-meta' }, lastNote ? `Note ${fmtStamp(lastNote.updated_at)}` : 'No notes'),
-      ])
-    );
+    list.append(density === 'roomy' ? teamRow(ctx, entry) : teamTile(ctx, entry, density));
   }
+  card.append(list);
   return card;
+}
+
+function teamRow(ctx, { team, members, matches, notes }) {
+  const lastNote = notes[0];
+  return el('button', { type: 'button', class: 'crow', onclick: () => ctx.navigate('team-hub', team.id) }, [
+    teamMark(team),
+    el('div', { class: 'crow-main' }, [
+      el('div', { class: 'crow-title' }, team.name),
+      el('div', { class: 'crow-sub' }, [
+        `${members.length} player${members.length === 1 ? '' : 's'}`,
+        el('span', {}, '·'),
+        matches.length ? `${matches.length} matches · ${teamWinRate(matches)}%` : 'No matches',
+      ]),
+    ]),
+    el('div', { class: 'crow-meta' }, lastNote ? `Note ${fmtStamp(lastNote.updated_at)}` : 'No notes'),
+  ]);
+}
+
+function teamTile(ctx, { team, members, matches }, density) {
+  const winRate = matches.length ? `${teamWinRate(matches)}%` : null;
+  const meta = density === 'dense'
+    ? [`${members.length}P`, winRate || 'No matches'].join(' · ')
+    : [
+      `${members.length} player${members.length === 1 ? '' : 's'}`,
+      matches.length ? `${matches.length} matches` : 'No matches',
+      winRate,
+    ].filter(Boolean).join(' · ');
+
+  return el(
+    'button',
+    {
+      type: 'button',
+      class: 'team-tile',
+      title: team.name,
+      onclick: () => ctx.navigate('team-hub', team.id),
+    },
+    [
+      teamMark(team, { class: 'team-logo team-tile-mark' }),
+      el('div', { class: 'team-tile-main' }, [
+        el('div', { class: 'team-tile-name' }, team.name),
+        el('div', { class: 'team-tile-meta' }, meta),
+      ]),
+    ]
+  );
 }
