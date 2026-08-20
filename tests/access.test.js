@@ -84,3 +84,20 @@ test('org roles that span every team include coaches, analysts and creatives', (
   assert.equal(seesAllTeams('team_leader'), false);
   assert.equal(seesAllTeams('user'), false);
 });
+
+test('the org calendar belongs to org planners, not players or team leaders', () => {
+  const { canAccessPage } = require('../src/renderer/lib/access.js');
+  for (const role of ['owner', 'admin', 'developer', 'coach']) {
+    assert.equal(canAccessPage(role, 'calendar'), true, role);
+  }
+  for (const role of ['team_leader', 'analyst', 'creative', 'user', 'member', 'player']) {
+    assert.equal(canAccessPage(role, 'calendar'), false, role);
+  }
+});
+
+test('every role that plans still reaches the team hub planner', () => {
+  const { canAccessPage } = require('../src/renderer/lib/access.js');
+  for (const role of ['owner', 'coach', 'team_leader', 'user', 'member', 'player']) {
+    assert.equal(canAccessPage(role, 'team-hub'), true, role);
+  }
+});

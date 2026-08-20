@@ -749,7 +749,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 .sb-section-label .chev svg { stroke-width: 2.1; }
 .sb-group.folded .sb-group-items { display: none; }
 #sidebar.collapsed .sb-section-label {
-  height: 1px; padding: 0; margin: 10px 8px; overflow: hidden;
+  height: 1px; min-height: 0; padding: 0; margin: 10px 8px; overflow: hidden;
+  border-radius: 0;
   background: var(--border); color: transparent; pointer-events: none;
 }
 #sidebar.collapsed .sb-section-label .chev { display: none; }
@@ -1086,24 +1087,45 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .page-header > :first-child { min-width: 0; flex: 1 1 220px; }
 
+/* The org identity is the masthead of the app, not a label above a list, so
+   it is sized to be read from across a desk. Scoped to .page-identity: other
+   page headers keep their own scale. */
 .page-identity {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 22px;
   min-width: 0;
 }
 .page-org-logo {
-  width: 52px;
-  height: 52px;
-  font-size: 18px;
+  width: 132px;
+  height: 132px;
+  border-radius: 22px;
+  font-size: 44px;
+  flex-shrink: 0;
 }
 .page-org-name {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .08em;
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--text-faint);
-  margin-bottom: 2px;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.page-identity .page-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.05;
+}
+.page-identity .page-subtitle { font-size: 14px; margin-top: 6px; }
+
+/* A 132px mark plus 36px type does not fit a narrow window; step it down
+   rather than letting the header wrap into the KPI row. */
+@media (max-width: 1100px) {
+  .page-org-logo { width: 96px; height: 96px; border-radius: 18px; font-size: 32px; }
+  .page-org-name { font-size: 20px; }
+  .page-identity .page-title { font-size: 27px; }
 }
 
 body.access-readonly .edit-only { display: none !important; }

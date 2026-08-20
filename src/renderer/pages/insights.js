@@ -1,14 +1,19 @@
 import { el, playerAvatar, roleClass, statsForMember, aggregate, objStatsForModes, fmtObj } from '../utils.js';
 
+// Org-wide by default; `ctx.param` narrows it to one team. The Team Hub embeds
+// this same view with `ctx.header === false`, so the hub can supply its own
+// heading instead of stacking two.
 export async function render(container, ctx) {
-  container.append(
-    el('div', { class: 'page-header' }, [
-      el('div', {}, [
-        el('div', { class: 'page-title' }, 'Performance'),
-        el('div', { class: 'page-subtitle' }, 'Compare players across the organization and spot who needs coaching attention'),
-      ]),
-    ])
-  );
+  if (ctx.header !== false) {
+    container.append(
+      el('div', { class: 'page-header' }, [
+        el('div', {}, [
+          el('div', { class: 'page-title' }, 'Performance'),
+          el('div', { class: 'page-subtitle' }, 'Compare players across the organization and spot who needs coaching attention'),
+        ]),
+      ])
+    );
+  }
 
   const allTeams = await window.cci.getTeams();
   const teamScoped = allTeams.find((t) => t.id === ctx.param);
@@ -79,7 +84,7 @@ export async function render(container, ctx) {
         el('thead', {}, [
           el('tr', {}, [
             el('th', {}, 'Player'),
-            el('th', {}, 'Team'),
+            teamScoped ? null : el('th', {}, 'Team'),
             el('th', {}, 'Role'),
             el('th', {}, 'Matches'),
             el('th', {}, 'K/D'),
@@ -97,7 +102,7 @@ export async function render(container, ctx) {
               { class: 'clickable-row', onclick: () => ctx.navigate('member', `${r.team.id}/${r.member.id}`) },
               [
                 el('td', {}, r.member.gamertag),
-                el('td', {}, r.team.name),
+                teamScoped ? null : el('td', {}, r.team.name),
                 el('td', {}, el('span', { class: `role-badge ${roleClass(r.member.role)}` }, r.member.role)),
                 el('td', {}, r.scopedTotals.matches),
                 el('td', {}, r.scopedTotals.kd),

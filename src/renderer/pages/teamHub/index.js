@@ -7,6 +7,8 @@ import * as notes from './sections/notes.js';
 import * as objectives from './sections/objectives.js';
 import * as veto from './sections/veto.js';
 import * as practice from './sections/practice.js';
+import * as statistics from './sections/statistics.js';
+import * as hubReports from './sections/reports.js';
 import * as teamSettings from './sections/teamSettings.js';
 import { renderContextPanel } from './context.js';
 
@@ -20,6 +22,8 @@ const SECTION_DEFS = [
   { key: 'notes', label: 'Team Notes', icon: 'notes', module: notes, count: 'notes' },
   { key: 'objectives', label: 'Objectives', icon: 'objectives', module: objectives },
   { key: 'veto', label: 'Veto History', icon: 'veto', module: veto },
+  { key: 'statistics', label: 'Statistics', icon: 'performance', module: statistics },
+  { key: 'reports', label: 'Reports', icon: 'reports', module: hubReports },
   { key: 'practice', label: 'Planner', icon: 'calendar', module: practice },
   { key: 'settings', label: 'Team Settings', icon: 'settings', module: teamSettings },
 ];

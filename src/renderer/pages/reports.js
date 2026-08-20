@@ -2,10 +2,15 @@ import { el, icon } from '../utils.js';
 import { pageHeader, emptyState, toast } from './planningShared.js';
 import { buildTeamReport, buildOpponentReport } from '../lib/report.js';
 
+// Org-wide by default. The Team Hub embeds this with `ctx.teamId` set and
+// `ctx.header === false`, which locks the report to that team and drops the
+// page heading and team picker the hub already provides.
 export async function render(container, ctx) {
   const [teams, opponents] = await Promise.all([window.cci.getTeams(), window.cci.getOpponents()]);
+  const lockedTeamId = teams.some((t) => t.id === ctx.teamId) ? ctx.teamId : null;
+  const showHeader = ctx.header !== false;
   if (!teams.length) {
-    container.append(pageHeader('Reports', 'Exportable opponent and performance reports'));
+    if (showHeader) container.append(pageHeader('Reports', 'Exportable opponent and performance reports'));
     container.append(emptyState('No teams yet', 'Create a team and log some matches to generate reports.'));
     return;
   }
@@ -13,22 +18,24 @@ export async function render(container, ctx) {
   const parsed = parseParam(ctx.param);
   const state = {
     type: parsed.type,
-    teamId: teams[0].id,
+    teamId: lockedTeamId || teams[0].id,
     opponentId: parsed.opponentId || opponents[0]?.opponent_id || '',
   };
 
-  container.append(pageHeader('Reports', 'Exportable opponent and performance reports'));
+  if (showHeader) container.append(pageHeader('Reports', 'Exportable opponent and performance reports'));
 
   // ----- Controls -----
   const typeSelect = el('select', { onchange: (e) => { state.type = e.target.value; syncControls(); generate(); } }, [
     el('option', { value: 'team', selected: state.type === 'team' ? 'selected' : null }, 'Team Performance'),
     el('option', { value: 'opponent', selected: state.type === 'opponent' ? 'selected' : null }, 'Opponent Scout'),
   ]);
-  const teamSelectEl = el(
-    'select',
-    { onchange: (e) => { state.teamId = e.target.value; generate(); } },
-    teams.map((t) => el('option', { value: t.id, selected: t.id === state.teamId ? 'selected' : null }, t.name))
-  );
+  const teamSelectEl = lockedTeamId
+    ? null
+    : el(
+        'select',
+        { onchange: (e) => { state.teamId = e.target.value; generate(); } },
+        teams.map((t) => el('option', { value: t.id, selected: t.id === state.teamId ? 'selected' : null }, t.name))
+      );
   const opponentSelectEl = opponents.length
     ? el(
         'select',
@@ -41,7 +48,7 @@ export async function render(container, ctx) {
   container.append(controls);
 
   function syncControls() {
-    teamSelectEl.style.display = state.type === 'team' ? '' : 'none';
+    if (teamSelectEl) teamSelectEl.style.display = state.type === 'team' ? '' : 'none';
     if (opponentSelectEl) opponentSelectEl.style.display = state.type === 'opponent' ? '' : 'none';
   }
   syncControls();

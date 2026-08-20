@@ -41,8 +41,11 @@ test('players and team leaders do not see every team', async () => {
   assert.equal(canAccessPage('owner', 'settings'), true);
   assert.equal(canAccessPage('creative', 'database'), true);
   assert.equal(canAccessPage('creative', 'veto-lab'), false);
-  assert.equal(canAccessPage('creative', 'calendar'), true);
-  assert.equal(canAccessPage('analyst', 'calendar'), true);
+  // The org calendar narrowed to the roles that plan for the whole org;
+  // everyone else schedules from the Planner in their team's hub.
+  assert.equal(canAccessPage('creative', 'calendar'), false);
+  assert.equal(canAccessPage('analyst', 'calendar'), false);
   assert.equal(canAccessPage('owner', 'calendar'), true);
-  assert.equal(canAccessPage('user', 'calendar'), true);
+  assert.equal(canAccessPage('coach', 'calendar'), true);
+  assert.equal(canAccessPage('user', 'calendar'), false);
 });

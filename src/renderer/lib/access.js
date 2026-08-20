@@ -27,7 +27,10 @@ const TEAM_PAGES = new Set([
   'veto-lab',
 ]);
 
-const ORG_CALENDAR_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative', 'team_leader', 'member', 'user', 'player']);
+// The org calendar is org-wide planning, so it belongs to the people who plan
+// for the whole org. Team leaders and players schedule their own team's week
+// from the Planner inside that team's hub, which writes the same event records.
+const ORG_CALENDAR_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
 
 const ALWAYS_PAGES = new Set(['settings']);
 

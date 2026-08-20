@@ -261,11 +261,11 @@ async function runShell(win) {
   const teamId = teams[0]?.id;
 
   await goto(win, '#/dashboard');
-  await expectText(win, ['Dashboard', 'Teams', 'Open Tasks', 'Needs Review'], 'Dashboard');
+  await expectText(win, ['Dashboard', 'Teams', 'Open Tasks', 'Scoreboard Inbox'], 'Dashboard');
   await shot(win, '01-dashboard');
 
   await goto(win, '#/needs-review');
-  await expectText(win, ['Needs Review', 'Drop scoreboard screenshots here', 'Scoreboard inbox'], 'Needs Review');
+  await expectText(win, ['Scoreboard Inbox', 'Drop scoreboard screenshots here'], 'Scoreboard Inbox');
   await shot(win, '01b-needs-review');
 
   await goto(win, '#/tasks');
@@ -283,7 +283,9 @@ async function runShell(win) {
     ['notes', ['Team Notes']],
     ['objectives', ['Objectives', 'Open']],
     ['veto', ['Veto History']],
-    ['practice', ['Practice Planner']],
+    ['statistics', ['Statistics']],
+    ['reports', ['Reports']],
+    ['practice', ['Planner']],
     ['settings', ['Team Settings', 'Identity']],
   ];
   for (const [section, needles] of sections) {

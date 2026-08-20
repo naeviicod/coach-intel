@@ -2,6 +2,7 @@ import { el, fmtDate, playerAvatar, OBJ_STATS, fmtObj } from '../utils.js';
 import { pageHeader, emptyState, openForm, confirmModal, toast } from './planningShared.js';
 import { openModal, modalActions } from '../components/modal.js';
 import { collectMatchLogRows, rulesetFilterOptions } from '../lib/matchLog.js';
+import { canAccessPage } from '../lib/access.js';
 
 const RESULTS = ['Win', 'Loss'];
 
@@ -99,7 +100,10 @@ export async function render(container, ctx) {
         return;
       }
       if (m.source === 'scrim') ctx.navigate('scrim-hub', m.teamId);
-      else ctx.navigate('calendar', m.teamId);
+      // The org calendar is staff-only, so anyone else lands on the same event
+      // in that team's Planner rather than being bounced to their home page.
+      else if (canAccessPage(ctx.access?.role, 'calendar')) ctx.navigate('calendar', m.teamId);
+      else ctx.navigate('team-hub', `${m.teamId}/practice`);
     }
 
     function resultCell(m) {
