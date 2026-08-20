@@ -33,6 +33,38 @@ test('team, player, task and match CRUD round-trip', async () => {
   assert.equal(note2.note_id, note.note_id);
   assert.equal((await store.getNotes(team.id)).length, 1);
 
+  const attachmentPath = `org/teams/${team.id}/data/note-images/attachment-note/map.png`;
+  const attachmentNote = await store.saveNote(team.id, {
+    title: 'QA_AUDIT_Attachment_Note',
+    body: 'body-v1',
+    author: 'Naevii',
+    attachments: [{ id: 'map-1', path: attachmentPath, name: 'map.png', mime: 'image/png' }],
+  });
+  assert.equal(attachmentNote.revision, 1);
+  assert.equal(attachmentNote.updated_by, 'Naevii');
+  assert.deepEqual(attachmentNote.attachments.map((item) => item.name), ['map.png']);
+
+  const revisedNote = await store.saveNote(team.id, {
+    note_id: attachmentNote.note_id,
+    title: attachmentNote.title,
+    body: 'body-v2',
+    author: 'Coach',
+    expected_revision: 1,
+  });
+  assert.equal(revisedNote.revision, 2);
+  assert.equal(revisedNote.updated_by, 'Coach');
+  assert.equal(revisedNote.history.length, 1);
+  assert.equal(revisedNote.attachments[0].path, attachmentPath);
+  await assert.rejects(
+    () => store.saveNote(team.id, {
+      note_id: attachmentNote.note_id,
+      title: attachmentNote.title,
+      body: 'stale',
+      expected_revision: 1,
+    }),
+    (err) => err.code === 'NOTE_CONFLICT'
+  );
+
   const match = await store.saveMatch(team.id, {
     opponent: 'QA_AUDIT_MatchOpp',
     mode: 'Hardpoint',

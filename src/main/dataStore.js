@@ -580,6 +580,53 @@ function tasksDirFor(teamId) {
   return path.join(teamDirFor(teamId), 'data', 'tasks');
 }
 
+const NOTE_ATTACHMENT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+const NOTE_ATTACHMENT_MIMES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+};
+
+function sanitizeNoteAttachments(teamId, incoming, previous = []) {
+  const source = incoming === undefined ? previous : incoming;
+  if (!Array.isArray(source)) throw new Error('Note attachments must be an array.');
+  const prefix = `org/teams/${safeSegment(teamId, 'team id')}/data/note-images/`;
+  const seen = new Set();
+  const attachments = [];
+
+  for (const raw of source) {
+    if (attachments.length >= 8) break;
+    if (!raw || typeof raw !== 'object') throw new Error('Invalid note attachment.');
+    const id = safeSegment(raw.id, 'attachment id').slice(0, 120);
+    const relative = String(raw.path || '').replace(/\\/g, '/');
+    const ext = path.extname(relative).toLowerCase();
+    if (!relative.startsWith(prefix) || !NOTE_ATTACHMENT_EXTENSIONS.has(ext) || seen.has(id)) {
+      throw new Error('Invalid note attachment.');
+    }
+    const name = path.basename(String(raw.name || '')).slice(0, 160);
+    if (!name) throw new Error('Invalid note attachment name.');
+    seen.add(id);
+    attachments.push({ id, path: relative, name, mime: NOTE_ATTACHMENT_MIMES[ext] });
+  }
+  return attachments;
+}
+
+function sanitizeNoteHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history.slice(0, 6).flatMap((entry) => {
+    const revision = Number(entry?.revision);
+    if (!Number.isInteger(revision) || revision < 1) return [];
+    return [{
+      revision,
+      title: String(entry.title || 'Untitled note').slice(0, 160),
+      body: String(entry.body || '').slice(0, 12000),
+      updated_by: String(entry.updated_by || entry.author || 'Coach').slice(0, 120),
+      updated_at: String(entry.updated_at || ''),
+    }];
+  });
+}
+
 async function getNotes(teamId) {
   const dir = notesDirFor(teamId);
   let files = [];
@@ -603,13 +650,38 @@ async function saveNote(teamId, note) {
   const now = nowIso();
   const id = safeSegment(note.note_id || slugify(`${note.title || 'Untitled note'}-${Date.now()}`), 'note id');
   const existing = note.note_id ? await readJson(path.join(dir, `${id}.json`)) : null;
+  const expected = note.expected_revision;
+  const existingRevision = Number(existing?.revision || 1);
+  if (existing && expected !== undefined && Number(expected) !== existingRevision) {
+    const err = new Error('This note changed while you were editing it. Reload the newer version before saving.');
+    err.code = 'NOTE_CONFLICT';
+    throw err;
+  }
+
+  const revision = existing ? existingRevision + 1 : 1;
+  const history = existing
+    ? [
+        {
+          revision: existingRevision,
+          title: existing.title,
+          body: existing.body,
+          updated_by: existing.updated_by || existing.author || 'Coach',
+          updated_at: existing.updated_at,
+        },
+        ...sanitizeNoteHistory(existing.history),
+      ].slice(0, 6)
+    : [];
 
   const record = {
     note_id: id,
-    title: note.title || existing?.title || 'Untitled note',
-    body: note.body !== undefined ? note.body : existing?.body || '',
+    title: String(note.title || existing?.title || 'Untitled note').slice(0, 160),
+    body: String(note.body !== undefined ? note.body : existing?.body || '').slice(0, 12000),
     tag: String(note.tag || existing?.tag || 'General').slice(0, 40),
-    author: note.author || existing?.author || 'Coach',
+    author: String(existing?.author || note.author || 'Coach').slice(0, 120),
+    updated_by: String(note.author || existing?.updated_by || existing?.author || 'Coach').slice(0, 120),
+    attachments: sanitizeNoteAttachments(teamId, note.attachments, existing?.attachments),
+    revision,
+    history,
     team_id: teamId,
     links: normalizeLinks(note.links, existing?.links),
     created_at: existing?.created_at || now,
