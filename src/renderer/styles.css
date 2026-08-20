@@ -646,11 +646,15 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   -webkit-app-region: no-drag;
 }
 .brand-tint { filter: var(--brand-tint, none); }
+/* The wordmark sits on the nav's content column: 20px in on both sides, so its
+   left edge lines up with the link icons and its right edge with the link
+   boxes. The old 168px cap left it stranded 40px short of the right inset,
+   which read as neither aligned nor centred. */
 .sb-wordmark {
   position: relative;
   display: block;
   width: 100%;
-  max-width: 168px;
+  max-width: none;
 }
 .sb-wordmark-coach {
   display: block;
