@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship shared Team Note image attachments and safe collaborative drafting, then apply the supplied wallpapers and Coach Intel splash assets in release `0.9.6`.
+**Goal:** Ship shared Team Note image attachments and safe collaborative drafting, then apply the supplied wallpapers and Coach Intel splash assets in release `1.5.0`.
 
 **Architecture:** Note JSON remains the local working copy and `shared_docs` remains the shared metadata source. Attachments use team-scoped relative paths and the existing asset bucket fallback. A note renderer keeps an active draft in place when Supabase reports a remote change, while other note screens refresh normally. Splash-only art is a separate static layer so profile wallpaper preferences remain intact after boot.
 
@@ -15,7 +15,8 @@
 - Accept only PNG, JPG/JPEG, and WebP note attachments; metadata stores relative paths, never image bytes.
 - Keep the app splash background fixed to `splash_bg.png`; wallpaper selection and cycling remain local per Mac.
 - Use the supplied `ci_logo_styled.png`, `ci_wordmark_styled.png`, and `slogan_styled1.png` unmodified as the splash brand assets.
-- Set `package.json` and the static splash fallback to version `0.9.6`.
+- Set `package.json` and the static splash fallback to version `1.5.0`.
+- Future versioning rule: Major increments the first number by `1`; Minor increments the second number by `0.1`; Mini increments the third number by `0.0.1`.
 
 ---
 
@@ -321,17 +322,18 @@
   git commit -m "feat: refresh splash background and branding"
   ```
 
-### Task 5: Bump release metadata and verify the complete bundle
+### Task 5: Bump release metadata, publish the versioning rule, and verify the complete bundle
 
 **Files:**
 - Modify: `package.json:4`
 - Modify: `src/renderer/index.html:7,36`
 - Modify: `src/renderer/pages/settings/sections/about.js:18`
+- Create: `docs/RELEASE_VERSIONING.md`
 - Test: `tests/version.test.js`
 
 **Interfaces:**
 - Consumes: `package.json.version`.
-- Produces: Electron `app.getVersion()`, the static splash fallback, and the About fallback all presenting `0.9.6`.
+- Produces: Electron `app.getVersion()`, the static splash fallback, and the About fallback all presenting `1.5.0`.
 
 - [ ] **Step 1: Write a version consistency test**
 
@@ -341,9 +343,9 @@
   const pkg = require('../package.json');
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'index.html'), 'utf8');
   const about = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'pages', 'settings', 'sections', 'about.js'), 'utf8');
-  assert.equal(pkg.version, '0.9.6');
-  assert.match(html, /Version 0\.9\.6/);
-  assert.match(about, /0\.9\.6/);
+  assert.equal(pkg.version, '1.5.0');
+  assert.match(html, /Version 1\.5\.0/);
+  assert.match(about, /1\.5\.0/);
   ```
 
 - [ ] **Step 2: Run the test and verify it fails**
@@ -354,7 +356,7 @@
 
 - [ ] **Step 3: Bump package and renderer fallbacks**
 
-  Set `package.json.version` to `0.9.6`, update the static splash fallback to `Version 0.9.6`, update the About fallback to `0.9.6`, and change the styles query string in `index.html` to `styles.css?v=20260821-v096`.
+  Set `package.json.version` to `1.5.0`, update the static splash fallback to `Version 1.5.0`, update the About fallback to `1.5.0`, and change the styles query string in `index.html` to `styles.css?v=20260821-v150`. Create `docs/RELEASE_VERSIONING.md` with: `Major: +1`; `Minor: +0.1`; and `Mini: +0.0.1`.
 
 - [ ] **Step 4: Run targeted and full automated verification**
 
@@ -372,8 +374,8 @@
 - [ ] **Step 5: Commit the release metadata**
 
   ```bash
-  git add package.json src/renderer/index.html src/renderer/pages/settings/sections/about.js tests/version.test.js
-  git commit -m "chore: release coach intel 0.9.6"
+  git add package.json src/renderer/index.html src/renderer/pages/settings/sections/about.js docs/RELEASE_VERSIONING.md tests/version.test.js
+  git commit -m "chore: release coach intel 1.5.0"
   ```
 
 ## Self-Review

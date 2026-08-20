@@ -24,7 +24,7 @@ the same time.
 - Replace the splash lockup/wordmark/slogan with the supplied transparent
   brand assets, preserving the current accessible image alternatives and the
   reduced-motion behaviour.
-- Release as `0.9.6`.
+- Release as `1.5.0`.
 
 ## Approach
 
