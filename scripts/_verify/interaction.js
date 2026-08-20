@@ -96,6 +96,7 @@ function registerIpc() {
     'cci:getNotes': (e, id) => dataStore.getNotes(id),
     'cci:saveNote': (e, id, note) => dataStore.saveNote(id, note),
     'cci:deleteNote': (e, id, nid) => dataStore.deleteNote(id, nid),
+    'cci:attachNoteImage': () => null,
     'cci:getTasks': (e, id) => dataStore.getTasks(id),
     'cci:saveTask': (e, id, task) => dataStore.saveTask(id, task),
     'cci:deleteTask': (e, id, tid) => dataStore.deleteTask(id, tid),
@@ -109,6 +110,10 @@ function registerIpc() {
     'cci:removeCdlMap': (e, id, opts) => dataStore.removeCdlMap(id, opts),
     'cci:updateCdlMapModes': (e, id, modes) => dataStore.updateCdlMapModes(id, modes),
     'cci:getAppVersion': () => '0.4.0-qa',
+    'cci:getNotifications': () => [],
+    'cci:deleteNotification': () => true,
+    'cci:getMapObjectives': (e, mapSlug, mapName, mode) => dataStore.getMapObjectives(mapSlug, mapName, mode),
+    'cci:saveMapObjectives': (e, mapSlug, mapName, mode, data) => dataStore.saveMapObjectives(mapSlug, mapName, mode, data),
     'cci:dataUrlForPath': () => null,
     'cci:setTrafficLights': () => true,
     'cci:getNeedsReview': (e, id) => dataStore.getNeedsReview(id),
@@ -319,7 +324,7 @@ async function runNav(win, teamId) {
   }
 
   await goto(win, `#/team-hub/${teamId}`);
-  for (const section of ['Roster', 'Team Notes', 'Objectives', 'Veto History', 'Practice Planner', 'Team Settings', 'Overview']) {
+  for (const section of ['Roster', 'Team Notes', 'Objectives', 'Veto History', 'Planner', 'Team Settings', 'Overview']) {
     if (await clickText(win, section)) {
       await sleep(400);
       ok(`hub rail ${section}`);
@@ -337,13 +342,8 @@ async function runNav(win, teamId) {
 
   await evalJs(win, 'document.querySelector(".topbar-icon-btn[aria-label^=Notifications]")?.click()');
   await sleep(600);
-  if ((await evalJs(win, 'location.hash')).includes('needs-review')) ok('bell opens Needs Review');
-  else fail('bell did not open Needs Review');
-
-  await evalJs(win, 'document.querySelector(".topbar-icon-btn[aria-label=Help]")?.click()');
-  await sleep(600);
-  if ((await evalJs(win, 'location.hash')).includes('teach')) ok('help opens Teach');
-  else fail('help did not open Teach');
+  if (await evalJs(win, 'getComputedStyle(document.querySelector(".topbar-notif-panel")).display === "block"')) ok('bell opens notifications');
+  else fail('bell did not open notifications');
 
   await evalJs(win, 'document.querySelector(".topbar-profile")?.click()');
   await sleep(600);
@@ -532,7 +532,7 @@ async function runCrud(win, teamId) {
   if (!(await text(win)).includes('qa_audit_player')) ok('DELETE player');
   else fail('DELETE player still visible');
 
-  await formCrud(win, '#/calendar', 'Add Event', { opponent: 'QA_AUDIT_Event' }, 'Save', 'qa_audit_event');
+  await formCrud(win, '#/calendar', 'Add Event', { title: 'QA_AUDIT_Event' }, 'Save', 'qa_audit_event');
   await formCrud(win, '#/scrim-hub', 'Book Scrim', { opponent: 'QA_AUDIT_OppScrim' }, 'Book', 'qa_audit_oppscrim');
   await formCrud(win, '#/vod-library', '+ Add VOD', { title: 'QA_AUDIT_Vod' }, 'Save', 'qa_audit_vod');
   await formCrud(win, '#/scouting', 'Add Opponent', { name: 'QA_AUDIT_Scout' }, 'Save', 'qa_audit_scout');

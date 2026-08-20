@@ -118,6 +118,8 @@ export async function render(root, hub) {
 
     async function persist({ quiet = false } = {}) {
       if (editor.saving || !title.value.trim()) return null;
+      clearTimeout(editor.timer);
+      editor.timer = 0;
       editor.saving = true;
       if (!quiet) status.textContent = 'Saving shared note…';
       error.style.display = 'none';
@@ -198,7 +200,7 @@ export async function render(root, hub) {
         error,
         el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px;' }, [
           el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
-            el('button', { class: 'btn primary sm', onclick: () => void persist() }, 'Save now'),
+            el('button', { class: 'btn primary sm', onclick: () => void persist() }, editor.note ? 'Save Changes' : 'Save Note'),
             el('button', { class: 'btn subtle sm', onclick: () => void attachImage() }, 'Attach image'),
             el('button', {
               class: 'btn subtle sm',
@@ -207,7 +209,7 @@ export async function render(root, hub) {
                 if (activeEditor === editor) activeEditor = null;
                 composer.innerHTML = '';
               },
-            }, 'Close'),
+            }, 'Cancel'),
           ]),
           status,
         ]),
@@ -270,7 +272,11 @@ export async function render(root, hub) {
               iconBtn('trash', `Delete ${note.title}`, async () => {
                 if (!confirm(`Delete "${note.title}"?`)) return;
                 await window.cci.deleteNote(hub.team.id, note.note_id);
-                if (activeEditor?.noteId === note.note_id) activeEditor = null;
+                if (activeEditor?.noteId === note.note_id) {
+                  clearTimeout(activeEditor.timer);
+                  activeEditor = null;
+                  composer.innerHTML = '';
+                }
                 await draw();
                 hub.refreshRail?.();
               }),

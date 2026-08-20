@@ -509,11 +509,7 @@ function restAtmosphere() {
   }
 }
 
-// Lockup is 2172x724 (3:1). The Ci lives in the left square. Clip hides the type,
-// then the remaining mark flies to the sign-in Ci so this is one motion,
-// not a crossfade between two screens.
-const LOCKUP_CLIP_RIGHT = 66.7;
-const LOCKUP_CLIP_BOTTOM = 16;
+// The supplied splash mark flies directly into the matching sign-in mark.
 const HAND_OFF_MS = 560;
 const HAND_OFF_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
@@ -597,29 +593,28 @@ function playSignInHandoff(splash, screen) {
   };
 
   try {
-    const logo = splash.querySelector('.splash-logo');
+    const lockup = splash.querySelector('.splash-logo');
+    const logo = splash.querySelector('.splash-logo-mark');
     const mark = screen.querySelector('.signin-mark');
-    if (!logo || !mark) {
+    if (!lockup || !logo || !mark) {
       fail();
       return;
     }
 
     splash.classList.add('handoff');
-    logo.classList.add('is-in');
-    logo.style.animation = 'none';
-    logo.style.opacity = '1';
-    logo.style.transform = 'none';
+    lockup.classList.add('is-in');
+    lockup.style.animation = 'none';
+    lockup.style.opacity = '1';
+    lockup.style.transform = 'none';
     logo.style.filter = 'none';
 
     const logoRect = logo.getBoundingClientRect();
     const markRect = mark.getBoundingClientRect();
-    const visW = logoRect.width * (1 - LOCKUP_CLIP_RIGHT / 100);
-    const visH = logoRect.height * (1 - LOCKUP_CLIP_BOTTOM / 100);
-    const originX = visW / 2;
-    const originY = visH / 2;
+    const originX = logoRect.width / 2;
+    const originY = logoRect.height / 2;
     const dx = (markRect.left + markRect.width / 2) - (logoRect.left + originX);
     const dy = (markRect.top + markRect.height / 2) - (logoRect.top + originY);
-    const scale = Math.min(markRect.width / visW, markRect.height / visH);
+    const scale = Math.min(markRect.width / logoRect.width, markRect.height / logoRect.height);
     if (!Number.isFinite(scale) || scale <= 0) {
       fail();
       return;
@@ -638,10 +633,9 @@ function playSignInHandoff(splash, screen) {
 
     const anim = logo.animate(
       [
-        { transform: 'translate(0px, 0px) scale(1)', clipPath: 'inset(0 0 0 0)' },
+        { transform: 'translate(0px, 0px) scale(1)' },
         {
           transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
-          clipPath: `inset(0 ${LOCKUP_CLIP_RIGHT}% ${LOCKUP_CLIP_BOTTOM}% 0)`,
         },
       ],
       { duration: HAND_OFF_MS, easing: HAND_OFF_EASE, fill: 'forwards' }

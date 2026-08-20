@@ -189,7 +189,28 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
+  isolation: isolate;
   transition: opacity var(--dur-splash) var(--ease-out), visibility var(--dur-splash);
+}
+
+.splash-background {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+#splash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 58% 48% at 50% 50%, transparent 8%, rgba(0, 0, 0, 0.28) 100%);
 }
 
 /* Broadcast pit. Accent only as wide radial washes — never a linear stripe
@@ -459,13 +480,15 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 .splash-stage {
   position: relative;
   z-index: 1;
-  /* 3:1 lockup; snap to 3px so height stays on whole pixels (avoids a soft mark). */
-  width: min(630px, round(down, 53vw, 3px));
+  width: min(590px, 84vw);
 }
 
 .splash-logo {
   position: relative;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   opacity: 0;
   transform: translateY(8px) scale(0.98);
   animation: splashLogoIn 720ms var(--ease-out) 80ms forwards;
@@ -477,11 +500,26 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .splash-logo img {
   display: block;
-  width: 100%;
   height: auto;
-  aspect-ratio: 3 / 1;
   pointer-events: none;
   -webkit-user-drag: none;
+}
+.splash-logo-mark {
+  width: min(126px, 20vw);
+  position: relative;
+  z-index: 2;
+}
+.splash-wordmark {
+  width: 100%;
+  margin-block: -18%;
+  position: relative;
+  z-index: 1;
+}
+.splash-slogan {
+  width: 100%;
+  margin-block: -10%;
+  position: relative;
+  z-index: 1;
 }
 
 .splash-meta {
@@ -547,6 +585,11 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 #splash.handoff .splash-meta {
   opacity: 0;
   transition: opacity 160ms var(--ease-out);
+}
+#splash.handoff .splash-wordmark,
+#splash.handoff .splash-slogan {
+  opacity: 0;
+  transition: opacity 120ms var(--ease-out);
 }
 #splash.handoff .splash-bar-fill { animation: none; }
 #splash.landed {
