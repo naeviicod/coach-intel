@@ -392,6 +392,12 @@ async function runPlanning(win) {
 
 async function run(win) {
   await waitFor(win, 'document.getElementById("app").classList.contains("ready")', 'app shell to become ready');
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const splashExiting = await win.webContents.executeJavaScript(
+    'document.getElementById("splash")?.classList.contains("landed")'
+  );
+  if (!splashExiting) problems.push('splash did not enter its visible exit transition');
+  await shot(win, '00a-splash-exit');
   await runShell(win);
   await runPlanning(win);
 

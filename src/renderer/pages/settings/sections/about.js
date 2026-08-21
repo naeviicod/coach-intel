@@ -15,7 +15,7 @@ export async function render(panel) {
         ]),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
-      aboutRow('Version', `v${version || '1.5.1'}`),
+      aboutRow('Version', `v${version || '1.5.2'}`),
       aboutRow('Mode', 'Offline · On-device only'),
       ruleset ? aboutRow('Ruleset', `${ruleset.game} · Season ${ruleset.season} · v${ruleset.version}`) : null,
       ruleset ? aboutRow('Ruleset checked', ruleset.last_checked) : null,

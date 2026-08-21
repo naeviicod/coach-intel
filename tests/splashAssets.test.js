@@ -42,23 +42,20 @@ test('splash keeps the separate brand assets in the supplied horizontal lockup',
   assert.match(styles, /grid-template-columns:\s*minmax\(210px, 0\.5fr\) minmax\(0, 1fr\)/);
 });
 
-test('the splash leaves as one plane, and the CI mark still carries into the gate', () => {
+test('the splash has a visible premium exit while the CI mark carries into the gate', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
   const signIn = fs.readFileSync(path.join(renderer, 'pages', 'signIn.js'), 'utf8');
 
-  const landed = styles.slice(styles.indexOf('#splash.landed {'), styles.indexOf('#splash.hide {'));
-  assert.match(landed, /opacity:\s*0/);
-  // Blur, scale and per-element transitions on the way out are what made the
-  // hand-off look glitchy on slower frames.
-  assert.doesNotMatch(landed, /filter:|transform:/);
-  assert.equal(styles.includes('#splash.landed .splash-logo'), false);
-  assert.equal(styles.includes('#splash.landed .splash-meta'), false);
+  assert.match(styles, /#splash\.landed \.splash-logo/);
+  assert.match(styles, /animation:\s*splashLockupExit 360ms/);
+  assert.match(styles, /@keyframes splashLockupExit/);
 
   const fade = Number(app.match(/const SPLASH_FADE_MS = (\d+)/)[1]);
   const dur = Number(styles.match(/--dur-splash:\s*(\d+)ms/)[1]);
   assert.equal(fade, dur, 'the JS settle must match the CSS fade');
-  assert.match(app, /const HAND_OFF_MS = 460/);
+  assert.equal(fade, 360);
+  assert.match(app, /const HAND_OFF_MS = 520/);
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
 });
 

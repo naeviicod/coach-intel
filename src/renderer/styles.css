@@ -24,7 +24,7 @@
   --dur-hover: 140ms;
   --dur-panel: 200ms;
   --dur-page: 220ms;
-  --dur-splash: 420ms;
+  --dur-splash: 360ms;
   /* Splash handoff: wallpaper crossfade and the accent landing on the app. */
   --dur-look: 520ms;
 
@@ -640,12 +640,15 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   transition: opacity 180ms var(--ease-out);
 }
 #splash.handoff .splash-bar-fill { animation: none; }
-/* The whole splash leaves as one plane on a single fade. Blurring and scaling
-   it while the lockup and meta ran their own shorter transitions is what made
-   the hand-off read as a glitch on slower frames. */
+/* The plane fades in one beat while the lockup makes a short, deliberate
+   upward exit. This keeps the transition obvious without making it sluggish. */
 #splash.landed {
   opacity: 0;
   pointer-events: none;
+}
+#splash.landed .splash-logo {
+  animation: splashLockupExit 360ms var(--ease-out) forwards;
+  will-change: opacity, transform, filter;
 }
 #splash.hide {
   opacity: 0;
@@ -661,6 +664,11 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 @keyframes splashSweep {
   from { transform: translate3d(-36%, 0, 0); }
   to { transform: translate3d(36%, 0, 0); }
+}
+@keyframes splashLockupExit {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: brightness(1); }
+  30% { opacity: 1; transform: translate3d(0, -5px, 0) scale(1.012); filter: brightness(1.14); }
+  100% { opacity: 0; transform: translate3d(0, -42px, 0) scale(0.955); filter: brightness(1.04); }
 }
 @keyframes splashLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
