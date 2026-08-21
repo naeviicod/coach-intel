@@ -109,7 +109,7 @@ function registerIpc() {
     'cci:restoreCdlMap': (e, id) => dataStore.restoreCdlMap(id),
     'cci:removeCdlMap': (e, id, opts) => dataStore.removeCdlMap(id, opts),
     'cci:updateCdlMapModes': (e, id, modes) => dataStore.updateCdlMapModes(id, modes),
-    'cci:getAppVersion': () => '0.4.0-qa',
+    'cci:getAppVersion': () => require(path.join(ROOT, 'package.json')).version,
     'cci:getNotifications': () => [],
     'cci:deleteNotification': () => true,
     'cci:getMapObjectives': (e, mapSlug, mapName, mode) => dataStore.getMapObjectives(mapSlug, mapName, mode),

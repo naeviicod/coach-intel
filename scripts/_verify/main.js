@@ -156,7 +156,7 @@ function registerIpc() {
     'cci:deleteTask': (e, id, taskId) => dataStore.deleteTask(id, taskId),
     'cci:getMetaKnowledge': () => dataStore.getMetaKnowledge(),
     'cci:getCdlRuleset': () => dataStore.getCdlRuleset(),
-    'cci:getAppVersion': () => '0.1.0',
+    'cci:getAppVersion': () => require(path.join(ROOT, 'package.json')).version,
     'cci:getNotifications': () => [],
     'cci:deleteNotification': () => true,
     'cci:getMapObjectives': (e, mapSlug, mapName, mode) => dataStore.getMapObjectives(mapSlug, mapName, mode),
@@ -632,6 +632,9 @@ app.whenReady().then(async () => {
   });
 
   await win.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
+  // Preserve the branded lockup before the five-second boot minimum completes.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await shot(win, '00-splash');
 
   try {
     await run(win);

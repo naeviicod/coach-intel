@@ -133,7 +133,7 @@ const LEGACY_TAB_ROUTES = {
 const SPLASH_MIN_MS = 5000;
 const SPLASH_BAR_MS = 280;
 // Keep in step with --dur-splash and --dur-look in styles.css.
-const SPLASH_FADE_MS = 380;
+const SPLASH_FADE_MS = 240;
 const LOOK_SHIFT_MS = 520;
 const ART_PRELOAD_MS = 1500;
 const BOOT_TIMEOUT_MS = 8000;
@@ -477,11 +477,11 @@ function finishSplash(splash) {
     applySavedLook();
     signalSplashDone();
   };
-  if (prefersReducedMotion() || splash.classList.contains('landed')) {
+  if (prefersReducedMotion()) {
     done();
     return;
   }
-  splash.classList.add('hide');
+  splash.classList.add('landed');
   let finished = false;
   const settle = () => {
     if (finished) return;
@@ -510,7 +510,7 @@ function restAtmosphere() {
 }
 
 // The supplied splash mark flies directly into the matching sign-in mark.
-const HAND_OFF_MS = 560;
+const HAND_OFF_MS = 460;
 const HAND_OFF_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
 function wait(ms) {
@@ -628,7 +628,7 @@ function playSignInHandoff(splash, screen) {
       landed = true;
       screen.classList.add('gate-in');
       splash.classList.add('landed');
-      window.setTimeout(() => finishSplash(splash), 120);
+      window.setTimeout(() => finishSplash(splash), 80);
     };
 
     const anim = logo.animate(
