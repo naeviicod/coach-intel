@@ -9,7 +9,10 @@ export async function render(panel) {
     el('div', { class: 'card section' }, [
       el('div', { class: 'section-title' }, 'Coach Intel'),
       el('div', { class: 'about-lockup' }, [
-        el('img', { class: 'brand-tint', src: asset('logo-mark.png'), alt: 'Coach Intel' }),
+        el('span', { class: 'ci-lockup', role: 'img', 'aria-label': 'Coach Intel' }, [
+          el('img', { class: 'ci-lockup-base', src: asset('logo-mark-base.png'), alt: '' }),
+          el('span', { class: 'ci-lockup-accent', 'aria-hidden': 'true' }),
+        ]),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
       aboutRow('Version', `v${version || '1.5.1'}`),

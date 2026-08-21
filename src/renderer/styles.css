@@ -24,7 +24,7 @@
   --dur-hover: 140ms;
   --dur-panel: 200ms;
   --dur-page: 220ms;
-  --dur-splash: 240ms;
+  --dur-splash: 420ms;
   /* Splash handoff: wallpaper crossfade and the accent landing on the app. */
   --dur-look: 520ms;
 
@@ -203,6 +203,35 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   object-position: center;
   pointer-events: none;
   -webkit-user-drag: none;
+  transform: scale(1.03);
+  animation: splashDrift 34s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* The art is a still, so all the movement lives in these two layers: the HUD
+   glow breathes, and one soft light crosses the frame every 26s. Slow enough
+   to read as a held title card rather than a loading animation. */
+.splash-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 44% 46% at 8% 20%, color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 68%),
+    radial-gradient(ellipse 46% 48% at 93% 82%, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  animation: splashBreath 11s ease-in-out infinite alternate;
+}
+.splash-sweep {
+  position: absolute;
+  inset: -20% -55%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(102deg, transparent 40%, rgba(228, 232, 226, 0.055) 50%, transparent 60%);
+  mix-blend-mode: screen;
+  animation: splashSweep 26s linear infinite;
+  will-change: transform;
 }
 #splash::before {
   content: '';
@@ -605,45 +634,18 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 
 #splash.handoff { pointer-events: none; }
-#splash.handoff .splash-meta {
-  opacity: 0;
-  transform: translateY(6px);
-  transition:
-    opacity 140ms var(--ease-out),
-    transform 140ms var(--ease-out);
-}
+#splash.handoff .splash-meta,
 #splash.handoff .splash-lockup-copy {
   opacity: 0;
-  transform: translateX(-8px) scale(0.985);
-  transition:
-    opacity 130ms var(--ease-out),
-    transform 130ms var(--ease-out);
+  transition: opacity 180ms var(--ease-out);
 }
 #splash.handoff .splash-bar-fill { animation: none; }
+/* The whole splash leaves as one plane on a single fade. Blurring and scaling
+   it while the lockup and meta ran their own shorter transitions is what made
+   the hand-off read as a glitch on slower frames. */
 #splash.landed {
   opacity: 0;
-  filter: blur(1px);
-  transform: scale(1.012);
   pointer-events: none;
-  transition:
-    opacity 220ms var(--ease-out),
-    filter 160ms var(--ease-out),
-    transform 220ms var(--ease-out);
-}
-#splash.landed .splash-logo {
-  opacity: 0;
-  transform: translateY(-12px) scale(0.975);
-  animation: none;
-  transition:
-    opacity 160ms var(--ease-out),
-    transform 220ms var(--ease-out);
-}
-#splash.landed .splash-meta {
-  opacity: 0;
-  transform: translateY(6px);
-  transition:
-    opacity 110ms var(--ease-out),
-    transform 160ms var(--ease-out);
 }
 #splash.hide {
   opacity: 0;
@@ -651,6 +653,15 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   pointer-events: none;
 }
 
+@keyframes splashDrift {
+  from { transform: scale(1.03) translate3d(-0.6%, -0.4%, 0); }
+  to { transform: scale(1.07) translate3d(0.6%, 0.4%, 0); }
+}
+@keyframes splashBreath { from { opacity: 0.4; } to { opacity: 0.76; } }
+@keyframes splashSweep {
+  from { transform: translate3d(-36%, 0, 0); }
+  to { transform: translate3d(36%, 0, 0); }
+}
 @keyframes splashLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes splashFadeIn { to { opacity: 1; } }
 @keyframes splashSheen {
@@ -687,7 +698,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash-logo, .splash-meta, .splash-flow, .arena-field, .arena-scan {
+  .splash-logo, .splash-meta, .splash-flow, .arena-field, .arena-scan,
+  .splash-background, .splash-glow, .splash-sweep {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -1409,11 +1421,13 @@ body.access-readonly .edit-only { display: none !important; }
   background: transparent; cursor: pointer;
   overflow: hidden;
 }
+/* Twelve wallpapers at half-card width meant scrolling past most of them, so
+   the tiles shrink to thumbnails and the grid fills across instead of down. */
 .bg-picker {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  max-width: 640px;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 10px;
+  max-width: 720px;
 }
 .bg-option {
   display: flex;
@@ -1466,9 +1480,12 @@ body.access-readonly .edit-only { display: none !important; }
     radial-gradient(ellipse 36% 48% at 88% 58%, rgba(228, 232, 226, 0.06) 0%, transparent 72%),
     linear-gradient(180deg, #0b0d10 0%, #070809 48%, #050607 100%);
 }
-.bg-option-meta { padding: 9px 11px 11px; }
-.bg-option-name { font-weight: 700; font-size: 12.5px; }
-.bg-option-hint { color: var(--text-faint); font-size: 10.5px; margin-top: 2px; line-height: 1.35; }
+.bg-option-meta { padding: 7px 9px 9px; }
+.bg-option-name { font-weight: 700; font-size: 11.5px; }
+.bg-option-hint {
+  color: var(--text-faint); font-size: 9.5px; margin-top: 2px; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .team-name { font-weight: 700; font-size: 14px; }
 .team-meta { color: var(--text-faint); font-size: 11px; }
 
@@ -1758,7 +1775,23 @@ tr.clickable-row:hover td { background: #ffffff06; }
   display: flex; flex-direction: column; gap: 8px;
   padding: 4px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
 }
-.about-lockup img { width: 170px; height: auto; }
+.about-lockup img { width: 100%; height: auto; }
+/* The lockup ships as lime art, and hue-rotating it lands near the org colour
+   rather than on it. Split into a neutral base plus a mask filled with the
+   accent itself, the way the sidebar wordmark already works. */
+.ci-lockup { position: relative; display: block; width: 170px; }
+.ci-lockup-accent {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  pointer-events: none;
+  -webkit-mask-image: url('cci-asset://static/logo-mark-accent.png');
+  mask-image: url('cci-asset://static/logo-mark-accent.png');
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
 .about-value { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .version-step { font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
 

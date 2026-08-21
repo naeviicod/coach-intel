@@ -133,7 +133,7 @@ const LEGACY_TAB_ROUTES = {
 const SPLASH_MIN_MS = 5000;
 const SPLASH_BAR_MS = 280;
 // Keep in step with --dur-splash and --dur-look in styles.css.
-const SPLASH_FADE_MS = 240;
+const SPLASH_FADE_MS = 420;
 const LOOK_SHIFT_MS = 520;
 const ART_PRELOAD_MS = 1500;
 const BOOT_TIMEOUT_MS = 8000;
