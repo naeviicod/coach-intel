@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, nativeImage, shell, screen, clipboard, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
+const crypto = require('crypto');
 const { registerAssetScheme, handleAssetProtocol } = require('./assetProtocol');
 
 registerAssetScheme();
@@ -942,6 +943,38 @@ async function syncAssetToCloud(relative) {
     console.warn('[main] asset cloud sync failed (non-fatal):', err.message);
   }
 }
+
+const NOTE_IMAGE_MIMES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+};
+
+function safeAttachmentSegment(value, label) {
+  const segment = String(value || '');
+  if (!segment || segment === '.' || segment === '..' || /[/\\]/.test(segment) || segment.startsWith('.')) {
+    throw new Error(`Invalid ${label}.`);
+  }
+  return segment;
+}
+
+ipcMain.handle('cci:attachNoteImage', requireEdit(async (e, teamId, noteId, sourcePath) => {
+  const safeTeamId = safeAttachmentSegment(teamId, 'team');
+  const safeNoteId = safeAttachmentSegment(noteId, 'note');
+  const ext = path.extname(String(sourcePath || '')).toLowerCase();
+  const mime = NOTE_IMAGE_MIMES[ext];
+  if (!mime) throw new Error('Choose a PNG, JPG, JPEG, or WebP image.');
+  const relative = `org/teams/${safeTeamId}/data/note-images/${safeNoteId}/${crypto.randomUUID()}${ext}`;
+  const saved = await dataStore.copyImage(sourcePath, relative);
+  syncAssetToCloud(saved).catch(() => {});
+  return {
+    id: path.basename(saved, ext),
+    path: saved,
+    name: path.basename(String(sourcePath || '')).slice(0, 160),
+    mime,
+  };
+}));
 
 ipcMain.handle('cci:copyImage', requireEdit(async (e, sourcePath, destRelative) => {
   const rel = await dataStore.copyImage(sourcePath, destRelative);

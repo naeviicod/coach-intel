@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('cci', {
   getNotes: (teamId) => ipcRenderer.invoke('cci:getNotes', teamId),
   saveNote: (teamId, note) => ipcRenderer.invoke('cci:saveNote', teamId, note),
   deleteNote: (teamId, noteId) => ipcRenderer.invoke('cci:deleteNote', teamId, noteId),
+  attachNoteImage: (teamId, noteId, sourcePath) => ipcRenderer.invoke('cci:attachNoteImage', teamId, noteId, sourcePath),
 
   getTasks: (teamId) => ipcRenderer.invoke('cci:getTasks', teamId),
   saveTask: (teamId, task) => ipcRenderer.invoke('cci:saveTask', teamId, task),
