@@ -204,13 +204,12 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   pointer-events: none;
   -webkit-user-drag: none;
   transform: scale(1.03);
-  animation: splashDrift 34s ease-in-out infinite alternate;
+  animation: splashDrift 16s ease-in-out infinite alternate;
   will-change: transform;
 }
 
-/* The art is a still, so all the movement lives in these two layers: the HUD
-   glow breathes, and one soft light crosses the frame every 26s. Slow enough
-   to read as a held title card rather than a loading animation. */
+/* The art is a still, so the HUD breath and a soft light sweep create visible
+   life during the short boot window without competing with the lockup. */
 .splash-glow {
   position: absolute;
   inset: 0;
@@ -221,7 +220,7 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
     radial-gradient(ellipse 46% 48% at 93% 82%, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 70%);
   mix-blend-mode: screen;
   opacity: 0.5;
-  animation: splashBreath 11s ease-in-out infinite alternate;
+  animation: splashBreath 3.6s ease-in-out infinite alternate;
 }
 .splash-sweep {
   position: absolute;
@@ -230,7 +229,7 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   pointer-events: none;
   background: linear-gradient(102deg, transparent 40%, rgba(228, 232, 226, 0.055) 50%, transparent 60%);
   mix-blend-mode: screen;
-  animation: splashSweep 26s linear infinite;
+  animation: splashSweep 5.2s linear infinite;
   will-change: transform;
 }
 #splash::before {
@@ -519,33 +518,62 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   grid-template-columns: minmax(210px, 0.5fr) minmax(0, 1fr);
   column-gap: clamp(16px, 2vw, 28px);
   align-items: center;
+}
+.splash-logo::after {
+  content: '';
+  position: absolute;
+  inset: -9% -18%;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(104deg, transparent 42%, rgba(243, 255, 194, 0.36) 49%, transparent 56%);
   opacity: 0;
-  transform: translateY(8px) scale(0.98);
-  animation: splashLogoIn 720ms var(--ease-out) 80ms forwards;
+  transform: translate3d(-84%, 0, 0);
+  animation: splashLogoScan 900ms linear 420ms forwards;
+  will-change: transform, opacity;
 }
 .splash-logo.is-in {
   opacity: 1;
   transform: none;
   animation: none;
 }
+.splash-logo.is-in .splash-logo-mark-frame,
+.splash-logo.is-in .splash-lockup-copy,
+.splash-logo.is-in .splash-slogan-frame {
+  opacity: 1;
+  animation: none;
+}
+.splash-logo.is-in .splash-logo-mark-frame { transform: translate3d(0, -24px, 0) scale(1); }
+.splash-logo.is-in .splash-lockup-copy,
+.splash-logo.is-in .splash-slogan-frame { transform: none; }
 .splash-logo img {
   display: block;
   height: auto;
   pointer-events: none;
   -webkit-user-drag: none;
 }
-.splash-logo-mark {
+.splash-logo-mark-frame {
   width: 100%;
   max-width: min(320px, 28vw);
   justify-self: end;
   position: relative;
   z-index: 2;
+  opacity: 0;
+  transform: translate3d(-56px, 10px, 0) scale(0.92);
+  animation: splashMarkIn 760ms var(--ease-out) 120ms forwards;
+  will-change: transform, opacity;
+}
+.splash-logo-mark {
+  width: 100%;
 }
 .splash-lockup-copy {
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  opacity: 0;
+  transform: translate3d(64px, 16px, 0) scale(0.98);
+  animation: splashCopyIn 780ms var(--ease-out) 230ms forwards;
+  will-change: transform, opacity;
 }
 .splash-wordmark-frame,
 .splash-slogan-frame {
@@ -563,9 +591,13 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   z-index: 1;
 }
 .splash-slogan-frame {
-  width: 80%;
+  width: 100%;
   margin-top: clamp(4px, 0.8vw, 9px);
   aspect-ratio: 17 / 1;
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  animation: splashSloganIn 480ms var(--ease-out) 560ms forwards;
+  will-change: transform, opacity;
 }
 .splash-slogan {
   width: 100%;
@@ -648,7 +680,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 #splash.landed .splash-logo {
   animation: splashLockupExit 360ms var(--ease-out) forwards;
-  will-change: opacity, transform, filter;
+  will-change: opacity, transform;
 }
 #splash.hide {
   opacity: 0;
@@ -666,11 +698,25 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   to { transform: translate3d(36%, 0, 0); }
 }
 @keyframes splashLockupExit {
-  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: brightness(1); }
-  30% { opacity: 1; transform: translate3d(0, -5px, 0) scale(1.012); filter: brightness(1.14); }
-  100% { opacity: 0; transform: translate3d(0, -42px, 0) scale(0.955); filter: brightness(1.04); }
+  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  30% { opacity: 1; transform: translate3d(0, -5px, 0) scale(1.012); }
+  100% { opacity: 0; transform: translate3d(0, -42px, 0) scale(0.955); }
 }
-@keyframes splashLogoIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes splashMarkIn {
+  to { opacity: 1; transform: translate3d(0, -24px, 0) scale(1); }
+}
+@keyframes splashCopyIn {
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes splashSloganIn {
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes splashLogoScan {
+  0% { opacity: 0; transform: translate3d(-84%, 0, 0); }
+  14% { opacity: 0.85; }
+  84% { opacity: 0.6; }
+  100% { opacity: 0; transform: translate3d(84%, 0, 0); }
+}
 @keyframes splashFadeIn { to { opacity: 1; } }
 @keyframes splashSheen {
   from { transform: translateX(-72px); }
@@ -706,7 +752,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash-logo, .splash-meta, .splash-flow, .arena-field, .arena-scan,
+  .splash-logo, .splash-logo-mark-frame, .splash-lockup-copy, .splash-slogan-frame,
+  .splash-logo::after, .splash-meta, .splash-flow, .arena-field, .arena-scan,
   .splash-background, .splash-glow, .splash-sweep {
     animation: none !important;
     opacity: 1 !important;

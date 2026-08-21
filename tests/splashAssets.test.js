@@ -36,10 +36,25 @@ test('splash keeps the separate brand assets in the supplied horizontal lockup',
   const html = fs.readFileSync(index, 'utf8');
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
 
+  assert.match(html, /class="splash-logo-mark-frame"/);
   assert.match(html, /class="splash-lockup-copy"/);
   assert.match(html, /class="splash-wordmark-frame"/);
   assert.match(html, /class="splash-slogan-frame"/);
   assert.match(styles, /grid-template-columns:\s*minmax\(210px, 0\.5fr\) minmax\(0, 1fr\)/);
+  assert.match(styles, /\.splash-slogan-frame \{\s*width: 100%/);
+});
+
+test('the splash logo has a staged GPU-only entrance that is visible before handoff', () => {
+  const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
+
+  for (const name of ['splashMarkIn', 'splashCopyIn', 'splashSloganIn', 'splashLogoScan']) {
+    assert.match(styles, new RegExp(`@keyframes ${name}`), `${name} must exist`);
+  }
+  assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,400}animation:\s*splashMarkIn 760ms/);
+  assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,400}animation:\s*splashCopyIn 780ms/);
+  assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,400}animation:\s*splashSloganIn 480ms/);
+  assert.match(styles, /\.splash-logo::after \{[\s\S]{0,500}animation:\s*splashLogoScan 900ms/);
+  assert.match(styles, /will-change:\s*transform, opacity/);
 });
 
 test('the splash has a visible premium exit while the CI mark carries into the gate', () => {
@@ -50,6 +65,7 @@ test('the splash has a visible premium exit while the CI mark carries into the g
   assert.match(styles, /#splash\.landed \.splash-logo/);
   assert.match(styles, /animation:\s*splashLockupExit 360ms/);
   assert.match(styles, /@keyframes splashLockupExit/);
+  assert.doesNotMatch(styles, /@keyframes splashLockupExit[\s\S]{0,500}filter:/, 'the exit must stay on compositor-friendly properties');
 
   const fade = Number(app.match(/const SPLASH_FADE_MS = (\d+)/)[1]);
   const dur = Number(styles.match(/--dur-splash:\s*(\d+)ms/)[1]);
@@ -59,7 +75,7 @@ test('the splash has a visible premium exit while the CI mark carries into the g
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
 });
 
-test('the splash background carries subtle motion, not a still frame', () => {
+test('the splash background visibly moves during the five-second splash window', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const html = fs.readFileSync(index, 'utf8');
 
@@ -68,12 +84,12 @@ test('the splash background carries subtle motion, not a still frame', () => {
   for (const name of ['splashDrift', 'splashBreath', 'splashSweep']) {
     assert.match(styles, new RegExp(`@keyframes ${name}`), `${name} must exist`);
   }
-  // Subtle means slow: every splash-background animation runs for 10s or more.
-  const durations = [...styles.matchAll(/animation: (splashDrift|splashBreath|splashSweep) (\d+)s/g)];
+  const durations = [...styles.matchAll(/animation: (splashDrift|splashBreath|splashSweep) ([\d.]+)s/g)];
   assert.equal(durations.length, 3);
-  for (const [, name, secs] of durations) {
-    assert.ok(Number(secs) >= 10, `${name} runs too fast at ${secs}s`);
-  }
+  const secondsByName = Object.fromEntries(durations.map(([, name, secs]) => [name, Number(secs)]));
+  assert.ok(secondsByName.splashDrift <= 16, 'the background should move perceptibly during the splash');
+  assert.ok(secondsByName.splashBreath <= 4, 'the HUD glow should complete a visible pulse');
+  assert.ok(secondsByName.splashSweep <= 6, 'the light sweep should cross before handoff');
   assert.match(styles, /\.splash-background,\s*\.splash-glow,\s*\.splash-sweep/);
 });
 

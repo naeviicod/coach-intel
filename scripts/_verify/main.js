@@ -638,8 +638,23 @@ app.whenReady().then(async () => {
   });
 
   await win.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
+  // The splash must have active, visible logo motion while it is on screen—not
+  // merely a static card that fades when boot finishes.
+  await new Promise((resolve) => setTimeout(resolve, 360));
+  const activeSplashMotion = await win.webContents.executeJavaScript(`(() => {
+    const splash = document.getElementById('splash');
+    return splash?.getAnimations({ subtree: true })
+      .filter((animation) => animation.playState === 'running')
+      .map((animation) => animation.animationName)
+      .filter((name) => ['splashMarkIn', 'splashCopyIn'].includes(name)) || [];
+  })()`);
+  if (!activeSplashMotion.includes('splashMarkIn') || !activeSplashMotion.includes('splashCopyIn')) {
+    problems.push(`splash logo entrance is not visibly running (${activeSplashMotion.join(', ') || 'none'})`);
+  }
+  await shot(win, '00-intro-motion');
+
   // Preserve the branded lockup before the five-second boot minimum completes.
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 640));
   await shot(win, '00-splash');
 
   try {
