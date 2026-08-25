@@ -1,16 +1,22 @@
 export default function Page() {
   return (
     <>
-      <div className="pit" aria-hidden="true" />
+      <div className="pit" aria-hidden="true">
+        <img className="pit-art" src="/assets/splash-background.png" alt="" />
+        <span className="pit-glow" />
+      </div>
       <main className="stage">
         <div className="lockup">
-          <span className="ci-lockup" role="img" aria-label="Coach Intel">
-            <img className="ci-lockup-base" src="/assets/logo-mark-base.png" alt="" />
-            <span className="ci-lockup-accent" aria-hidden="true" />
-          </span>
+          <div className="lockup-mark">
+            <img src="/assets/splash-logo.png" alt="Coach Intel" />
+          </div>
           <div className="lockup-copy">
-            <img className="wordmark" src="/assets/wordmark.png" alt="Coach Intel" />
-            <img className="slogan" src="/assets/slogan.png" alt="Competitive Intelligence for Call of Duty" />
+            <div className="wordmark-frame">
+              <img className="wordmark" src="/assets/splash-wordmark.png" alt="Coach Intel" />
+            </div>
+            <div className="slogan-frame">
+              <img className="slogan" src="/assets/splash-slogan.png" alt="Competitive Intelligence for Call of Duty" />
+            </div>
           </div>
         </div>
         <p className="line">Know More. Win More.</p>

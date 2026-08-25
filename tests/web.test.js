@@ -17,9 +17,12 @@ test('the web app opens Coach Intel over coachintel://', () => {
   assert.doesNotMatch(page, /Download for Mac|Download for Windows|mac_url|windows_url/);
   assert.match(open, /coachintel:\/\//);
   assert.match(readme, /Root Directory/);
-  for (const name of ['logo-mark-base.png', 'logo-mark-accent.png', 'wordmark.png', 'slogan.png']) {
+  for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
+  assert.match(page, /splash-logo\.png/);
+  assert.match(page, /splash-wordmark\.png/);
+  assert.match(page, /splash-background\.png/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

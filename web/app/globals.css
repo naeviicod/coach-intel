@@ -1,11 +1,12 @@
 :root {
-  --bg: #080a0c;
+  --bg: #000;
   --text: #f4f6f8;
   --muted: #8d969f;
   --accent: #b6f542;
   --accent-ink: #080a0c;
   --font: var(--font-body), "IBM Plex Sans", "Segoe UI", sans-serif;
   --display: var(--font-display), "Barlow Condensed", "Arial Narrow", sans-serif;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * { box-sizing: border-box; }
@@ -17,34 +18,41 @@ body {
   background: var(--bg);
   display: grid;
   place-items: center;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .pit {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 44% 46% at 8% 18%, rgba(182, 245, 66, 0.09) 0%, transparent 68%),
-    radial-gradient(ellipse 46% 48% at 92% 84%, rgba(182, 245, 66, 0.11) 0%, transparent 70%),
-    radial-gradient(ellipse 58% 48% at 50% 50%, transparent 8%, rgba(0, 0, 0, 0.42) 100%),
-    #080a0c;
+  background: #000;
+  overflow: hidden;
 }
-.pit::after {
-  content: "";
+.pit-art {
   position: absolute;
-  inset: -10%;
-  background-image:
-    repeating-radial-gradient(circle at 88% 92%, transparent 0 18px, rgba(182, 245, 66, 0.05) 19px 20px),
-    repeating-linear-gradient(-32deg, transparent 0 22px, rgba(228, 232, 226, 0.03) 23px 24px);
-  mask-image: radial-gradient(ellipse 70% 70% at 80% 85%, #000 0%, transparent 72%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.03);
+  animation: pitDrift 16s ease-in-out infinite alternate;
+}
+.pit-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 44% 46% at 8% 20%, rgba(182, 245, 66, 0.13) 0%, transparent 68%),
+    radial-gradient(ellipse 46% 48% at 93% 82%, rgba(182, 245, 66, 0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 58% 48% at 50% 50%, transparent 8%, rgba(0, 0, 0, 0.28) 100%);
+  mix-blend-mode: screen;
+  animation: pitBreath 3.6s ease-in-out infinite alternate;
 }
 
 .stage {
   position: relative;
   z-index: 1;
-  width: min(720px, 88vw);
-  padding: 48px 0 64px;
+  width: min(950px, 86vw);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -52,49 +60,58 @@ body {
 }
 
 .lockup {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 1.6vw, 18px);
-  width: 100%;
-}
-.ci-lockup {
+  --lockup-h: min(248px, 21vw);
+  --mark-nudge: -10px;
   position: relative;
+  width: fit-content;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: clamp(4px, 0.7vw, 10px);
+  align-items: start;
+}
+.lockup img {
   display: block;
-  width: min(148px, 22vw);
-  flex-shrink: 0;
-}
-.ci-lockup-base { display: block; width: 100%; height: auto; }
-.ci-lockup-accent {
-  position: absolute;
-  inset: 0;
-  background: var(--accent);
+  height: auto;
   pointer-events: none;
-  -webkit-mask-image: url("/assets/logo-mark-accent.png");
-  mask-image: url("/assets/logo-mark-accent.png");
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
 }
+.lockup-mark {
+  width: var(--lockup-h);
+  justify-self: end;
+  transform: translate3d(0, var(--mark-nudge), 0);
+}
+.lockup-mark img { width: 100%; }
 .lockup-copy {
+  width: calc(var(--lockup-h) * 2.38);
   min-width: 0;
-  width: min(340px, 48vw);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.wordmark, .slogan {
-  display: block;
+.wordmark-frame,
+.slogan-frame {
+  overflow: hidden;
+  position: relative;
   width: 100%;
-  height: auto;
 }
-.slogan { margin-top: 8px; }
+.wordmark-frame { aspect-ratio: 2.71 / 1; }
+.wordmark {
+  width: 100%;
+  transform: translateY(-23.5%);
+}
+.slogan-frame {
+  margin-top: clamp(4px, 0.8vw, 9px);
+  aspect-ratio: 17 / 1;
+}
+.slogan {
+  width: 100%;
+  transform: translateY(-42%);
+}
 
 .line {
-  margin: 28px 0 0;
+  margin: clamp(24px, 3vw, 34px) 0 0;
   font-family: var(--display);
-  font-size: clamp(18px, 2.4vw, 22px);
+  font-size: clamp(16px, 2.2vw, 20px);
   font-weight: 600;
   letter-spacing: 0.28em;
   text-transform: uppercase;
@@ -102,18 +119,14 @@ body {
 }
 
 .actions {
-  margin-top: 28px;
+  margin-top: 22px;
   width: min(320px, 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
 }
-
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-height: 48px;
   padding: 14px 22px;
   border-radius: 10px;
@@ -131,27 +144,6 @@ body {
 }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-primary:active { transform: scale(0.98); }
-.btn-ghost {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid rgba(244, 246, 248, 0.22);
-}
-.btn-ghost:hover { border-color: rgba(244, 246, 248, 0.45); }
-
-.alt-os {
-  color: var(--muted);
-  font-size: 13px;
-  text-decoration: none;
-}
-.alt-os:hover { color: var(--text); }
-
-.version {
-  margin: 4px 0 0;
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
 
 .hint {
   max-width: 36rem;
@@ -177,11 +169,27 @@ body {
   place-items: center;
   font-family: var(--font);
 }
-.open-fallback a {
-  color: var(--accent);
+.open-fallback a { color: var(--accent); }
+
+@keyframes pitDrift {
+  from { transform: scale(1.03); }
+  to { transform: scale(1.05); }
+}
+@keyframes pitBreath {
+  from { opacity: 0.4; }
+  to { opacity: 0.76; }
 }
 
 @media (max-width: 640px) {
-  .lockup { flex-direction: column; }
-  .lockup-copy { width: min(280px, 78vw); }
+  .lockup {
+    --lockup-h: min(160px, 42vw);
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .lockup-mark { justify-self: center; }
+  .lockup-copy { width: min(calc(var(--lockup-h) * 2.38), 86vw); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pit-art, .pit-glow { animation: none; }
 }
