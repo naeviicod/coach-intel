@@ -17,6 +17,8 @@ test('the web app opens Coach Intel over coachintel://', () => {
   assert.doesNotMatch(page, /Download for Mac|Download for Windows|mac_url|windows_url/);
   assert.match(open, /coachintel:\/\//);
   assert.match(readme, /Root Directory/);
+  assert.equal(fs.existsSync(path.join(web, 'public', 'favicon.png')), true, 'favicon.png must ship with the site');
+  assert.equal(fs.existsSync(path.join(web, 'app', 'icon.png')), true, 'app/icon.png must ship with the site');
   for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
