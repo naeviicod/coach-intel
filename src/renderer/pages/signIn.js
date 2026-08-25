@@ -58,7 +58,15 @@ function draw(container, state) {
   container.innerHTML = '';
 
   const screen = el('div', { class: 'onboarding-screen signin-screen' }, [
-    el('img', { class: 'signin-mark', src: asset('splash-logo.png'), alt: 'Coach Intel' }),
+    el('div', { class: 'signin-identity' }, [
+      el('div', { class: 'signin-lockup' }, [
+        el('img', { class: 'signin-mark', src: asset('splash-logo.png'), alt: 'Coach Intel' }),
+        el('img', { class: 'signin-wordmark', src: asset('splash-wordmark.png'), alt: '', 'aria-hidden': 'true' }),
+      ]),
+      el('div', { class: 'signin-slogan-frame', 'aria-hidden': 'true' }, [
+        el('img', { class: 'signin-slogan', src: asset('splash-slogan.png'), alt: '' }),
+      ]),
+    ]),
     state.error
       ? el('div', { class: 'card inline-error', style: 'max-width:360px;' }, [
           el('div', { class: 'inline-error-title' }, 'Sign-in failed'),

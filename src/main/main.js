@@ -1069,8 +1069,13 @@ ipcMain.handle('cci:copyText', (e, text) => {
   return true;
 });
 
-// Only Discord's own domains may be opened from the integration screens.
-const ALLOWED_EXTERNAL_HOSTS = new Set(['discord.com', 'discord.dev', 'support.discord.com']);
+// Discord's own domains, plus the Coach Intel site.
+const ALLOWED_EXTERNAL_HOSTS = new Set([
+  'discord.com',
+  'discord.dev',
+  'support.discord.com',
+  'coach.championshipseries.eu',
+]);
 
 ipcMain.handle('cci:openExternal', async (e, url) => {
   try {

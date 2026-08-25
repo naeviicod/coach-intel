@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .worktrees/
+.next/
+out/
 
 # Live org data: rosters, screenshots, notes, strats, integration secrets.
 # Per-installation runtime state, not source. Seed data in data/knowledge and

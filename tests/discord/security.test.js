@@ -151,6 +151,7 @@ test('only Discord HTTPS hosts can be opened externally', async () => {
   const main = await fs.readFile(path.join(MAIN_DIR, 'main.js'), 'utf-8');
   assert.ok(main.includes('ALLOWED_EXTERNAL_HOSTS'), 'external opens should be allowlisted');
   assert.ok(main.includes("parsed.protocol !== 'https:'"), 'non-HTTPS schemes should be refused');
+  assert.ok(main.includes('coach.championshipseries.eu'), 'the Coach Intel site may be opened from About');
 });
 
 test('deep links only accept simple route segments', async () => {

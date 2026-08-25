@@ -24,8 +24,9 @@
   --dur-hover: 140ms;
   --dur-panel: 200ms;
   --dur-page: 220ms;
-  --dur-splash: 360ms;
-  /* Splash handoff: wallpaper crossfade and the accent landing on the app. */
+  --dur-splash: 420ms;
+  --dur-app-reveal: 240ms;
+  /* Wallpaper changes settle behind the still-opaque splash before reveal. */
   --dur-look: 520ms;
 
   /* Shell metrics */
@@ -63,27 +64,11 @@
   color-scheme: dark;
 }
 
-/* The accent lives in custom properties, so the org colour landing after boot
-   would otherwise snap every surface at once. Registering the colours lets them
-   interpolate; `look-shift` is only on during that handoff, so the Settings
-   colour picker still tracks the cursor with no lag. */
+/* Keep the app palette in typed custom properties for consistent theming. */
 @property --accent { syntax: '<color>'; inherits: true; initial-value: #b6f542; }
 @property --accent-bright { syntax: '<color>'; inherits: true; initial-value: #caff63; }
 @property --accent-dim { syntax: '<color>'; inherits: true; initial-value: #b6f54242; }
 @property --accent-ink { syntax: '<color>'; inherits: true; initial-value: #080a0c; }
-
-html.look-shift {
-  transition:
-    --accent var(--dur-look) var(--ease-out),
-    --accent-bright var(--dur-look) var(--ease-out),
-    --accent-dim var(--dur-look) var(--ease-out),
-    --accent-ink var(--dur-look) var(--ease-out);
-}
-html.look-shift .brand-tint,
-html.look-shift .sb-wordmark-intel,
-html.look-shift .bg-option-art {
-  transition: filter var(--dur-look) var(--ease-out);
-}
 
 * { box-sizing: border-box; }
 
@@ -150,6 +135,12 @@ img {
   height: 100vh;
   overflow: hidden;
   background: transparent;
+  transition: opacity var(--dur-app-reveal) var(--ease-out);
+}
+#app.booting {
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
 }
 #app.shell {
   padding: var(--shell-gap);
@@ -172,10 +163,6 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   box-shadow: none;
 }
 
-#atmosphere.rest,
-#atmosphere.arena {
-  transition: opacity var(--dur-splash) var(--ease-out);
-}
 #atmosphere.rest { opacity: 0; }
 
 #splash {
@@ -184,19 +171,19 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   z-index: 200;
   display: grid;
   place-items: center;
-  background: transparent;
+  background: #000;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
   isolation: isolate;
-  transition: opacity var(--dur-splash) var(--ease-out), visibility var(--dur-splash);
+  transition: opacity var(--dur-splash) var(--ease-out);
 }
 
 .splash-background {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -204,33 +191,52 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   pointer-events: none;
   -webkit-user-drag: none;
   transform: scale(1.03);
-  animation: splashDrift 16s ease-in-out infinite alternate;
+  animation: splashDrift 16s ease-in-out 1000ms infinite alternate;
   will-change: transform;
 }
 
-/* The art is a still, so the HUD breath and a soft light sweep create visible
-   life during the short boot window without competing with the lockup. */
+/* Static blur copy. Animating filter on the pit glitches in Chromium; fade
+   this layer out with opacity only so the first second actually reads dark. */
+.splash-frost {
+  position: absolute;
+  inset: -14%;
+  z-index: 1;
+  width: 128%;
+  height: 128%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  filter: blur(48px) brightness(0.28);
+  transform: scale(1.08);
+  animation: splashFrostLift 1000ms cubic-bezier(0.7, 0, 1, 1) forwards;
+  will-change: opacity;
+}
+
+/* The art is a still. HUD breath gives it life; a dark veil lifts so the
+   pit is on screen before any lockup motion. */
 .splash-glow {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 2;
   pointer-events: none;
   background:
     radial-gradient(ellipse 44% 46% at 8% 20%, color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 68%),
     radial-gradient(ellipse 46% 48% at 93% 82%, color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 70%);
   mix-blend-mode: screen;
-  opacity: 0.5;
-  animation: splashBreath 3.6s ease-in-out infinite alternate;
+  opacity: 0;
+  animation:
+    splashGlowIn 1000ms cubic-bezier(0.7, 0, 1, 1) forwards,
+    splashBreath 3.6s ease-in-out 1000ms infinite alternate;
 }
-.splash-sweep {
+.splash-veil {
   position: absolute;
-  inset: -20% -55%;
-  z-index: -1;
+  inset: 0;
+  z-index: 3;
   pointer-events: none;
-  background: linear-gradient(102deg, transparent 40%, rgba(228, 232, 226, 0.055) 50%, transparent 60%);
-  mix-blend-mode: screen;
-  animation: splashSweep 5.2s linear infinite;
-  will-change: transform;
+  background: #000;
+  opacity: 0.72;
+  animation: splashVeilLift 1000ms cubic-bezier(0.7, 0, 1, 1) forwards;
 }
 #splash::before {
   content: '';
@@ -507,44 +513,26 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 
 .splash-stage {
   position: relative;
-  z-index: 1;
+  z-index: 4;
   width: min(950px, 86vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .splash-logo {
+  --lockup-h: min(248px, 21vw);
+  --mark-nudge: -10px;
   position: relative;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(210px, 0.5fr) minmax(0, 1fr);
-  column-gap: clamp(16px, 2vw, 28px);
-  align-items: center;
+  grid-template-columns: auto auto;
+  column-gap: clamp(4px, 0.7vw, 10px);
+  align-items: start;
+  overflow: visible;
 }
-.splash-logo::after {
-  content: '';
-  position: absolute;
-  inset: -9% -18%;
-  z-index: 3;
-  pointer-events: none;
-  background: linear-gradient(104deg, transparent 42%, rgba(243, 255, 194, 0.36) 49%, transparent 56%);
-  opacity: 0;
-  transform: translate3d(-84%, 0, 0);
-  animation: splashLogoScan 900ms linear 420ms forwards;
-  will-change: transform, opacity;
-}
-.splash-logo.is-in {
-  opacity: 1;
-  transform: none;
-  animation: none;
-}
-.splash-logo.is-in .splash-logo-mark-frame,
-.splash-logo.is-in .splash-lockup-copy,
-.splash-logo.is-in .splash-slogan-frame {
-  opacity: 1;
-  animation: none;
-}
-.splash-logo.is-in .splash-logo-mark-frame { transform: translate3d(0, -24px, 0) scale(1); }
-.splash-logo.is-in .splash-lockup-copy,
-.splash-logo.is-in .splash-slogan-frame { transform: none; }
 .splash-logo img {
   display: block;
   height: auto;
@@ -552,27 +540,27 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   -webkit-user-drag: none;
 }
 .splash-logo-mark-frame {
-  width: 100%;
-  max-width: min(320px, 28vw);
+  width: var(--lockup-h);
   justify-self: end;
   position: relative;
   z-index: 2;
   opacity: 0;
-  transform: translate3d(-56px, 10px, 0) scale(0.92);
-  animation: splashMarkIn 760ms var(--ease-out) 120ms forwards;
+  transform: translate3d(0, 8px, 0);
+  animation: splashMarkIn 1600ms var(--ease-out) 1000ms forwards;
   will-change: transform, opacity;
 }
 .splash-logo-mark {
   width: 100%;
 }
 .splash-lockup-copy {
+  width: calc(var(--lockup-h) * 2.38);
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   opacity: 0;
-  transform: translate3d(64px, 16px, 0) scale(0.98);
-  animation: splashCopyIn 780ms var(--ease-out) 230ms forwards;
+  transform: translate3d(0, 8px, 0);
+  animation: splashCopyIn 1680ms var(--ease-out) 1140ms forwards;
   will-change: transform, opacity;
 }
 .splash-wordmark-frame,
@@ -595,8 +583,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   margin-top: clamp(4px, 0.8vw, 9px);
   aspect-ratio: 17 / 1;
   opacity: 0;
-  transform: translate3d(0, 14px, 0);
-  animation: splashSloganIn 480ms var(--ease-out) 560ms forwards;
+  transform: translate3d(0, 6px, 0);
+  animation: splashSloganIn 1500ms var(--ease-out) 1380ms forwards;
   will-change: transform, opacity;
 }
 .splash-slogan {
@@ -613,7 +601,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   gap: 14px;
   margin-top: clamp(24px, 3vw, 34px);
   opacity: 0;
-  animation: splashFadeIn 400ms var(--ease-out) 280ms forwards;
+  animation: splashMetaIn 480ms var(--ease-out) 1000ms forwards;
 }
 .splash-bar {
   position: relative;
@@ -633,7 +621,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .splash-bar-fill {
   background: linear-gradient(90deg, #6f9a22 0%, #b6f542 48%, #f3ffc2 100%);
-  transform: scaleX(0.04);
+  transform: scaleX(0);
   transform-origin: left center;
   z-index: 1;
 }
@@ -645,15 +633,13 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   mix-blend-mode: screen;
   pointer-events: none;
   transform: translateX(-72px);
-  animation: splashSheen 1100ms linear infinite;
+  animation: splashSheen 1800ms linear 1000ms infinite;
 }
-#splash.loaded .splash-bar,
-#splash.handoff .splash-bar {
+#splash.loaded .splash-bar {
   animation: none;
   opacity: 1;
 }
-#splash.loaded .splash-bar-sheen,
-#splash.handoff .splash-bar-sheen {
+#splash.loaded .splash-bar-sheen {
   animation: none;
   opacity: 0;
 }
@@ -665,22 +651,9 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   color: var(--text);
 }
 
-#splash.handoff { pointer-events: none; }
-#splash.handoff .splash-meta,
-#splash.handoff .splash-lockup-copy {
-  opacity: 0;
-  transition: opacity 180ms var(--ease-out);
-}
-#splash.handoff .splash-bar-fill { animation: none; }
-/* The plane fades in one beat while the lockup makes a short, deliberate
-   upward exit. This keeps the transition obvious without making it sluggish. */
-#splash.landed {
+#splash.dissolving {
   opacity: 0;
   pointer-events: none;
-}
-#splash.landed .splash-logo {
-  animation: splashLockupExit 360ms var(--ease-out) forwards;
-  will-change: opacity, transform;
 }
 #splash.hide {
   opacity: 0;
@@ -689,35 +662,31 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 
 @keyframes splashDrift {
-  from { transform: scale(1.03) translate3d(-0.6%, -0.4%, 0); }
-  to { transform: scale(1.07) translate3d(0.6%, 0.4%, 0); }
+  from { transform: scale(1.03); }
+  to { transform: scale(1.05); }
+}
+@keyframes splashFrostLift {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes splashGlowIn {
+  from { opacity: 0; }
+  to { opacity: 0.5; }
 }
 @keyframes splashBreath { from { opacity: 0.4; } to { opacity: 0.76; } }
-@keyframes splashSweep {
-  from { transform: translate3d(-36%, 0, 0); }
-  to { transform: translate3d(36%, 0, 0); }
-}
-@keyframes splashLockupExit {
-  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  30% { opacity: 1; transform: translate3d(0, -5px, 0) scale(1.012); }
-  100% { opacity: 0; transform: translate3d(0, -42px, 0) scale(0.955); }
+@keyframes splashVeilLift {
+  to { opacity: 0; }
 }
 @keyframes splashMarkIn {
-  to { opacity: 1; transform: translate3d(0, -24px, 0) scale(1); }
+  to { opacity: 1; transform: translate3d(0, var(--mark-nudge), 0) scale(1); }
 }
 @keyframes splashCopyIn {
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes splashSloganIn {
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
-@keyframes splashLogoScan {
-  0% { opacity: 0; transform: translate3d(-84%, 0, 0); }
-  14% { opacity: 0.85; }
-  84% { opacity: 0.6; }
-  100% { opacity: 0; transform: translate3d(84%, 0, 0); }
-}
-@keyframes splashFadeIn { to { opacity: 1; } }
+@keyframes splashMetaIn { to { opacity: 1; } }
 @keyframes splashSheen {
   from { transform: translateX(-72px); }
   to { transform: translateX(240px); }
@@ -752,17 +721,26 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #app.booting {
+    opacity: 1;
+    pointer-events: auto;
+    will-change: auto;
+  }
   .splash-logo, .splash-logo-mark-frame, .splash-lockup-copy, .splash-slogan-frame,
-  .splash-logo::after, .splash-meta, .splash-flow, .arena-field, .arena-scan,
-  .splash-background, .splash-glow, .splash-sweep {
+  .splash-meta, .splash-flow, .arena-field, .arena-scan,
+  .splash-background, .splash-frost, .splash-glow, .splash-veil {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
   }
+  .splash-veil, .splash-frost { opacity: 0 !important; }
+  .splash-frost { display: none !important; }
+  .splash-background { filter: none !important; transform: scale(1.03) !important; }
+  .splash-logo-mark-frame { transform: translate3d(0, var(--mark-nudge), 0) !important; }
   .splash-bar, .splash-bar-fill, .splash-bar-sheen { animation: none !important; }
   .splash-bar-fill { transition: none !important; }
   .splash-bar { opacity: 1; }
-  #splash, #atmosphere.rest, .signin-mark, .signin-discord, .signin-screen .inline-error {
+  #app, #splash, #atmosphere.rest, .signin-mark, .signin-discord, .signin-screen .inline-error {
     transition: none !important;
     filter: none !important;
   }
@@ -1848,6 +1826,18 @@ tr.clickable-row:hover td { background: #ffffff06; }
   mask-repeat: no-repeat;
 }
 .about-value { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.about-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+.about-link:hover { color: var(--accent-bright); }
 .version-step { font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
 
 @media (max-width: 1100px) {
@@ -2737,8 +2727,8 @@ tr.clickable-row:hover td { background: #ffffff06; }
 .onboarding-brand-wrap { text-align: center; }
 .onboarding-brand { width: min(547px, 53vw); height: auto; display: block; margin: 0 auto; background: transparent; }
 
-/* Sign-in shares the persistent atmosphere. Mark stays put so splash can
-   FLIP onto it; Discord arrives after the mark lands. */
+/* Sign-in shares the persistent atmosphere. Its destination is revealed by the
+   app shell above, so no child gets a second, delayed entrance clock. */
 .signin-screen {
   position: relative;
   width: 100%;
@@ -2747,37 +2737,60 @@ tr.clickable-row:hover td { background: #ffffff06; }
   background: transparent;
 }
 .signin-mark,
+.signin-wordmark,
+.signin-slogan,
 .signin-discord,
 .signin-screen .inline-error {
   position: relative;
   z-index: 1;
 }
+.signin-identity {
+  display: grid;
+  justify-items: center;
+  row-gap: clamp(7px, 1vw, 10px);
+}
+.signin-lockup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: clamp(10px, 1.2vw, 16px);
+  max-width: min(430px, 82vw);
+  -webkit-app-region: drag;
+}
 .signin-mark {
-  width: min(128px, 22vw);
-  height: min(128px, 22vw);
+  width: min(116px, 20vw);
+  height: min(116px, 20vw);
   object-fit: contain;
   background: transparent;
-  -webkit-app-region: drag;
-  opacity: 0;
+  opacity: 1;
+}
+.signin-wordmark {
+  width: min(280px, 48vw);
+  height: auto;
+  min-width: 0;
+  object-fit: contain;
+}
+.signin-slogan-frame {
+  position: relative;
+  z-index: 1;
+  width: min(360px, 74vw);
+  aspect-ratio: 17 / 1;
+  overflow: hidden;
+}
+.signin-slogan {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: translate3d(0, -42%, 0);
 }
 .signin-discord {
   min-width: 280px;
   padding: 12px 18px;
   font-size: 13px;
   -webkit-app-region: no-drag;
-  opacity: 0;
-  transition: opacity 420ms var(--ease-out) 80ms;
+  opacity: 1;
 }
 .signin-screen .inline-error {
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 280ms var(--ease-out),
-    transform 280ms var(--ease-out);
-}
-.signin-screen.gate-in .signin-mark { opacity: 1; }
-.signin-screen.gate-in .signin-discord,
-.signin-screen.gate-in .inline-error {
   opacity: 1;
   transform: none;
 }

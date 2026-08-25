@@ -130,13 +130,13 @@ const LEGACY_TAB_ROUTES = {
   strats: (teamId) => `#/playbooks/${teamId}`,
 };
 
-const SPLASH_MIN_MS = 5000;
+const SPLASH_MIN_MS = 7000;
+const SPLASH_VEIL_MS = 1000;
 const SPLASH_BAR_MS = 280;
-// Keep in step with --dur-splash and --dur-look in styles.css.
-const SPLASH_FADE_MS = 360;
-const LOOK_SHIFT_MS = 520;
+// Keep in step with --dur-splash in styles.css.
+const SPLASH_DISSOLVE_MS = 420;
 const ART_PRELOAD_MS = 1500;
-const BOOT_TIMEOUT_MS = 8000;
+const BOOT_TIMEOUT_MS = 10000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
 const TEAM_NAV_PAGES = new Set([
   'team-hub',
@@ -434,54 +434,62 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// Accent and wallpaper land while the splash is still up, so the app is
-// revealed onto the finished backdrop instead of snapping to it a frame later.
-// `look-shift` is what makes that a crossfade rather than a cut; it comes off
-// again so the Settings colour picker stays live under the cursor.
+// Accent and wallpaper land while the splash is still fully opaque. The app
+// therefore appears on its finished backdrop, rather than changing surfaces
+// as the splash clears.
 let lookApplied = false;
 let splashSignalled = false;
-let lookShiftTimer = 0;
-
-function beginLookShift() {
-  if (prefersReducedMotion()) return;
-  const root = document.documentElement;
-  root.classList.add('look-shift');
-  window.clearTimeout(lookShiftTimer);
-  lookShiftTimer = window.setTimeout(() => root.classList.remove('look-shift'), LOOK_SHIFT_MS + 240);
-}
 
 function applySavedLook() {
   if (lookApplied) return;
   lookApplied = true;
-  beginLookShift();
   applyAccent(state.org?.accent || DEFAULT_ACCENT);
   applyBackground(getPref('background', DEFAULT_BACKGROUND));
 }
 
-// The sign-in gate repaints to the inviting org's accent on this event, so keep
-// the crossfade window open across it.
 function signalSplashDone() {
   if (splashSignalled) return;
   splashSignalled = true;
-  beginLookShift();
   document.dispatchEvent(new CustomEvent('cci:splash-done'));
 }
 
+// The destination is rendered behind the splash during boot. Releasing this
+// single composited layer makes every finished-screen element arrive together,
+// rather than letting the sidebar, content, and sign-in controls pop in on
+// separate clocks.
+function revealApp() {
+  const app = document.getElementById('app');
+  if (!app || app.dataset.splashRevealed === '1') return;
+  app.dataset.splashRevealed = '1';
+  // Give the browser a paint boundary after the splash has been removed. This
+  // keeps the app's single opacity fade distinct from the splash dissolve.
+  requestAnimationFrame(() => app.classList.remove('booting'));
+}
+
 function finishSplash(splash) {
-  if (!splash || splash.dataset.done === '1') return;
+  if (!splash) {
+    applySavedLook();
+    signalSplashDone();
+    revealApp();
+    return;
+  }
+  if (splash.dataset.done === '1') return;
   splash.dataset.done = '1';
   splash.setAttribute('aria-hidden', 'true');
   const done = () => {
     splash.classList.add('hide');
     splash.style.display = 'none';
-    applySavedLook();
     signalSplashDone();
+    revealApp();
   };
+  // The look has to be settled before the dissolve starts. It remains hidden
+  // behind the opaque splash, so the handoff has one visual clock only.
+  applySavedLook();
   if (prefersReducedMotion()) {
     done();
     return;
   }
-  splash.classList.add('landed');
+  splash.classList.add('dissolving');
   let finished = false;
   const settle = () => {
     if (finished) return;
@@ -495,7 +503,7 @@ function finishSplash(splash) {
     settle();
   };
   splash.addEventListener('transitionend', onEnd);
-  window.setTimeout(settle, SPLASH_FADE_MS + 120);
+  window.setTimeout(settle, SPLASH_DISSOLVE_MS + 80);
 }
 
 function restAtmosphere() {
@@ -509,10 +517,6 @@ function restAtmosphere() {
   }
 }
 
-// The supplied splash mark flies directly into the matching sign-in mark.
-const HAND_OFF_MS = 520;
-const HAND_OFF_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
-
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -523,18 +527,27 @@ function splashBarFill() {
 
 function runSplashBar() {
   const bar = splashBarFill();
-  if (!bar?.animate) return null;
-  return bar.animate(
-    [{ transform: 'scaleX(0.04)' }, { transform: 'scaleX(0.92)' }],
-    {
-      duration: Math.max(1, SPLASH_MIN_MS - SPLASH_BAR_MS),
-      easing: 'cubic-bezier(0.15, 0.82, 0.22, 1)',
-      fill: 'forwards',
-    }
-  );
+  if (!bar) return Promise.resolve(null);
+  bar.style.transform = 'scaleX(0)';
+  if (!bar.animate) return Promise.resolve(null);
+  return wait(SPLASH_VEIL_MS).then(() => {
+    const current = splashBarFill();
+    if (!current?.animate) return null;
+    return current.animate(
+      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(0.92)' }],
+      {
+        duration: Math.max(1, SPLASH_MIN_MS - SPLASH_VEIL_MS - SPLASH_BAR_MS),
+        easing: 'cubic-bezier(0.15, 0.82, 0.22, 1)',
+        fill: 'forwards',
+      }
+    );
+  });
 }
 
-async function completeSplashBar(anim) {
+async function completeSplashBar(animOrPromise) {
+  const anim = animOrPromise && typeof animOrPromise.then === 'function'
+    ? await animOrPromise
+    : animOrPromise;
   const bar = splashBarFill();
   document.getElementById('splash')?.classList.add('loaded');
   try { anim?.commitStyles(); anim?.cancel(); } catch { /* ignore */ }
@@ -585,68 +598,6 @@ async function raceTimeout(promise, ms, fallback) {
   }
 }
 
-function playSignInHandoff(splash, screen) {
-  const fail = (err) => {
-    if (err) console.error('[renderer] sign-in handoff failed', err);
-    screen.classList.add('gate-in');
-    finishSplash(splash);
-  };
-
-  try {
-    const lockup = splash.querySelector('.splash-logo');
-    const logo = splash.querySelector('.splash-logo-mark');
-    const mark = screen.querySelector('.signin-mark');
-    if (!lockup || !logo || !mark) {
-      fail();
-      return;
-    }
-
-    splash.classList.add('handoff');
-    lockup.classList.add('is-in');
-    lockup.style.animation = 'none';
-    lockup.style.opacity = '1';
-    lockup.style.transform = 'none';
-    logo.style.filter = 'none';
-
-    const logoRect = logo.getBoundingClientRect();
-    const markRect = mark.getBoundingClientRect();
-    const originX = logoRect.width / 2;
-    const originY = logoRect.height / 2;
-    const dx = (markRect.left + markRect.width / 2) - (logoRect.left + originX);
-    const dy = (markRect.top + markRect.height / 2) - (logoRect.top + originY);
-    const scale = Math.min(markRect.width / logoRect.width, markRect.height / logoRect.height);
-    if (!Number.isFinite(scale) || scale <= 0) {
-      fail();
-      return;
-    }
-
-    logo.style.transformOrigin = `${originX}px ${originY}px`;
-
-    let landed = false;
-    const land = () => {
-      if (landed) return;
-      landed = true;
-      screen.classList.add('gate-in');
-      splash.classList.add('landed');
-      window.setTimeout(() => finishSplash(splash), 80);
-    };
-
-    const anim = logo.animate(
-      [
-        { transform: 'translate(0px, 0px) scale(1)' },
-        {
-          transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
-        },
-      ],
-      { duration: HAND_OFF_MS, easing: HAND_OFF_EASE, fill: 'forwards' }
-    );
-    anim.finished.then(land).catch(land);
-    window.setTimeout(land, HAND_OFF_MS + 160);
-  } catch (err) {
-    fail(err);
-  }
-}
-
 function revealFromSplash(showFn) {
   const splash = document.getElementById('splash');
   const app = document.getElementById('app');
@@ -661,24 +612,21 @@ function revealFromSplash(showFn) {
   const play = () => {
     if (started) return;
     started = true;
-    if (!splash) return;
-    const signin = document.querySelector('.signin-screen');
-    if (signin && !prefersReducedMotion()) {
-      playSignInHandoff(splash, signin);
+    if (!splash) {
+      finishSplash(null);
       return;
     }
-    if (signin) signin.classList.add('gate-in');
-    else {
+    const signin = document.querySelector('.signin-screen');
+    if (signin) {
+      signin.classList.add('gate-in');
+    } else {
       app.classList.add('shell');
-      restAtmosphere();
     }
+    restAtmosphere();
     finishSplash(splash);
   };
 
   window.setTimeout(play, 32);
-  window.setTimeout(() => {
-    if (splash && splash.style.display !== 'none') finishSplash(splash);
-  }, 700);
 }
 
 async function prepareApp({ fast = false } = {}) {
@@ -750,6 +698,7 @@ async function boot() {
   // Starts decoding now; the splash has seconds of runway to spend on it.
   const artReady = preloadBackground(getPref('background', DEFAULT_BACKGROUND));
   paintSplashVersion();
+  wait(SPLASH_VEIL_MS).then(() => document.getElementById('splash')?.classList.add('risen'));
   const barAnim = runSplashBar();
   const minTime = wait(SPLASH_MIN_MS - SPLASH_BAR_MS);
   let showFn = renderSignIn;

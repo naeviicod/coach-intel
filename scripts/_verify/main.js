@@ -394,7 +394,7 @@ async function run(win) {
   await waitFor(win, 'document.getElementById("app").classList.contains("ready")', 'app shell to become ready');
   await new Promise((resolve) => setTimeout(resolve, 120));
   const splashExiting = await win.webContents.executeJavaScript(
-    'document.getElementById("splash")?.classList.contains("landed")'
+    'document.getElementById("splash")?.classList.contains("dissolving")'
   );
   if (!splashExiting) problems.push('splash did not enter its visible exit transition');
   await shot(win, '00a-splash-exit');
@@ -638,23 +638,37 @@ app.whenReady().then(async () => {
   });
 
   await win.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
-  // The splash must have active, visible logo motion while it is on screen—not
-  // merely a static card that fades when boot finishes.
-  await new Promise((resolve) => setTimeout(resolve, 360));
-  const activeSplashMotion = await win.webContents.executeJavaScript(`(() => {
+  const activeSplashNames = async () => win.webContents.executeJavaScript(`(() => {
     const splash = document.getElementById('splash');
     return splash?.getAnimations({ subtree: true })
-      .filter((animation) => animation.playState === 'running')
+      .filter((animation) => animation.playState === 'running' && animation.effect?.getComputedTiming?.()?.progress != null)
       .map((animation) => animation.animationName)
-      .filter((name) => ['splashMarkIn', 'splashCopyIn'].includes(name)) || [];
+      .filter(Boolean) || [];
   })()`);
-  if (!activeSplashMotion.includes('splashMarkIn') || !activeSplashMotion.includes('splashCopyIn')) {
-    problems.push(`splash logo entrance is not visibly running (${activeSplashMotion.join(', ') || 'none'})`);
+
+  // Hold: background veil is lifting. Logos stay hidden until 1s.
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const rising = await activeSplashNames();
+  if (!rising.includes('splashVeilLift')) {
+    problems.push(`splash background veil is not lifting (${rising.join(', ') || 'none'})`);
+  }
+  if (!rising.includes('splashFrostLift')) {
+    problems.push(`splash background blur is not lifting (${rising.join(', ') || 'none'})`);
+  }
+  if (rising.includes('splashMarkIn') || rising.includes('splashCopyIn')) {
+    problems.push(`splash logo zoom started before the 1s veil lift (${rising.join(', ')})`);
+  }
+
+  // After the pit is fully up, the lockup must enter—not a static card.
+  await new Promise((resolve) => setTimeout(resolve, 850));
+  const zooming = await activeSplashNames();
+  if (!zooming.includes('splashMarkIn') || !zooming.includes('splashCopyIn')) {
+    problems.push(`splash logo zoom is not visibly running (${zooming.join(', ') || 'none'})`);
   }
   await shot(win, '00-intro-motion');
 
-  // Preserve the branded lockup before the five-second boot minimum completes.
-  await new Promise((resolve) => setTimeout(resolve, 640));
+  // Preserve the branded lockup before the seven-second boot minimum completes.
+  await new Promise((resolve) => setTimeout(resolve, 1200));
   await shot(win, '00-splash');
 
   try {
