@@ -18,8 +18,8 @@ export function DiscordSignIn({ nextPath = '/dashboard' }) {
   }
 
   return (
-    <button type="button" className="btn btn-primary" onClick={signIn}>
-      Continue with Discord
+    <button type="button" className="btn primary signin-discord" onClick={signIn}>
+      Sign in with Discord
     </button>
   );
 }

@@ -14,19 +14,26 @@ function read(rel) {
 test('the public site is a product gateway, not an Open App splash', () => {
   const page = read('app/page.js');
   const gateway = read('components/public-gateway.js');
+  const lockup = read('components/splash-lockup.js');
+  const signIn = read('components/discord-sign-in.js');
   const open = read('app/open/page.js');
   const readme = read('README.md');
   assert.match(page, /PublicGateway/);
   assert.match(page, /\/dashboard/);
   assert.doesNotMatch(page, /coachintel:\/\//);
-  assert.match(gateway, /Sign in/);
-  assert.match(gateway, /Continue with Discord/);
+  assert.match(gateway, /SplashLockup/);
+  assert.match(lockup, /splash-logo\.png/);
+  assert.match(lockup, /splash-wordmark\.png/);
+  assert.match(lockup, /splash-slogan\.png/);
+  assert.match(signIn, /Sign in with Discord/);
   assert.doesNotMatch(gateway, /coachintel:\/\//);
   assert.match(open, /coachintel:\/\//);
   assert.match(readme, /Root Directory/);
   assert.match(readme, /Coach Intel.*Supabase|not.*ECS/i);
   assert.equal(fs.existsSync(path.join(web, 'public', 'favicon.png')), true);
+  assert.equal(fs.existsSync(path.join(web, 'public', 'favicon.ico')), true);
   assert.equal(fs.existsSync(path.join(web, 'app', 'icon.png')), true);
+  assert.equal(fs.existsSync(path.join(web, 'app', 'favicon.ico')), true);
   for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
@@ -37,12 +44,14 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   const env = read('.env.example');
   const callback = read('app/auth/callback/route.js');
   const signIn = read('app/sign-in/page.js');
+  const gateway = read('components/public-gateway.js');
   assert.match(config, /buzqhwoaoiyeqkvmsghm\.supabase\.co/);
   assert.doesNotMatch(config, /ecs_|AUTH_DATABASE|championshipseries\.supabase/i);
   assert.match(env, /Coach Intel Supabase only/);
   assert.match(env, /\/auth\/callback/);
   assert.match(callback, /exchangeCodeForSession/);
-  assert.match(signIn, /DiscordSignIn/);
+  assert.match(signIn, /PublicGateway/);
+  assert.match(gateway, /DiscordSignIn/);
 });
 
 test('signed-in shell reads teams and members from Supabase', () => {
