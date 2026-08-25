@@ -81,18 +81,15 @@ function ScoreboardCard({ teamId, count, canEdit }) {
           {count ? `${count} waiting →` : 'Open inbox →'}
         </Link>
       </div>
-      <label className="field-hint" style={{ display: 'block', padding: '8px 0' }}>
+      <div className="field-hint" style={{ padding: '8px 0' }}>
         Drop a scoreboard screenshot here. OCR still runs on the desktop app.
-        {canEdit ? (
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            style={{ display: 'block', marginTop: 10 }}
-            onChange={(e) => onFiles(e.target.files)}
-          />
-        ) : null}
-      </label>
+      </div>
+      {canEdit ? (
+        <label className="btn sm" style={{ cursor: 'pointer', marginBottom: 8 }}>
+          Choose files
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
+        </label>
+      ) : null}
       {error ? <div className="field-hint" style={{ color: 'var(--loss)' }}>{error}</div> : null}
     </div>
   );

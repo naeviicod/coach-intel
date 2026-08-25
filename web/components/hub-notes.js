@@ -58,7 +58,7 @@ export function HubNotes({ team, notes, canEdit, author, ctxToggle, openId }) {
     <>
       <HubHead title="Team Notes" sub={`Shared notes for ${team.name}`}>
         {canEdit ? (
-          <button type="button" className="btn primary edit-only" onClick={() => setDraft({ note_id: newId('note'), title: '', body: '', tag: 'General' })}>
+          <button type="button" className="btn primary sm edit-only" onClick={() => setDraft({ note_id: newId('note'), title: '', body: '', tag: 'General' })}>
             + New Note
           </button>
         ) : null}

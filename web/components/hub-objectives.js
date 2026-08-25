@@ -47,7 +47,7 @@ export function HubObjectives({ team, tasks, canEdit, ctxToggle }) {
     <>
       <HubHead title="Objectives" sub={`What ${team.name} is working on`}>
         {canEdit ? (
-          <button type="button" className="btn primary edit-only" onClick={() => setOpen(true)}>+ New Objective</button>
+          <button type="button" className="btn primary sm edit-only" onClick={() => setOpen(true)}>+ New Objective</button>
         ) : null}
         {ctxToggle}
       </HubHead>

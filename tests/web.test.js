@@ -124,6 +124,11 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(inviteBtn, /className="btn sm"/);
   assert.doesNotMatch(inviteBtn, /copy-invite-email/);
   assert.doesNotMatch(read('app/desktop-web.css'), /copy-invite-email/);
+  assert.match(read('app/globals.css'), /\.gate \.btn \{/);
+  assert.doesNotMatch(read('app/globals.css'), /^\.btn \{/m);
+  assert.match(read('app/desktop-web.css'), /#app\.shell \.btn/);
+  assert.match(read('app/desktop-web.css'), /min-width:\s*0/);
+  assert.match(read('components/hub-overview.js'), /btn primary sm/);
   assert.doesNotMatch(settings, /topbar-signout/);
   assert.match(shell, /ContentMain/);
   assert.match(calendar, /OrgCalendar/);
