@@ -1,14 +1,20 @@
-import { SectionPage } from '../../../components/section-page';
+import { VetoLabView } from '../../../components/veto-lab-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Veto Lab · Coach Intel' };
 
-export default function Page() {
+export default async function Page({ searchParams }) {
+  const sp = await searchParams;
+  const data = await loadWorkspace();
   return (
-    <SectionPage
-      title="Veto Lab"
-      lede="Ban/pick plans for the next series"
-      emptyTitle="No veto plan yet"
-      emptyBody="Save a veto in the desktop app and it stays on the opponent scout card."
+    <VetoLabView
+      teams={data.teams}
+      vetoes={data.vetoes}
+      opponents={data.opponents}
+      matches={data.matches}
+      rulesetDocs={data.rulesetDocs}
+      teamId={sp.team}
+      canEdit={data.canEdit}
     />
   );
 }

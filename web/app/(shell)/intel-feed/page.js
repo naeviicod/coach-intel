@@ -1,14 +1,9 @@
-import { SectionPage } from '../../../components/section-page';
+import { IntelFeedView } from '../../../components/intel-feed-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Intel Feed · Coach Intel' };
 
-export default function IntelFeedPage() {
-  return (
-    <SectionPage
-      title="Intel Feed"
-      lede="Signals surface once teams have enough matches and scrims on the books."
-      emptyTitle="No signals yet"
-      emptyBody="Signals surface once teams have enough matches and scrims on the books."
-    />
-  );
+export default async function Page() {
+  const data = await loadWorkspace();
+  return <IntelFeedView teams={data.teams} members={data.members} matches={data.matches} scrims={data.scrims} />;
 }

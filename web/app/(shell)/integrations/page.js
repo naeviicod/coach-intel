@@ -1,14 +1,11 @@
-import { SectionPage } from '../../../components/section-page';
+import { IntegrationsView } from '../../../components/integrations-view';
+import { listGuildLinks } from '../../../lib/data';
+import { createServerSupabase } from '../../../lib/supabase/server';
 
 export const metadata = { title: 'Integrations · Coach Intel' };
 
-export default function Page() {
-  return (
-    <SectionPage
-      title="Integrations"
-      lede="Discord bot and channel routing"
-      emptyTitle="Managed in the desktop app"
-      emptyBody="Connect the org bot from Settings → Integrations on desktop."
-    />
-  );
+export default async function Page() {
+  const supabase = await createServerSupabase();
+  const links = await listGuildLinks(supabase);
+  return <IntegrationsView links={links} />;
 }

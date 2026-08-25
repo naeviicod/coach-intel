@@ -1,14 +1,17 @@
-import { SectionPage } from '../../../components/section-page';
+import { ReportsView } from '../../../components/reports-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Reports · Coach Intel' };
 
-export default function Page() {
+export default async function Page() {
+  const data = await loadWorkspace();
   return (
-    <SectionPage
-      title="Reports"
-      lede="Team and opponent reports"
-      emptyTitle="No reports yet"
-      emptyBody="Reports build once matches are on the books."
+    <ReportsView
+      teams={data.teams}
+      members={data.members}
+      matches={data.matches}
+      scrims={data.scrims}
+      opponents={data.opponents}
     />
   );
 }

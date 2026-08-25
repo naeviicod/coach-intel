@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { AddPlayer } from '../../../components/add-records';
 import { CopyInvite } from '../../../components/copy-invite';
 import { PageHeader, EmptyState } from '../../../components/page-header';
 import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster } from '../../../lib/marks';
@@ -82,6 +82,7 @@ export default async function PlayersPage() {
           ? 'Players, staff, and creatives. Invite copies a coach.championshipseries.eu/join link for that roster slot.'
           : 'Members across the organization'}
       />
+      <AddPlayer teams={teams} canEdit={showInvite} />
       {teams.length === 0 ? (
         <EmptyState title="No teams yet" body="Create a team on the Teams page, then add players here.">
           <Link href="/teams" className="btn primary" style={{ marginTop: 14 }}>Go to Teams</Link>

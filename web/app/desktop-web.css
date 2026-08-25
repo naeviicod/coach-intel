@@ -94,6 +94,9 @@ button.sb-section-label { cursor: pointer; }
   font-size: 12px;
 }
 
+.add-row { margin-bottom: 12px; }
+.veto-config input { min-width: 160px; }
+
 @media (max-width: 900px) {
   #app.shell {
     display: block;

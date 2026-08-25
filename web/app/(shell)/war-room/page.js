@@ -1,14 +1,25 @@
-import { SectionPage } from '../../../components/section-page';
+import { Suspense } from 'react';
+import { WarRoomView } from '../../../components/war-room-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'War Room · Coach Intel' };
 
-export default function Page() {
+export default async function Page({ searchParams }) {
+  const sp = await searchParams;
+  const data = await loadWorkspace();
   return (
-    <SectionPage
-      title="War Room"
-      lede="Objectives and prep for the next match"
-      emptyTitle="Nothing staged"
-      emptyBody="Match prep lives here once maps are on the calendar."
-    />
+    <Suspense>
+      <WarRoomView
+        teams={data.teams}
+        opponents={data.opponents}
+        matches={data.matches}
+        strats={data.strats}
+        vods={data.vods}
+        notes={data.notes}
+        vetoes={data.vetoes}
+        rulesetDocs={data.rulesetDocs}
+        teamId={sp.team}
+      />
+    </Suspense>
   );
 }

@@ -1,14 +1,10 @@
-import { SectionPage } from '../../../components/section-page';
+import { ScrimHubView } from '../../../components/scrim-hub-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Scrim Hub · Coach Intel' };
 
-export default function Page() {
-  return (
-    <SectionPage
-      title="Scrim Hub"
-      lede="Scrims and map results"
-      emptyTitle="No scrims yet"
-      emptyBody="Record scrims in the desktop app and they sync here."
-    />
-  );
+export default async function Page({ searchParams }) {
+  const sp = await searchParams;
+  const data = await loadWorkspace();
+  return <ScrimHubView teams={data.teams} scrims={data.scrims} teamId={sp.team} canEdit={data.canEdit} />;
 }

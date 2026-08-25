@@ -1,19 +1,9 @@
-import { redirect } from 'next/navigation';
-import { SectionPage } from '../../../components/section-page';
-import { listTeams } from '../../../lib/data';
-import { createServerSupabase } from '../../../lib/supabase/server';
+import { DatabaseView } from '../../../components/database-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Member Database · Coach Intel' };
 
 export default async function Page() {
-  const supabase = await createServerSupabase();
-  const teams = await listTeams(supabase).catch(() => []);
-  if (teams[0]) redirect('/players');
-  return (
-    <SectionPage
-      title="Member Database"
-      lede="Everyone on every roster"
-      emptyTitle="No members yet"
-    />
-  );
+  const data = await loadWorkspace();
+  return <DatabaseView teams={data.teams} members={data.members} matches={data.matches} canEdit={data.canEdit} />;
 }

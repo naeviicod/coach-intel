@@ -1,14 +1,13 @@
-import Link from 'next/link';
+import { AddTeam } from '../../../components/add-records';
 import { PageHeader, EmptyState } from '../../../components/page-header';
 import { Sparkline, TeamMark, teamWinRate } from '../../../lib/marks';
-import { loadAppData } from '../../../lib/data';
-import { createServerSupabase } from '../../../lib/supabase/server';
+import { loadWorkspace } from '../../../lib/workspace';
+import Link from 'next/link';
 
 export const metadata = { title: 'Teams · Coach Intel' };
 
 export default async function TeamsPage() {
-  const supabase = await createServerSupabase();
-  const { teams, members, matches } = await loadAppData(supabase);
+  const { teams, members, matches, canEdit } = await loadWorkspace();
 
   return (
     <>
@@ -16,6 +15,7 @@ export default async function TeamsPage() {
         title="Teams"
         subtitle={`${teams.length} team${teams.length === 1 ? '' : 's'} in the organization`}
       />
+      <AddTeam canEdit={canEdit} />
       {teams.length === 0 ? (
         <EmptyState title="No teams yet" body="Add a team here. Players are added on the Players page." />
       ) : (

@@ -1,14 +1,9 @@
-import { SectionPage } from '../../../components/section-page';
+import { RankingsView } from '../../../components/rankings-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Rankings · Coach Intel' };
 
-export default function Page() {
-  return (
-    <SectionPage
-      title="Rankings"
-      lede="How the field stacks up"
-      emptyTitle="No rankings yet"
-      emptyBody="Save a rankings snapshot in the desktop app and it will appear here."
-    />
-  );
+export default async function Page() {
+  const data = await loadWorkspace();
+  return <RankingsView teams={data.teams} matches={data.matches} rankings={data.rankings} canEdit={data.canEdit} />;
 }

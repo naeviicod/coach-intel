@@ -1,14 +1,9 @@
-import { SectionPage } from '../../../components/section-page';
+import { StatisticsView } from '../../../components/statistics-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Statistics · Coach Intel' };
 
-export default function Page() {
-  return (
-    <SectionPage
-      title="Statistics"
-      lede="Performance across the organization"
-      emptyTitle="No matches yet"
-      emptyBody="Log maps and league matches and this page fills in."
-    />
-  );
+export default async function Page() {
+  const data = await loadWorkspace();
+  return <StatisticsView teams={data.teams} members={data.members} matches={data.matches} />;
 }

@@ -64,7 +64,7 @@ export function bucketByDate(items = []) {
   return map;
 }
 
-export function calendarItems({ teams, events, tasks, matches, members }) {
+export function calendarItems({ teams, events, tasks, matches, members, scrims }) {
   const teamName = (id) => teams.find((t) => t.id === id)?.name || 'Team';
   const items = [];
   for (const event of events || []) {
@@ -76,6 +76,17 @@ export function calendarItems({ teams, events, tasks, matches, members }) {
       title: event.title || event.type || 'Event',
       teamName: teamName(event.team_id),
       teamId: event.team_id,
+    });
+  }
+  for (const scrim of scrims || []) {
+    if (!scrim?.date) continue;
+    items.push({
+      date: String(scrim.date).slice(0, 10),
+      time: scrim.time || '',
+      type: 'scrim',
+      title: scrim.opponent ? `Scrim vs ${scrim.opponent}` : 'Scrim',
+      teamName: teamName(scrim.team_id),
+      teamId: scrim.team_id,
     });
   }
   for (const match of matches || []) {

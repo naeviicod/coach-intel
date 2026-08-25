@@ -1,14 +1,16 @@
-import { SectionPage } from '../../../components/section-page';
+import { ScoutingView } from '../../../components/scouting-view';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Scouting · Coach Intel' };
 
-export default function Page() {
+export default async function Page() {
+  const data = await loadWorkspace();
   return (
-    <SectionPage
-      title="Scouting"
-      lede="Opponent notes and tendencies"
-      emptyTitle="No opponents yet"
-      emptyBody="Scout cards created in the desktop app sync here."
+    <ScoutingView
+      opponents={data.opponents}
+      matches={data.matches}
+      vetoes={data.vetoes}
+      canEdit={data.canEdit}
     />
   );
 }

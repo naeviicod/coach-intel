@@ -68,15 +68,45 @@ export async function listDocs(supabase, kind) {
   }));
 }
 
+export async function listGuildLinks(supabase) {
+  const { data, error } = await supabase.from('discord_guild_links').select('id, guild_id, team_id, enabled');
+  if (error) return [];
+  return data || [];
+}
+
 export async function loadAppData(supabase) {
-  const [org, teams, members, events, tasks, matches, notes] = await Promise.all([
-    getOrg(supabase).catch(() => null),
-    listTeams(supabase).catch(() => []),
-    listAllMembers(supabase).catch(() => []),
-    listDocs(supabase, 'event').catch(() => []),
-    listDocs(supabase, 'task').catch(() => []),
-    listDocs(supabase, 'match').catch(() => []),
-    listDocs(supabase, 'note').catch(() => []),
-  ]);
-  return { org, teams, members, events, tasks, matches, notes };
+  const [org, teams, members, events, tasks, matches, notes, strats, scrims, vods, vetoes, opponents, rankingsDocs, rulesetDocs] =
+    await Promise.all([
+      getOrg(supabase).catch(() => null),
+      listTeams(supabase).catch(() => []),
+      listAllMembers(supabase).catch(() => []),
+      listDocs(supabase, 'event').catch(() => []),
+      listDocs(supabase, 'task').catch(() => []),
+      listDocs(supabase, 'match').catch(() => []),
+      listDocs(supabase, 'note').catch(() => []),
+      listDocs(supabase, 'strat').catch(() => []),
+      listDocs(supabase, 'scrim').catch(() => []),
+      listDocs(supabase, 'vod').catch(() => []),
+      listDocs(supabase, 'veto').catch(() => []),
+      listDocs(supabase, 'opponent').catch(() => []),
+      listDocs(supabase, 'rankings').catch(() => []),
+      listDocs(supabase, 'ruleset').catch(() => []),
+    ]);
+  const rankings = rankingsDocs.find((d) => d.id === 'current') || rankingsDocs[0] || { region: '', teams: [] };
+  return {
+    org,
+    teams,
+    members,
+    events,
+    tasks,
+    matches,
+    notes,
+    strats,
+    scrims,
+    vods,
+    vetoes,
+    opponents,
+    rankings,
+    rulesetDocs,
+  };
 }

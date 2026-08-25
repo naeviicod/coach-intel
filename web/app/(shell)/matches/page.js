@@ -1,14 +1,15 @@
+import { AddMatch } from '../../../components/add-records';
 import { PageHeader, EmptyState } from '../../../components/page-header';
-import { loadAppData } from '../../../lib/data';
 import { fmtDate, teamWinRate } from '../../../lib/marks';
-import { createServerSupabase } from '../../../lib/supabase/server';
+import { mapNames, modeNames, resolveRuleset } from '../../../lib/ruleset';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Matches · Coach Intel' };
 
 export default async function MatchesPage() {
-  const supabase = await createServerSupabase();
-  const { teams, matches } = await loadAppData(supabase);
+  const { teams, matches, rulesetDocs, canEdit } = await loadWorkspace();
   const teamName = (id) => teams.find((t) => t.id === id)?.name || 'Team';
+  const ruleset = resolveRuleset(rulesetDocs);
 
   return (
     <>
@@ -16,6 +17,7 @@ export default async function MatchesPage() {
         title="Matches"
         subtitle="League matches from the calendar and maps recorded in Scrim Hub"
       />
+      <AddMatch teams={teams} canEdit={canEdit} maps={mapNames(ruleset)} modes={modeNames(ruleset)} />
       {matches.length === 0 ? (
         <EmptyState title="No matches yet" body="Logged maps and league results will show here." />
       ) : (

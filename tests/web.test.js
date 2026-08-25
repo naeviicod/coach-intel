@@ -113,8 +113,15 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.doesNotMatch(read('app/desktop-web.css'), /--accent:\s*#b6f542/);
   assert.match(read('components/desktop-nav.js'), /sb-link/);
   assert.match(read('app/(shell)/layout.js'), /desktop-ui\.css/);
-  assert.match(read('components/org-dashboard.js'), /postgres_changes/);
-  assert.match(read('middleware.js'), /isAppPath/);
+  assert.match(read('lib/data.js'), /listDocs\(supabase, 'strat'\)/);
+  assert.match(read('lib/data.js'), /listDocs\(supabase, 'scrim'\)/);
+  assert.match(read('components/playbooks-view.js'), /saveDoc/);
+  assert.match(read('components/veto-lab-view.js'), /buildVetoSequence/);
+  assert.match(read('components/war-room-view.js'), /mapReadiness/);
+  assert.match(read('components/scrim-hub-view.js'), /Book Scrim/);
+  assert.doesNotMatch(read('app/(shell)/playbooks/page.js'), /SectionPage/);
+  assert.doesNotMatch(read('app/(shell)/intel-feed/page.js'), /SectionPage/);
+  assert.doesNotMatch(read('app/(shell)/maps-modes/page.js'), /SectionPage/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {
