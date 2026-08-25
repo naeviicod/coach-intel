@@ -27,14 +27,14 @@ export function DesktopTopbar({ userLabel, role, title, avatarUrl, org, teams, m
     const hits = [];
     for (const team of teams || []) {
       if (`${team.name} ${team.tag || ''}`.toLowerCase().includes(q)) {
-        hits.push({ href: `/teams/${encodeURIComponent(team.id)}`, label: team.name, type: 'Team' });
+        hits.push({ href: `/team-hub/${encodeURIComponent(team.id)}`, label: team.name, type: 'Team' });
       }
     }
     for (const member of members || []) {
       const label = member.gamertag || member.name || '';
       if (label.toLowerCase().includes(q)) {
         hits.push({
-          href: `/teams/${encodeURIComponent(member.team_id)}`,
+          href: `/team-hub/${encodeURIComponent(member.team_id)}/roster`,
           label,
           type: 'Player',
         });

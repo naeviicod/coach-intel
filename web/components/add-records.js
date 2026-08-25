@@ -37,16 +37,17 @@ export function AddTeam({ canEdit }) {
   );
 }
 
-export function AddPlayer({ teams, canEdit }) {
+export function AddPlayer({ teams, canEdit, teamId }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ gamertag: '', team_id: teams[0]?.id || '', role: 'Flex', slot: 'starter' });
+  const [form, setForm] = useState({ gamertag: '', team_id: teamId || teams[0]?.id || '', role: 'Flex', slot: 'starter' });
   if (!canEdit || !teams.length) return null;
+  const formId = `add-player-${teamId || 'org'}`;
   async function save(e) {
     e.preventDefault();
     setError('');
     try {
-      await saveMember({ ...form, id: newId('mem') });
+      await saveMember({ ...form, team_id: teamId || form.team_id, id: newId('mem') });
       window.location.reload();
     } catch (err) {
       setError(err.message || 'Could not add player.');
@@ -56,25 +57,29 @@ export function AddPlayer({ teams, canEdit }) {
     <>
       <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Add Player</button>
       {open ? (
-        <FormCard title="Add player" onClose={() => setOpen(false)} actions={<button type="submit" form="add-player" className="btn primary">Save</button>}>
-          <form id="add-player" onSubmit={save} className="inline-fields">
-            <Field label="Gamertag"><input value={form.gamertag} onChange={(e) => setForm({ ...form, gamertag: e.target.value })} required /></Field>
-            <Field label="Team">
-              <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })}>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Role"><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
-            <Field label="Slot">
-              <select value={form.slot} onChange={(e) => setForm({ ...form, slot: e.target.value })}>
-                <option value="starter">Starter</option>
-                <option value="bench">Bench</option>
-                <option value="staff">Staff</option>
-              </select>
-            </Field>
-          </form>
-          <Err error={error} />
-        </FormCard>
+        <div style={{ flexBasis: '100%' }}>
+          <FormCard title="Add player" onClose={() => setOpen(false)} actions={<button type="submit" form={formId} className="btn primary">Save</button>}>
+            <form id={formId} onSubmit={save} className="inline-fields">
+              <Field label="Gamertag"><input value={form.gamertag} onChange={(e) => setForm({ ...form, gamertag: e.target.value })} required /></Field>
+              {teamId ? null : (
+                <Field label="Team">
+                  <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })}>
+                    {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </Field>
+              )}
+              <Field label="Role"><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
+              <Field label="Slot">
+                <select value={form.slot} onChange={(e) => setForm({ ...form, slot: e.target.value })}>
+                  <option value="starter">Starter</option>
+                  <option value="bench">Bench</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </Field>
+            </form>
+            <Err error={error} />
+          </FormCard>
+        </div>
       ) : null}
     </>
   );

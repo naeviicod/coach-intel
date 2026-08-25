@@ -184,7 +184,7 @@ export function OrgDashboard({
                 const lastNote = teamNotes[0];
                 if (density === 'roomy') {
                   return (
-                    <Link key={team.id} href={`/teams/${encodeURIComponent(team.id)}`} className="crow">
+                    <Link key={team.id} href={`/team-hub/${encodeURIComponent(team.id)}`} className="crow">
                       <TeamMark team={team} />
                       <div className="crow-main">
                         <div className="crow-title">{team.name}</div>
@@ -199,7 +199,7 @@ export function OrgDashboard({
                   );
                 }
                 return (
-                  <Link key={team.id} href={`/teams/${encodeURIComponent(team.id)}`} className="team-tile">
+                  <Link key={team.id} href={`/team-hub/${encodeURIComponent(team.id)}`} className="team-tile">
                     <TeamMark team={team} />
                     <div className="crow-title">{team.name}</div>
                     <div className="crow-sub">

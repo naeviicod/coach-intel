@@ -40,7 +40,7 @@ export function HubNotes({ team, notes, canEdit, author, ctxToggle, openId }) {
           updated_by: author || 'Coach',
         },
       });
-      window.location.assign(`/teams/${encodeURIComponent(team.id)}/notes`);
+      window.location.assign(`/team-hub/${encodeURIComponent(team.id)}/notes`);
     } catch (err) {
       setError(err.message || 'Could not save the note.');
     }

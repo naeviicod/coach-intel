@@ -1,13 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { CopyInvite } from './copy-invite';
 import { MiniEmpty } from './hub-parts';
-import { suggestedAccessRole } from '../lib/invite';
 import { orgTitles, PlayerAvatar, RoleBadge, splitRoster, TeamMark } from '../lib/marks';
 import { aggregate, statsForMember } from '../lib/stats';
 
-export function HubRoster({ team, members, matches, canEdit, ctxToggle }) {
+export function HubRoster({ team, members, matches, ctxToggle }) {
   const { starters, bench, staff } = splitRoster(members);
   return (
     <>
@@ -36,23 +34,21 @@ export function HubRoster({ team, members, matches, canEdit, ctxToggle }) {
         </div>
       ) : (
         <>
-          <Group title="Starting lineup" rows={starters} matches={matches} teamId={team.id} canEdit={canEdit} empty="No starters yet. Add players from the Players page." />
+          <Group title="Starting lineup" rows={starters} matches={matches} empty="No starters yet. Add players from the Players page." />
           <Group
             title="Backup / Bench"
             rows={bench}
             matches={matches}
-            teamId={team.id}
-            canEdit={canEdit}
             empty={starters.length >= 4 ? 'No bench players. Add backups when the starting 4 is full.' : null}
           />
-          {staff.length ? <Group title="Staff" rows={staff} matches={matches} teamId={team.id} canEdit={canEdit} /> : null}
+          {staff.length ? <Group title="Staff" rows={staff} matches={matches} /> : null}
         </>
       )}
     </>
   );
 }
 
-function Group({ title, rows, matches, teamId, canEdit, empty }) {
+function Group({ title, rows, matches, empty }) {
   if (!rows.length && !empty) return null;
   return (
     <div className="card compact" style={{ marginBottom: 14 }}>
@@ -80,17 +76,6 @@ function Group({ title, rows, matches, teamId, canEdit, empty }) {
               {staff ? null : <RoleBadge role={member.role} />}
               {member.slot === 'bench' ? <span className="pill">Bench</span> : null}
               <div className="crow-meta">{stats ? `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}` : 'No match data'}</div>
-              {canEdit ? (
-                <div className="crow-actions">
-                  <CopyInvite
-                    teamId={teamId}
-                    memberId={member.id}
-                    gamertag={member.gamertag}
-                    accessRole={suggestedAccessRole(member)}
-                    linked={Boolean(member.user_id)}
-                  />
-                </div>
-              ) : null}
             </div>
           );
         })

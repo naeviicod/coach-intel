@@ -49,7 +49,7 @@ function RosterGroup({ title, rows, teamId, showInvite }) {
               {staff ? null : <RoleBadge role={member.role} />}
               {staff ? <span className="pill">Staff</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
               {showInvite ? (
-                <div className="row-actions">
+                <div className="row-actions edit-only">
                   <CopyInvite
                     teamId={teamId}
                     memberId={member.id}
@@ -84,7 +84,6 @@ export default async function PlayersPage() {
           ? 'Players, staff, and creatives. Invite copies a personal join link with that player\'s gamertag on it.'
           : 'Members across the organization'}
       />
-      <AddPlayer teams={teams} canEdit={showInvite} />
       {teams.length === 0 ? (
         <EmptyState title="No teams yet" body="Create a team on the Teams page, then add players here.">
           <Link href="/teams" className="btn primary" style={{ marginTop: 14 }}>Go to Teams</Link>
@@ -95,12 +94,15 @@ export default async function PlayersPage() {
           const { starters, bench, staff } = splitRoster(roster);
           return (
             <div key={team.id} className="card section">
-              <div className="team-identity" style={{ marginBottom: 16 }}>
+              <div className="team-identity" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
                 <TeamMark team={team} className="team-logo lg" />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="team-identity-kicker">{team.tag ? `${team.tag} roster` : 'Team roster'}</div>
                   <div className="team-identity-name">{team.name} Roster</div>
                   <div className="team-meta">{lineupMeta(starters.length, bench.length, staff.length)}</div>
+                </div>
+                <div className="edit-only" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <AddPlayer teams={teams} canEdit={showInvite} teamId={team.id} />
                 </div>
               </div>
               {roster.length === 0 ? (

@@ -97,7 +97,7 @@ export function DesktopNav({ role, teams }) {
                   const href =
                     TEAM_NAV_PAGES.has(item.page) && firstTeam
                       ? item.page === 'team-hub'
-                        ? `/teams/${encodeURIComponent(firstTeam)}`
+                        ? `/team-hub/${encodeURIComponent(firstTeam)}`
                         : `${item.href}?team=${encodeURIComponent(firstTeam)}`
                       : item.href;
                   const on = active(pathname, item);

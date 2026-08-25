@@ -25,9 +25,9 @@ export function hubPath(teamId, section = 'overview', ...rest) {
   for (const item of rest) {
     if (item) bits.push(String(item));
   }
-  return `/teams/${bits.map(encodeURIComponent).join('/')}`;
+  return `/team-hub/${bits.map(encodeURIComponent).join('/')}`;
 }
 
 export function isTeamHubPath(pathname) {
-  return Boolean(pathname) && pathname.startsWith('/teams/') && pathname !== '/teams';
+  return Boolean(pathname) && (pathname === '/team-hub' || pathname.startsWith('/team-hub/'));
 }

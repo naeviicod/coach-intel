@@ -108,7 +108,7 @@ export function TeamHub({
             />
           ) : null}
           {section === 'roster' ? (
-            <HubRoster team={team} members={members} matches={matches} canEdit={canEdit} ctxToggle={ctxToggle} />
+            <HubRoster team={team} members={members} matches={matches} ctxToggle={ctxToggle} />
           ) : null}
           {section === 'notes' ? (
             <HubNotes team={team} notes={notes} canEdit={canEdit} author={author} ctxToggle={ctxToggle} openId={sub[0]} />

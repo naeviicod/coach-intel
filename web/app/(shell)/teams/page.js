@@ -53,7 +53,7 @@ export default async function TeamsPage() {
                   <Sparkline values={recent.length ? recent : [0, 0]} />
                 </div>
                 <div className="team-card-actions">
-                  <Link href={`/teams/${encodeURIComponent(team.id)}`} className="btn sm">
+                  <Link href={`/team-hub/${encodeURIComponent(team.id)}`} className="btn sm">
                     Open Hub
                   </Link>
                 </div>

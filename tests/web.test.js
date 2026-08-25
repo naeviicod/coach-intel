@@ -56,8 +56,7 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(signIn, /PublicGateway/);
   assert.match(gateway, /DiscordSignIn/);
   const invite = read('lib/invite.js');
-  const joinPage = read('app/join/[token]/page.js');
-  const namedJoin = read('app/join/[who]/[token]/page.js');
+  const joinPage = read('app/join/[...parts]/page.js');
   const joinInvite = read('components/join-invite.js');
   const legacyInvite = read('app/invite/[token]/page.js');
   const gate = read('components/invite-gate.js');
@@ -69,6 +68,8 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(invite, /You've been invited/);
   assert.match(invite, /inviteeSlug/);
   assert.match(invite, /gamertag/);
+  assert.match(read('lib/invite-email.js'), /splash-logo\.png/);
+  assert.match(read('app/join/email-preview/page.js'), /ion@ikstudios\.nl/);
   assert.match(gate, /BrandLockup/);
   assert.match(gate, /inviteCopy/);
   assert.doesNotMatch(gate, /SplashLockup/);
@@ -77,7 +78,7 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(sql, /invitee_email/);
   assert.match(sql, /org_name/);
   assert.match(joinPage, /JoinInvite/);
-  assert.match(namedJoin, /JoinInvite/);
+  assert.match(joinPage, /parts/);
   assert.match(joinInvite, /previewInvite/);
   assert.match(joinInvite, /redeemInvite/);
   assert.match(joinInvite, /inviteeSlug/);
@@ -93,7 +94,7 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
 test('signed-in shell reads teams and members from Supabase', () => {
   const data = read('lib/data.js');
   const dash = read('app/(shell)/dashboard/page.js');
-  const hubPage = read('app/(shell)/teams/[id]/[[...section]]/page.js');
+  const hubPage = read('app/(shell)/team-hub/[id]/[[...section]]/page.js');
   const hub = read('components/team-hub.js');
   const roster = read('components/hub-roster.js');
   const calendar = read('app/(shell)/calendar/page.js');
@@ -102,6 +103,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   const shell = read('components/desktop-shell.js');
   const topbar = read('components/desktop-topbar.js');
   const settings = read('components/settings-view.js');
+  const inviteBtn = read('components/copy-invite.js');
   assert.match(data, /from\('teams'\)/);
   assert.match(data, /from\('members'\)/);
   assert.match(data, /shared_docs/);
@@ -112,12 +114,16 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(hub, /Overview/);
   assert.match(hub, /Roster/);
   assert.match(hub, /Planner/);
-  assert.match(roster, /CopyInvite/);
-  assert.match(read('lib/hub.js'), /export function isTeamHubPath/);
+  assert.doesNotMatch(roster, /CopyInvite/);
+  assert.match(read('lib/hub.js'), /\/team-hub\//);
+  assert.match(read('app/(shell)/teams/[id]/[[...section]]/page.js'), /hubPath/);
   assert.match(desktopNav, /item.page === 'teams'/);
-  assert.match(desktopNav, /isTeamHubPath/);
+  assert.match(desktopNav, /\/team-hub\//);
   assert.doesNotMatch(topbar, /Sign out/);
   assert.match(settings, /Sign out/);
+  assert.match(inviteBtn, /className="btn sm"/);
+  assert.doesNotMatch(inviteBtn, /copy-invite-email/);
+  assert.doesNotMatch(read('app/desktop-web.css'), /copy-invite-email/);
   assert.doesNotMatch(settings, /topbar-signout/);
   assert.match(shell, /ContentMain/);
   assert.match(calendar, /OrgCalendar/);

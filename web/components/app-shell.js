@@ -15,7 +15,7 @@ export function AppShell({ userLabel, teams, children }) {
             <p className="nav-empty">No teams yet</p>
           ) : (
             teams.map((team) => (
-              <Link key={team.id} href={`/teams/${encodeURIComponent(team.id)}`}>
+              <Link key={team.id} href={`/team-hub/${encodeURIComponent(team.id)}`}>
                 {team.tag ? `${team.tag} · ${team.name}` : team.name}
               </Link>
             ))

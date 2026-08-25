@@ -68,27 +68,15 @@ button.sb-section-label { cursor: pointer; }
   mask-image: url("/assets/wordmark-intel.png");
 }
 
-.select.team-select-name,
 .team-select select {
   appearance: none;
   cursor: pointer;
 }
 
-.copy-invite {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-.copy-invite-email {
-  width: 11.5rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: var(--radius);
-  padding: 5px 8px;
-  font: inherit;
-  font-size: 12px;
+button.btn,
+a.btn {
+  width: max-content;
+  flex: 0 0 auto;
 }
 
 .add-row { margin-bottom: 12px; }
