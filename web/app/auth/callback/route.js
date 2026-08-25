@@ -11,13 +11,15 @@ function safeNext(value) {
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = safeNext(searchParams.get('next'));
+  const next = safeNext(searchParams.get('next') || request.cookies.get('ci-auth-next')?.value);
 
   if (code) {
     const supabase = await createServerSupabase();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin));
+      const done = NextResponse.redirect(new URL(next, origin));
+      done.cookies.set('ci-auth-next', '', { path: '/', maxAge: 0 });
+      return done;
     }
   }
 

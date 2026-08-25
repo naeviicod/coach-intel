@@ -6,10 +6,13 @@ export function DiscordSignIn({ nextPath = '/dashboard' }) {
   async function signIn() {
     const supabase = createBrowserSupabase();
     const origin = window.location.origin;
+    const next = nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/dashboard';
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `ci-auth-next=${encodeURIComponent(next)}; Path=/; Max-Age=600; SameSite=Lax${secure}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+        redirectTo: `${origin}/auth/callback`,
       },
     });
     if (error) {

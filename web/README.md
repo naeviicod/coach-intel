@@ -16,7 +16,7 @@ Commits must be authored as **naeviicod** or Hobby will block the deploy.
 
 Use the **Coach Intel** Supabase project (`buzqhwoaoiyeqkvmsghm`) — the same one the desktop app uses. Do **not** point this site at the Championship Series / ECS database.
 
-Authentication → URL Configuration. Add redirect URLs:
+Authentication → URL Configuration. Redirect URLs must match exactly (no `?next=` query). Add:
 
 - `https://coach.championshipseries.eu/auth/callback`
 - `https://coach-intel.vercel.app/auth/callback`

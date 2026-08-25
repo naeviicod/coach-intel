@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './lib/config';
 
 export async function middleware(request) {
+  const incoming = request.nextUrl;
+  if (incoming.searchParams.get('code') && incoming.pathname !== '/auth/callback') {
+    const callback = incoming.clone();
+    callback.pathname = '/auth/callback';
+    return NextResponse.redirect(callback);
+  }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
