@@ -15,7 +15,7 @@ const body = IBM_Plex_Sans({
 
 export const metadata = {
   title: 'Coach Intel',
-  description: 'Competitive intelligence for Call of Duty. Open the desktop app from this page.',
+  description: 'Competitive intelligence for Call of Duty. Sign in to the cloud roster.',
   icons: {
     icon: [{ url: '/favicon.png', type: 'image/png' }],
     apple: '/apple-icon.png',

@@ -7,28 +7,56 @@ const { detectPlatform, pickDownload } = require('../web/lib/platform');
 const root = path.join(__dirname, '..');
 const web = path.join(root, 'web');
 
-test('the web app opens Coach Intel over coachintel://', () => {
-  const page = fs.readFileSync(path.join(web, 'app', 'page.js'), 'utf8');
-  const open = fs.readFileSync(path.join(web, 'app', 'open', 'page.js'), 'utf8');
-  const readme = fs.readFileSync(path.join(web, 'README.md'), 'utf8');
-  assert.match(page, /href="coachintel:\/\/"/);
-  assert.match(page, /Open Coach Intel/);
-  assert.match(page, /Know More\. Win More\./);
-  assert.doesNotMatch(page, /Download for Mac|Download for Windows|mac_url|windows_url/);
+function read(rel) {
+  return fs.readFileSync(path.join(web, rel), 'utf8');
+}
+
+test('the public site is a product gateway, not an Open App splash', () => {
+  const page = read('app/page.js');
+  const gateway = read('components/public-gateway.js');
+  const open = read('app/open/page.js');
+  const readme = read('README.md');
+  assert.match(page, /PublicGateway/);
+  assert.match(page, /\/dashboard/);
+  assert.doesNotMatch(page, /coachintel:\/\//);
+  assert.match(gateway, /Sign in/);
+  assert.match(gateway, /Continue with Discord/);
+  assert.doesNotMatch(gateway, /coachintel:\/\//);
   assert.match(open, /coachintel:\/\//);
   assert.match(readme, /Root Directory/);
-  assert.equal(fs.existsSync(path.join(web, 'public', 'favicon.png')), true, 'favicon.png must ship with the site');
-  assert.equal(fs.existsSync(path.join(web, 'app', 'icon.png')), true, 'app/icon.png must ship with the site');
+  assert.match(readme, /Coach Intel.*Supabase|not.*ECS/i);
+  assert.equal(fs.existsSync(path.join(web, 'public', 'favicon.png')), true);
+  assert.equal(fs.existsSync(path.join(web, 'app', 'icon.png')), true);
   for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
-  assert.match(page, /splash-logo\.png/);
-  assert.match(page, /splash-wordmark\.png/);
-  assert.match(page, /splash-background\.png/);
+});
+
+test('web auth talks only to the Coach Intel Supabase project', () => {
+  const config = read('lib/config.js');
+  const env = read('.env.example');
+  const callback = read('app/auth/callback/route.js');
+  const signIn = read('app/sign-in/page.js');
+  assert.match(config, /buzqhwoaoiyeqkvmsghm\.supabase\.co/);
+  assert.doesNotMatch(config, /ecs_|AUTH_DATABASE|championshipseries\.supabase/i);
+  assert.match(env, /Coach Intel Supabase only/);
+  assert.match(env, /\/auth\/callback/);
+  assert.match(callback, /exchangeCodeForSession/);
+  assert.match(signIn, /DiscordSignIn/);
+});
+
+test('signed-in shell reads teams and members from Supabase', () => {
+  const data = read('lib/data.js');
+  const dash = read('app/dashboard/page.js');
+  const team = read('app/teams/[id]/page.js');
+  assert.match(data, /from\('teams'\)/);
+  assert.match(data, /from\('members'\)/);
+  assert.match(dash, /listTeams/);
+  assert.match(team, /listMembers/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {
-  const env = fs.readFileSync(path.join(web, '.env.example'), 'utf8');
+  const env = read('.env.example');
   const sql = fs.readFileSync(path.join(root, 'scripts', 'supabase', 'releases.sql'), 'utf8');
   assert.match(env, /NEXT_PUBLIC_SUPABASE_URL=/);
   assert.match(env, /NEXT_PUBLIC_SUPABASE_ANON_KEY=/);

@@ -8,8 +8,20 @@ Next.js app for `https://coach.championshipseries.eu/`.
 2. Framework Preset: **Next.js**
 3. Root Directory: **web** (not `./`)
 4. Add the two variables from `.env.example`.
-5. Deploy, then add domain `coach.championshipseries.eu` and point DNS at Vercel.
+5. Deploy, then add domain `coach.championshipseries.eu`.
 
-Downloads stay off the page until a public Mac/Windows release exists.
+Commits must be authored as **naeviicod** or Hobby will block the deploy.
+
+## Supabase (Coach Intel project only)
+
+Use the **Coach Intel** Supabase project (`buzqhwoaoiyeqkvmsghm`) — the same one the desktop app uses. Do **not** point this site at the Championship Series / ECS database.
+
+Authentication → URL Configuration. Add redirect URLs:
+
+- `https://coach.championshipseries.eu/auth/callback`
+- `https://coach-intel.vercel.app/auth/callback`
+- `http://localhost:3000/auth/callback`
+
+Keep the existing `coachintel://auth-callback` URL for the desktop app.
 
 Local preview: `cd web && npm install && npm run dev`.
