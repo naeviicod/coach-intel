@@ -1,0 +1,106 @@
+/* Web-only glue so the copied desktop stylesheet can run in the browser. */
+html:has(#app.shell) {
+  --bg: #080a0c;
+  --bg-elevated: #101316;
+  --bg-card: #171b1f;
+  --text: #f4f6f8;
+  --text-dim: #8d969f;
+}
+html, body { height: 100%; }
+body:has(#app.shell) {
+  overflow: hidden;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text);
+}
+#app.shell {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding-top: var(--shell-gap);
+}
+#splash { display: none !important; }
+
+a.sb-link,
+a.kpi,
+a.crow,
+a.team-tile,
+a.note-row,
+a.btn,
+a.sb-wordmark,
+a.topbar-profile,
+a.topbar-search-row {
+  text-decoration: none;
+  color: inherit;
+}
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+a.kpi { display: block; }
+a.crow,
+a.team-tile { display: flex; }
+a.sb-wordmark { display: block; }
+a.topbar-profile { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+a.topbar-search-row { display: flex; }
+
+button.sb-link,
+button.sb-collapse,
+button.sb-section-label { cursor: pointer; }
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.sb-wordmark-intel {
+  -webkit-mask-image: url("/assets/wordmark-intel.png");
+  mask-image: url("/assets/wordmark-intel.png");
+}
+
+.topbar-signout {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+}
+.topbar-signout:hover { color: var(--text); background: #ffffff0a; }
+.topbar-signout:active { transform: scale(0.97); }
+
+.copy-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.copy-invite-email {
+  width: 11.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  #app.shell {
+    display: block;
+    overflow: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+  #sidebar { width: 100%; border-radius: var(--panel-radius); margin-bottom: var(--shell-gap); }
+  .main-column { min-height: 70dvh; }
+}

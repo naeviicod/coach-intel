@@ -150,6 +150,23 @@ a.kpi:hover { border-color: rgba(182, 245, 66, 0.45); }
 .cal-chip.task { background: rgba(232, 193, 90, 0.18); }
 .cal-more { font-size: 11px; color: var(--muted); }
 
+.copy-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.copy-invite-email {
+  width: 11.5rem;
+  background: #101316;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
 @media (max-width: 900px) {
   .desk-shell { grid-template-columns: 1fr; }
   .desk-nav { border-right: 0; border-bottom: 1px solid var(--line); }

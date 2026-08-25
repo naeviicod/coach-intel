@@ -23,6 +23,25 @@ test('staff titles pick an invite access role', async () => {
   assert.equal(inviteUrl('abc_DEF-1234567890'), 'https://coach.championshipseries.eu/join/abc_DEF-1234567890');
 });
 
+test('a personal invite names the org and the person', async () => {
+  const webUrl = pathToFileURL(path.join(__dirname, '..', 'web', 'lib', 'invite.js')).href;
+  const { inviteCopy, normalizeInviteEmail } = await import(webUrl);
+  const named = inviteCopy({
+    org_name: 'Phantix',
+    invitee_email: 'xx@gmail.com',
+    gamertag: 'Bracke',
+    team_name: 'CDL',
+    access_role: 'user',
+  });
+  assert.equal(named.title, 'Join Phantix');
+  assert.match(named.body, /You've been selected, xx@gmail\.com, to be part of Phantix on Coach Intel/);
+  assert.match(named.detail, /Bracke/);
+  const byTag = inviteCopy({ org_name: 'VANTIX', gamertag: 'Rome', team_name: 'Challengers', access_role: 'coach' });
+  assert.match(byTag.body, /You've been selected, Rome, to be part of VANTIX on Coach Intel/);
+  assert.equal(normalizeInviteEmail('  xx@Gmail.com '), 'xx@gmail.com');
+  assert.throws(() => normalizeInviteEmail('not-an-email'), /email/);
+});
+
 test('a provisioned org never reopens first-run setup', async () => {
   const { shouldRunOnboarding, shouldRunUnlinked, orgIsProvisioned } = await import(libUrl('orgLock.js'));
   assert.equal(orgIsProvisioned({ name: 'VANTIX' }), true);

@@ -247,8 +247,11 @@ create table if not exists public.invites (
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '14 days'),
   accepted_at timestamptz,
-  accepted_user_id uuid references auth.users (id) on delete set null
+  accepted_user_id uuid references auth.users (id) on delete set null,
+  invitee_email text
 );
+
+alter table public.invites add column if not exists invitee_email text;
 
 alter table public.invites enable row level security;
 
@@ -274,6 +277,7 @@ declare
   inv public.invites%rowtype;
   mem public.members%rowtype;
   tm public.teams%rowtype;
+  org_name text;
 begin
   if invite_token is null or length(invite_token) < 16 then
     return json_build_object('ok', false, 'error', 'Invalid invite');
@@ -290,9 +294,17 @@ begin
   end if;
   select * into mem from public.members where id = inv.member_id and team_id = inv.team_id;
   select * into tm from public.teams where id = inv.team_id;
+  select coalesce(nullif(trim(payload->>'name'), ''), nullif(trim(payload->>'tag'), ''))
+    into org_name
+    from public.shared_docs
+    where kind = 'org' and id = 'profile' and deleted_at is null
+    limit 1;
   return json_build_object(
     'ok', true,
     'gamertag', coalesce(mem.gamertag, 'Player'),
+    'member_name', mem.name,
+    'invitee_email', nullif(to_jsonb(inv)->>'invitee_email', ''),
+    'org_name', coalesce(org_name, tm.name, 'the organization'),
     'team_name', coalesce(tm.name, 'Team'),
     'team_id', inv.team_id,
     'member_id', inv.member_id,

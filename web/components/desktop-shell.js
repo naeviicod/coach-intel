@@ -1,30 +1,77 @@
+import { accentCssText, accentVars } from '../lib/accent';
 import { DesktopNav } from './desktop-nav';
+import { DesktopTopbar } from './desktop-topbar';
+import { LookSync } from './look-sync';
 
-export function DesktopShell({ userLabel, role, teams, children }) {
+const RULESET = {
+  label: 'Ruleset',
+  game: 'Black Ops 7',
+  season: '2026',
+  version: '1',
+  last_checked: '2026-08-16',
+};
+
+export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, members, children }) {
+  const look = accentVars(org?.accent);
+  const rulesetParts = [RULESET.game, `Season ${RULESET.season}`, `v${RULESET.version}`];
   return (
-    <div className="desk-shell">
-      <DesktopNav teams={teams} />
-      <div className="desk-main">
-        <header className="desk-topbar">
-          <input className="desk-search" type="search" placeholder="Search players, teams, maps, matches, intel..." readOnly />
-          <span className="desk-online">Online · Synced</span>
-          <div className="desk-user">
-            <strong>{userLabel}</strong>
-            <span>{role || 'member'}</span>
-          </div>
-          <form action="/auth/sign-out" method="post">
-            <button type="submit" className="text-link">
-              Sign out
-            </button>
-          </form>
-        </header>
-        <div className="desk-content">{children}</div>
-        <footer className="desk-status">
-          <span>Ruleset · Black Ops 7</span>
-          <span className="desk-ok">All systems operational</span>
-          <span>v1.5.4</span>
-        </footer>
+    <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `html:has(#app.shell){${accentCssText(org?.accent)}}${
+            look.tinted ? 'html:has(#app.shell) #atmosphere.art-bg .arena-art-tint{opacity:1}' : ''
+          }`,
+        }}
+      />
+      <LookSync accent={org?.accent} background={org?.background} />
+      <div id="atmosphere" className="splash-atmosphere arena" data-background="pit" aria-hidden="true">
+        <span className="arena-field arena-field-soft" />
+        <span className="arena-field" />
+        <span className="arena-hex" />
+        <span className="arena-scan" />
+        <span className="arena-grain" />
+        <span className="splash-flow splash-flow-a" />
+        <span className="splash-flow splash-flow-b" />
+        <span className="splash-flow splash-flow-c" />
+        <span className="splash-flow splash-flow-d" />
+        <span className="arena-art">
+          <img className="arena-art-img" alt="" draggable="false" />
+          <span className="arena-art-tint" aria-hidden="true" />
+        </span>
       </div>
-    </div>
+      <div id="app" className="shell">
+        <DesktopNav role={role} teams={teams} />
+        <div className="main-column">
+          <DesktopTopbar
+            userLabel={userLabel}
+            role={role}
+            title={title}
+            avatarUrl={avatarUrl}
+            org={org}
+            teams={teams}
+            members={members}
+          />
+          <main id="content">{children}</main>
+          <footer id="statusbar">
+            <div className="sbar-group">
+              <span className="sbar-label">{RULESET.label}</span>
+              <span className="sbar-sep">│</span>
+              <span>{rulesetParts.join(' · ')}</span>
+            </div>
+            <div className="sbar-group center">
+              <span className="sbar-dot" />
+              <span>All systems operational</span>
+              <span className="sbar-sep">│</span>
+              <span>Ruleset checked {RULESET.last_checked}</span>
+            </div>
+            <div className="sbar-group sources">
+              <span className="sbar-label">v1.5.4</span>
+              <span className="sbar-src">{RULESET.label}</span>
+              <span className="sbar-src">On-device Match Log</span>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </>
   );
 }

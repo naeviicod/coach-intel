@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { PageHeader, EmptyState } from '../../../components/page-header';
+import { Sparkline, TeamMark, teamWinRate } from '../../../lib/marks';
 import { loadAppData } from '../../../lib/data';
 import { createServerSupabase } from '../../../lib/supabase/server';
 
@@ -6,34 +8,59 @@ export const metadata = { title: 'Teams · Coach Intel' };
 
 export default async function TeamsPage() {
   const supabase = await createServerSupabase();
-  const { teams, members } = await loadAppData(supabase);
-  const counts = new Map();
-  for (const member of members) counts.set(member.team_id, (counts.get(member.team_id) || 0) + 1);
+  const { teams, members, matches } = await loadAppData(supabase);
 
   return (
     <>
-      <header className="page-head">
-        <h1>Teams</h1>
-        <p className="lede">{teams.length} team{teams.length === 1 ? '' : 's'} in the organization</p>
-      </header>
+      <PageHeader
+        title="Teams"
+        subtitle={`${teams.length} team${teams.length === 1 ? '' : 's'} in the organization`}
+      />
       {teams.length === 0 ? (
-        <div className="empty-card">
-          <h2>No teams yet</h2>
-        </div>
+        <EmptyState title="No teams yet" body="Add a team here. Players are added on the Players page." />
       ) : (
-        <ul className="dash-teams dash-card">
-          {teams.map((team) => (
-            <li key={team.id}>
-              <Link href={`/teams/${encodeURIComponent(team.id)}`}>
-                <span className="team-name">{team.name}</span>
-                <span className="team-meta">
-                  {counts.get(team.id) || 0} players · No matches
-                </span>
-                {team.tag ? <span className="team-tag">{team.tag}</span> : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="grid cols-2">
+          {teams.map((team) => {
+            const roster = members.filter((m) => m.team_id === team.id);
+            const teamMatches = matches.filter((m) => m.team_id === team.id);
+            const winRate = teamWinRate(teamMatches);
+            const record = teamMatches.reduce(
+              (acc, m) => {
+                if (String(m.result || '').toLowerCase() === 'win') acc.w += 1;
+                else if (m.result) acc.l += 1;
+                return acc;
+              },
+              { w: 0, l: 0 }
+            );
+            const recent = teamMatches.slice(0, 8).reverse().map((m) => (String(m.result || '').toLowerCase() === 'win' ? 1 : 0));
+            return (
+              <div key={team.id} className="card team-card">
+                <div className="team-card-head">
+                  <TeamMark team={team} className="team-logo lg" />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="team-identity-kicker">{team.tag || 'Team'}</div>
+                    <div className="team-name" style={{ fontSize: 18 }}>{team.name}</div>
+                    <div className="team-meta">
+                      {roster.length} player{roster.length === 1 ? '' : 's'} · {record.w}-{record.l}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="stat-label">Win Rate</div>
+                    <div className="stat-value" style={{ fontSize: 18 }}>{winRate}%</div>
+                  </div>
+                  <Sparkline values={recent.length ? recent : [0, 0]} />
+                </div>
+                <div className="team-card-actions">
+                  <Link href={`/teams/${encodeURIComponent(team.id)}`} className="btn sm">
+                    Open Hub
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </>
   );

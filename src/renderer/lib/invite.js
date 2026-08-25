@@ -55,6 +55,16 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
         )
       ),
     ]),
+    el('div', { class: 'field' }, [
+      el('label', { for: 'invite-email' }, 'Their email (optional)'),
+      el('input', {
+        type: 'email',
+        id: 'invite-email',
+        placeholder: 'xx@gmail.com',
+        autocomplete: 'off',
+      }),
+      el('div', { class: 'field-hint' }, 'The join page greets them by this email. Send the link in Discord — Coach Intel does not email it.'),
+    ]),
     el('div', { class: 'field', id: 'invite-link-field', style: 'display:none;' }, [
       el('label', {}, 'Invite link'),
       el('input', { type: 'text', id: 'invite-link', readonly: 'readonly' }),
@@ -110,6 +120,7 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
           teamId,
           memberId: member.id,
           accessRole: roleSelect.value,
+          email: body.querySelector('#invite-email')?.value,
         });
         if (!result?.ok) return toast(result?.error || 'Could not create the invite.', 'error');
         const url = result.data.url;

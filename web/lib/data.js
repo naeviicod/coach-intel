@@ -14,7 +14,7 @@ export async function getTeam(supabase, teamId) {
 export async function listMembers(supabase, teamId) {
   const { data, error } = await supabase
     .from('members')
-    .select('id, gamertag, name, role, slot, title, user_id')
+    .select('id, gamertag, name, role, slot, title, user_id, photo')
     .eq('team_id', teamId)
     .order('gamertag', { ascending: true });
   if (error) throw error;
@@ -37,7 +37,7 @@ export async function ensureProfile(supabase) {
 export async function listAllMembers(supabase) {
   const { data, error } = await supabase
     .from('members')
-    .select('id, team_id, gamertag, name, role, slot, title, user_id');
+    .select('id, team_id, gamertag, name, role, slot, title, user_id, photo');
   if (error) throw error;
   return data || [];
 }
@@ -69,13 +69,14 @@ export async function listDocs(supabase, kind) {
 }
 
 export async function loadAppData(supabase) {
-  const [org, teams, members, events, tasks, matches] = await Promise.all([
+  const [org, teams, members, events, tasks, matches, notes] = await Promise.all([
     getOrg(supabase).catch(() => null),
     listTeams(supabase).catch(() => []),
     listAllMembers(supabase).catch(() => []),
     listDocs(supabase, 'event').catch(() => []),
     listDocs(supabase, 'task').catch(() => []),
     listDocs(supabase, 'match').catch(() => []),
+    listDocs(supabase, 'note').catch(() => []),
   ]);
-  return { org, teams, members, events, tasks, matches };
+  return { org, teams, members, events, tasks, matches, notes };
 }

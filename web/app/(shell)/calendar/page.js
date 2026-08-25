@@ -1,4 +1,5 @@
 import { OrgCalendar } from '../../../components/org-calendar';
+import { PageHeader, EmptyState } from '../../../components/page-header';
 import { calendarItems } from '../../../lib/calendar';
 import { loadAppData } from '../../../lib/data';
 import { createServerSupabase } from '../../../lib/supabase/server';
@@ -12,17 +13,17 @@ export default async function CalendarPage() {
 
   return (
     <>
-      <header className="page-head">
-        <h1>Calendar</h1>
-        <p className="lede">Org overview for every team, meeting, and assigned task</p>
-      </header>
+      <PageHeader
+        title="Calendar"
+        subtitle="Org overview — matches, meetings, reviews and tasks for every team and staff seat"
+      />
       {data.teams.length === 0 ? (
-        <div className="empty-card">
-          <h2>No teams yet</h2>
-          <p>Create a team, then add a match, meeting, or task to put it on the org calendar.</p>
-        </div>
+        <EmptyState
+          title="No teams yet"
+          body="Create a team, then add a match, meeting, or task to put it on the org calendar."
+        />
       ) : (
-        <OrgCalendar items={items} />
+        <OrgCalendar items={items} teams={data.teams} />
       )}
     </>
   );

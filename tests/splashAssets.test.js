@@ -55,15 +55,15 @@ test('the splash logo has a staged GPU-only entrance that is visible before hand
     assert.match(styles, new RegExp(`@keyframes ${name}`), `${name} must exist`);
   }
   assert.match(styles, /\.splash-veil \{[\s\S]{0,280}opacity:\s*0\.72/);
-  assert.match(styles, /\.splash-veil \{[\s\S]{0,320}animation:\s*splashVeilLift 1000ms/);
+  assert.match(styles, /\.splash-veil \{[\s\S]{0,320}animation:\s*splashVeilLift 650ms/);
   assert.match(styles, /\.splash-frost \{[\s\S]{0,500}filter:\s*blur\(48px\) brightness\(0\.28\)/);
-  assert.match(styles, /\.splash-frost \{[\s\S]{0,700}splashFrostLift 1000ms/);
+  assert.match(styles, /\.splash-frost \{[\s\S]{0,700}splashFrostLift 650ms/);
   assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,450}animation:\s*splashMarkIn 1600ms var\(--ease-out\) 1000ms/);
+  assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,450}animation:\s*splashMarkIn 1600ms var\(--ease-out\) 650ms/);
   assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,450}animation:\s*splashCopyIn 1680ms var\(--ease-out\) 1140ms/);
+  assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,450}animation:\s*splashCopyIn 1680ms var\(--ease-out\) 740ms/);
   assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,450}animation:\s*splashSloganIn 1500ms var\(--ease-out\) 1380ms/);
+  assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,450}animation:\s*splashSloganIn 1500ms var\(--ease-out\) 900ms/);
   assert.doesNotMatch(styles, /@keyframes splashLogoScan/);
   assert.doesNotMatch(styles, /\.splash-logo::after/);
   assert.match(styles, /will-change:\s*transform, opacity/);
@@ -140,7 +140,7 @@ test('the splash background visibly moves during the seven-second splash window'
   assert.match(styles, /splashDrift 16s/);
   assert.doesNotMatch(styles, /@keyframes splashDrift[\s\S]{0,180}translate3d/, 'the pit must not slide sideways');
   assert.match(styles, /splashBreath 3\.6s/);
-  assert.match(styles, /splashFrostLift 1000ms/);
+  assert.match(styles, /splashFrostLift 650ms/);
   assert.match(styles, /#splash\.dissolving/);
 });
 

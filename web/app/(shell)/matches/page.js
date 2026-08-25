@@ -1,4 +1,6 @@
+import { PageHeader, EmptyState } from '../../../components/page-header';
 import { loadAppData } from '../../../lib/data';
+import { fmtDate, teamWinRate } from '../../../lib/marks';
 import { createServerSupabase } from '../../../lib/supabase/server';
 
 export const metadata = { title: 'Matches · Coach Intel' };
@@ -10,26 +12,29 @@ export default async function MatchesPage() {
 
   return (
     <>
-      <header className="page-head">
-        <h1>Matches</h1>
-        <p className="lede">League matches from the calendar and maps recorded in Scrim Hub</p>
-      </header>
+      <PageHeader
+        title="Matches"
+        subtitle="League matches from the calendar and maps recorded in Scrim Hub"
+      />
       {matches.length === 0 ? (
-        <div className="empty-card">
-          <h2>No matches yet</h2>
-        </div>
+        <EmptyState title="No matches yet" body="Logged maps and league results will show here." />
       ) : (
-        <ul className="dash-teams dash-card">
+        <div className="card">
           {matches.map((match) => (
-            <li key={match.id || match.match_id}>
-              <span className="team-name">{match.opponent ? `vs ${match.opponent}` : 'Match'}</span>
-              <span className="team-meta">
-                {teamName(match.team_id)}
-                {match.date ? ` · ${String(match.date).slice(0, 10)}` : ''}
-              </span>
-            </li>
+            <div key={match.id || match.match_id} className="crow">
+              <div className="crow-main">
+                <div className="crow-title">{match.opponent ? `vs ${match.opponent}` : 'Match'}</div>
+                <div className="crow-sub">
+                  {[teamName(match.team_id), match.map, match.mode, match.result].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <div className="crow-meta">{match.date ? fmtDate(String(match.date).slice(0, 10)) : '—'}</div>
+            </div>
           ))}
-        </ul>
+          <div className="field-hint" style={{ padding: '8px 4px 4px' }}>
+            {matches.length} match{matches.length === 1 ? '' : 'es'} · {teamWinRate(matches)}% win rate
+          </div>
+        </div>
       )}
     </>
   );

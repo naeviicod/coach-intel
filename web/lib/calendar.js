@@ -32,6 +32,28 @@ export function shiftMonth(year, month, delta) {
   return { year: d.getFullYear(), month: d.getMonth() };
 }
 
+export function todayIso() {
+  const d = new Date();
+  return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+const CHIP_CLS = {
+  'league-match': 'match',
+  match: 'match',
+  scrim: 'scrim',
+  'scrim-block': 'scrim',
+  'vod-review': 'vod',
+  meeting: 'meeting',
+  training: 'training',
+  practice: 'training',
+  task: 'task',
+  other: 'other',
+};
+
+export function chipClass(type) {
+  return CHIP_CLS[type] || 'other';
+}
+
 export function bucketByDate(items = []) {
   const map = {};
   for (const item of items) {
@@ -53,6 +75,7 @@ export function calendarItems({ teams, events, tasks, matches, members }) {
       type: event.type || 'other',
       title: event.title || event.type || 'Event',
       teamName: teamName(event.team_id),
+      teamId: event.team_id,
     });
   }
   for (const match of matches || []) {
@@ -63,6 +86,7 @@ export function calendarItems({ teams, events, tasks, matches, members }) {
       type: 'match',
       title: match.opponent ? `vs ${match.opponent}` : 'Match',
       teamName: teamName(match.team_id),
+      teamId: match.team_id,
     });
   }
   for (const task of tasks || []) {
@@ -73,6 +97,7 @@ export function calendarItems({ teams, events, tasks, matches, members }) {
       type: 'task',
       title: task.title || 'Task',
       teamName: teamName(task.team_id),
+      teamId: task.team_id,
       people: assignee?.gamertag ? [assignee.gamertag] : [],
     });
   }

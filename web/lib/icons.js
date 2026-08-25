@@ -1,0 +1,49 @@
+const ICON_SHAPES = {
+  commandCenter: '<rect x="2" y="3" width="12" height="9" rx="1.5"/><path d="M6 15h4"/>',
+  teams: '<path d="M8 1.5l5.5 2v4.2c0 3.6-2.3 6.1-5.5 7.3-3.2-1.2-5.5-3.7-5.5-7.3V3.5L8 1.5z"/>',
+  players: '<circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>',
+  roster: '<circle cx="6" cy="5" r="2"/><circle cx="11.3" cy="6.2" r="1.5"/><path d="M2 14c0-2.5 1.8-4 4-4s4 1.5 4 4M9.6 10.3c1.7.2 2.9 1.4 2.9 3.2"/>',
+  scouting: '<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.6"/><circle cx="8" cy="8" r="0.6" fill="currentColor" stroke="none"/>',
+  database: '<ellipse cx="8" cy="3.5" rx="5.5" ry="2"/><path d="M2.5 3.5v9c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-9"/><path d="M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2"/>',
+  review: '<path d="M8 2l6.2 11H1.8L8 2z"/><path d="M8 6.6v3.1"/><circle cx="8" cy="11.6" r="0.65" fill="currentColor" stroke="none"/>',
+  scoreboard: '<rect x="1.8" y="3" width="12.4" height="10" rx="1.6"/><path d="M1.8 6.2h12.4M5.4 6.2v6.8M8 8.4v2.2M10.4 8.4v2.2"/>',
+  settings: '<circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
+  strats: '<path d="M2 4l4-1.5 4 1.5 4-1.5v9.5l-4 1.5-4-1.5-4 1.5V4z"/><path d="M6 2.5v9.5M10 4v9.5"/>',
+  matches: '<path d="M3 4h10M3 8h10M3 12h6"/>',
+  performance: '<path d="M3 13.5V9M7 13.5V5M11 13.5V7M2.5 13.5h11"/>',
+  mapsModes: '<path d="M8 1.5l5.5 3.25v6.5L8 14.5l-5.5-3.25v-6.5L8 1.5z"/>',
+  intel: '<path d="M8 2l4 6-4 6-4-6 4-6z"/>',
+  dashboard: '<rect x="2" y="2.5" width="5.2" height="5.2" rx="1.2"/><rect x="8.8" y="2.5" width="5.2" height="3.2" rx="1.2"/><rect x="2" y="9.3" width="5.2" height="4.2" rx="1.2"/><rect x="8.8" y="7.3" width="5.2" height="6.2" rx="1.2"/>',
+  calendar: '<rect x="2" y="3.2" width="12" height="10.8" rx="1.6"/><path d="M2 6.6h12M5.3 1.8v2.6M10.7 1.8v2.6"/>',
+  tasks: '<path d="M2.2 4.4l1.5 1.5 2.6-2.8M2.2 11.4l1.5 1.5 2.6-2.8"/><path d="M8.4 4.3h5.4M8.4 11.3h5.4"/>',
+  vod: '<rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1.8"/><path d="M6.8 6.4l3.4 1.85-3.4 1.85V6.4z" fill="currentColor" stroke="none"/>',
+  teamHub: '<circle cx="8" cy="8" r="2"/><circle cx="8" cy="2.4" r="1.3"/><circle cx="13" cy="10.6" r="1.3"/><circle cx="3" cy="10.6" r="1.3"/><path d="M8 6V3.7M9.7 9l2 1.05M6.3 9l-2 1.05"/>',
+  scrim: '<path d="M2.2 5.2h4.3l1.5 5.6h4.3"/><path d="M10.6 3.3l1.9 1.9-1.9 1.9M5.4 12.7l-1.9-1.9 1.9-1.9"/>',
+  veto: '<circle cx="8" cy="8" r="6"/><path d="M3.9 3.9l8.2 8.2"/>',
+  reports: '<path d="M3.4 1.9h6l3.2 3.2v9H3.4v-12z"/><path d="M9.2 1.9v3.4h3.4"/><path d="M5.8 8.4h4.4M5.8 11h3"/>',
+  rankings: '<path d="M6 13.6V6.2h4v7.4"/><path d="M2 13.6V9.4h4M10 13.6V7.8h4v5.8"/><path d="M1.4 13.6h13.2"/>',
+  integrations: '<path d="M6.6 2.4H3.4a1 1 0 00-1 1v3.2"/><rect x="2.4" y="6.6" width="5" height="7" rx="1"/><rect x="8.6" y="2.4" width="5" height="7" rx="1"/><path d="M9.4 9.6v3.2a1 1 0 001 1h3.2"/>',
+  notes: '<path d="M3.4 2.2h9.2v11.6H3.4z"/><path d="M5.8 5.4h4.4M5.8 8h4.4M5.8 10.6h2.6"/>',
+  objectives: '<circle cx="8" cy="8" r="5.6"/><circle cx="8" cy="8" r="2.4"/><path d="M8 2.4v-1M8 14.6v-1M2.4 8h-1M14.6 8h-1"/>',
+  practice: '<circle cx="8" cy="8.6" r="5.2"/><path d="M8 5.8v2.8l1.9 1.2"/><path d="M6.2 1.6h3.6"/>',
+  chevronDown: '<path d="M4 6.3L8 10l4-3.7"/>',
+  chevronLeft: '<path d="M9.8 3.6L5.6 8l4.2 4.4"/>',
+  chevronRight: '<path d="M6.2 3.6L10.4 8l-4.2 4.4"/>',
+  bell: '<path d="M4 6.8a4 4 0 018 0c0 3 1.1 4.1 1.1 4.1H2.9S4 9.8 4 6.8z"/><path d="M6.6 13a1.6 1.6 0 002.8 0"/>',
+  help: '<circle cx="8" cy="8" r="6"/><path d="M6.3 6.2a1.75 1.75 0 013.4.6c0 1.2-1.7 1.5-1.7 2.6"/><circle cx="8" cy="11.6" r="0.6" fill="currentColor" stroke="none"/>',
+  check: '<path d="M3.2 8.4l3 3 6.6-7"/>',
+  plus: '<path d="M8 3.2v9.6M3.2 8h9.6"/>',
+  more: '<circle cx="3.4" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="12.6" cy="8" r="1" fill="currentColor" stroke="none"/>',
+  panel: '<rect x="1.8" y="3" width="12.4" height="10" rx="1.6"/><path d="M10 3v10"/>',
+  edit: '<path d="M3 13l.9-3.1 6.6-6.6 2.2 2.2-6.6 6.6L3 13z"/><path d="M9.4 4.4l2.2 2.2"/>',
+  trash: '<path d="M2.9 4.4h10.2M6.4 4.4V3a.8.8 0 01.8-.8h1.6a.8.8 0 01.8.8v1.4"/><path d="M4.4 4.4l.6 8.3a1 1 0 001 .9h4a1 1 0 001-.9l.6-8.3"/>',
+  copy: '<rect x="5.4" y="5.4" width="8" height="8" rx="1.4"/><path d="M10.6 5.4V4a1.4 1.4 0 00-1.4-1.4H4a1.4 1.4 0 00-1.4 1.4v5.2A1.4 1.4 0 004 10.6h1.4"/>',
+  feedback: '<path d="M2 3.4h12v7.6H8.6L5.6 13.6v-2.6H2z"/><path d="M5 6.4h6M5 8.4h3.6"/>',
+};
+
+
+export function icon(name, size = 15) {
+  const shape = ICON_SHAPES[name] || ICON_SHAPES.settings;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${shape}</svg>`;
+}
+

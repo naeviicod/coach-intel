@@ -1,5 +1,4 @@
 import './globals.css';
-import './shell.css';
 
 export const metadata = {
   title: 'Coach Intel',

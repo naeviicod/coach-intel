@@ -41,7 +41,7 @@ a { color: inherit; }
 }
 .pit-art {
   transform: scale(1.03);
-  animation: pitDrift 16s ease-in-out 1s infinite alternate;
+  animation: pitDrift 16s ease-in-out 650ms infinite alternate;
 }
 .pit-frost {
   inset: -14%;
@@ -49,7 +49,7 @@ a { color: inherit; }
   height: 128%;
   filter: blur(48px) brightness(0.28);
   transform: scale(1.08);
-  animation: pitFrostLift 1000ms cubic-bezier(0.7, 0, 1, 1) forwards;
+  animation: pitFrostLift 650ms cubic-bezier(0.7, 0, 1, 1) forwards;
 }
 .pit-glow {
   position: absolute;
@@ -60,15 +60,15 @@ a { color: inherit; }
   mix-blend-mode: screen;
   opacity: 0;
   animation:
-    pitGlowIn 1000ms cubic-bezier(0.7, 0, 1, 1) forwards,
-    pitBreath 3.6s ease-in-out 1s infinite alternate;
+    pitGlowIn 650ms cubic-bezier(0.7, 0, 1, 1) forwards,
+    pitBreath 3.6s ease-in-out 650ms infinite alternate;
 }
 .pit-veil {
   position: absolute;
   inset: 0;
   background: #000;
   opacity: 0.72;
-  animation: pitVeilLift 1000ms cubic-bezier(0.7, 0, 1, 1) forwards;
+  animation: pitVeilLift 650ms cubic-bezier(0.7, 0, 1, 1) forwards;
 }
 
 .gate {
@@ -188,25 +188,41 @@ a { color: inherit; }
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+.invite-gate .stage {
+  width: min(440px, 90vw);
+  animation: inviteStageIn 500ms var(--ease-out) both;
+}
+.invite-gate .brand-lockup {
+  opacity: 0.88;
+}
 .invite-card {
-  margin-top: clamp(20px, 2.4vw, 28px);
-  max-width: 28rem;
+  margin-top: 22px;
+  width: 100%;
+  max-width: none;
 }
 .invite-kicker {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
 }
 .invite-card h1 {
-  margin: 8px 0 0;
-  font-size: 28px;
-  letter-spacing: 0.02em;
+  margin: 10px 0 0;
+  font-size: clamp(26px, 4vw, 32px);
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+.invite-body {
+  margin: 14px 0 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
 }
 .invite-meta {
   margin: 10px 0 0;
   color: var(--muted);
+  font-size: 13px;
   line-height: 1.5;
 }
 .invite-card .actions { margin-top: 22px; }
@@ -233,6 +249,17 @@ a { color: inherit; }
   display: block;
   width: 148px;
   transform: translateY(-23%);
+}
+.brand-lockup-compact .brand-mark {
+  width: 32px;
+  height: 32px;
+}
+.brand-lockup-compact .brand-copy {
+  width: 112px;
+  height: 22px;
+}
+.brand-lockup-compact .brand-wordmark {
+  width: 112px;
 }
 
 .app-shell {
@@ -444,6 +471,10 @@ a { color: inherit; }
 @keyframes pitGlowIn { to { opacity: 0.4; } }
 @keyframes pitBreath { from { opacity: 0.4; } to { opacity: 0.76; } }
 @keyframes pitVeilLift { to { opacity: 0; } }
+@keyframes inviteStageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
 
 @media (max-width: 640px) {
   .lockup {
@@ -460,7 +491,7 @@ a { color: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pit-art, .pit-frost, .pit-glow, .pit-veil { animation: none; }
+  .pit-art, .pit-frost, .pit-glow, .pit-veil, .invite-gate .stage { animation: none; }
   .pit-frost, .pit-veil { opacity: 0; }
   .pit-glow { opacity: 0.55; }
   .pit-art { transform: scale(1.03); }

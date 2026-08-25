@@ -4,9 +4,19 @@ const crypto = require('crypto');
 
 const ACCESS_ROLES = new Set(['owner', 'admin', 'user', 'team_leader', 'coach', 'analyst', 'creative']);
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function newToken() {
   return crypto.randomBytes(18).toString('base64url');
+}
+
+function normalizeInviteEmail(value) {
+  const email = String(value || '').trim().toLowerCase();
+  if (!email) return '';
+  if (email.length > 120 || !EMAIL_RE.test(email)) {
+    throw new Error('That email does not look right.');
+  }
+  return email;
 }
 
 const INVITE_SITE = 'https://coach.championshipseries.eu';
@@ -81,11 +91,12 @@ function createInviteService({ client, dataRoot }) {
     }
   }
 
-  async function create({ teamId, memberId, accessRole }) {
+  async function create({ teamId, memberId, accessRole, email }) {
     const c = requireClient();
     const role = ACCESS_ROLES.has(accessRole) ? accessRole : 'user';
     const token = newToken();
     const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const inviteeEmail = normalizeInviteEmail(email);
 
     await c
       .from('invites')
@@ -94,15 +105,18 @@ function createInviteService({ client, dataRoot }) {
       .eq('member_id', memberId)
       .is('accepted_at', null);
 
+    const row = {
+      id: token,
+      team_id: teamId,
+      member_id: memberId,
+      access_role: role,
+      expires_at: expires,
+    };
+    if (inviteeEmail) row.invitee_email = inviteeEmail;
+
     const { data, error } = await c
       .from('invites')
-      .insert({
-        id: token,
-        team_id: teamId,
-        member_id: memberId,
-        access_role: role,
-        expires_at: expires,
-      })
+      .insert(row)
       .select()
       .single();
     if (error) raise(error, 'Could not create the invite. Run the latest schema.sql in Supabase.');

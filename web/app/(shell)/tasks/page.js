@@ -1,4 +1,6 @@
+import { PageHeader, EmptyState } from '../../../components/page-header';
 import { loadAppData } from '../../../lib/data';
+import { fmtDue } from '../../../lib/marks';
 import { createServerSupabase } from '../../../lib/supabase/server';
 
 export const metadata = { title: 'Tasks · Coach Intel' };
@@ -11,27 +13,24 @@ export default async function TasksPage() {
 
   return (
     <>
-      <header className="page-head">
-        <h1>Tasks</h1>
-        <p className="lede">Open work across the organization</p>
-      </header>
+      <PageHeader title="Tasks" subtitle="Open work across the organization" />
       {open.length === 0 ? (
-        <div className="empty-card">
-          <h2>Nothing pending</h2>
-          <p>No open tasks and no screenshots waiting for review.</p>
-        </div>
+        <EmptyState title="Nothing pending" body="No open tasks and no screenshots waiting for review." />
       ) : (
-        <ul className="dash-teams dash-card">
-          {open.map((task) => (
-            <li key={task.id || task.task_id}>
-              <span className="team-name">{task.title || 'Task'}</span>
-              <span className="team-meta">
-                {teamName(task.team_id)}
-                {task.due ? ` · due ${String(task.due).slice(0, 10)}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="card">
+          {open.map((task) => {
+            const due = fmtDue(task.due);
+            return (
+              <div key={task.id || task.task_id} className="crow">
+                <div className="crow-main">
+                  <div className="crow-title">{task.title || 'Task'}</div>
+                  <div className="crow-sub">{teamName(task.team_id)}</div>
+                </div>
+                <div className={`crow-meta${due.overdue ? ' overdue' : ''}`}>{due.label}</div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </>
   );

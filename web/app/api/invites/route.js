@@ -33,6 +33,7 @@ export async function POST(request) {
       teamId,
       memberId,
       accessRole: body.accessRole || suggestedAccessRole(member),
+      email: body.email,
     });
     return NextResponse.json({ url: invite.url });
   } catch (err) {
