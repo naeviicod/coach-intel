@@ -12,7 +12,7 @@ export async function render(container, ctx) {
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Players'),
-        el('div', { class: 'page-subtitle' }, ctx.canEdit ? 'Players, staff, and creatives across the organization' : 'Members across the organization'),
+        el('div', { class: 'page-subtitle' }, ctx.canEdit ? 'Players, staff, and creatives. Invite copies a coach.championshipseries.eu/join link for that roster slot.' : 'Members across the organization'),
       ]),
     ])
   );

@@ -32,7 +32,7 @@ export async function render(panel, ctx) {
     el(
       'div',
       { class: 'field-hint', style: 'margin-bottom:10px;' },
-      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite a member from their profile — that link binds Discord to that person and the role you pick. Admins and org owners see every team. Players and creatives only see their team.'
+      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite from Players (or a team page on the website) — the link is coach.championshipseries.eu/join/… and binds Discord to that roster slot. Org sign-in without a slot is /join. Admins and org owners see every team. Players and creatives only see their team.'
     ),
   ]);
 

@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
-import { AppShell } from '../../../components/app-shell';
-import { getTeam, listMembers, listTeams } from '../../../lib/data';
+import { CopyInvite } from '../../../components/copy-invite';
+import { getProfile, getTeam, listMembers } from '../../../lib/data';
+import { STAFF_INVITE_ROLES, suggestedAccessRole } from '../../../lib/invite';
 import { createServerSupabase, getSessionUser } from '../../../lib/supabase/server';
 
 export async function generateMetadata({ params }) {
@@ -15,27 +16,27 @@ export default async function TeamPage({ params }) {
   const { id } = await params;
   const teamId = decodeURIComponent(id);
   const supabase = await createServerSupabase();
-  const [teams, team] = await Promise.all([
-    listTeams(supabase).catch(() => []),
+  const [team, profile] = await Promise.all([
     getTeam(supabase, teamId),
+    getProfile(supabase, user.id),
   ]);
   if (!team) notFound();
 
   const members = await listMembers(supabase, teamId).catch(() => []);
-  const userLabel =
-    user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Signed in';
+  const canInvite = STAFF_INVITE_ROLES.has(profile?.role);
 
   const starters = members.filter((m) => m.slot === 'starter');
   const bench = members.filter((m) => m.slot === 'bench');
   const staff = members.filter((m) => m.slot === 'staff');
 
   return (
-    <AppShell userLabel={userLabel} teams={teams}>
+    <>
       <header className="page-head">
         <p className="eyebrow">{team.tag || 'Team'}</p>
         <h1>{team.name}</h1>
         <p className="lede">
-          {members.length} on the roster. Read-only on the web for now — edits stay in the desktop app.
+          {members.length} player{members.length === 1 ? '' : 's'}
+          {canInvite ? ' · Copy invite binds Discord to that roster slot.' : '.'}
         </p>
       </header>
       {members.length === 0 ? (
@@ -44,16 +45,16 @@ export default async function TeamPage({ params }) {
         </div>
       ) : (
         <>
-          <RosterTable title="Playing" rows={starters} />
-          {bench.length ? <RosterTable title="Bench" rows={bench} /> : null}
-          {staff.length ? <RosterTable title="Staff" rows={staff} /> : null}
+          <RosterTable title="Playing" rows={starters} teamId={team.id} canInvite={canInvite} />
+          {bench.length ? <RosterTable title="Bench" rows={bench} teamId={team.id} canInvite={canInvite} /> : null}
+          {staff.length ? <RosterTable title="Staff" rows={staff} teamId={team.id} canInvite={canInvite} /> : null}
         </>
       )}
-    </AppShell>
+    </>
   );
 }
 
-function RosterTable({ title, rows }) {
+function RosterTable({ title, rows, teamId, canInvite }) {
   if (!rows.length) return null;
   return (
     <section className="roster">
@@ -64,6 +65,7 @@ function RosterTable({ title, rows }) {
             <th>Player</th>
             <th>Role</th>
             <th>Title</th>
+            {canInvite ? <th>Invite</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -72,6 +74,16 @@ function RosterTable({ title, rows }) {
               <td>{row.gamertag || row.name}</td>
               <td>{row.role || '—'}</td>
               <td>{row.title || '—'}</td>
+              {canInvite ? (
+                <td>
+                  <CopyInvite
+                    teamId={teamId}
+                    memberId={row.id}
+                    accessRole={suggestedAccessRole(row)}
+                    linked={Boolean(row.user_id)}
+                  />
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>

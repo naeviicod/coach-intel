@@ -56,11 +56,14 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(signIn, /PublicGateway/);
   assert.match(gateway, /DiscordSignIn/);
   const invite = read('lib/invite.js');
-  const invitePage = read('app/invite/[token]/page.js');
+  const joinPage = read('app/join/[token]/page.js');
+  const legacyInvite = read('app/invite/[token]/page.js');
   assert.match(invite, /invite_preview/);
   assert.match(invite, /redeem_invite/);
-  assert.match(invitePage, /previewInvite/);
-  assert.match(invitePage, /redeemInvite/);
+  assert.match(invite, /\/join\//);
+  assert.match(joinPage, /previewInvite/);
+  assert.match(joinPage, /redeemInvite/);
+  assert.match(legacyInvite, /redirect\(`\/join\//);
   const oauth = read('components/discord-sign-in.js');
   const middleware = read('middleware.js');
   assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback`/);
@@ -75,8 +78,12 @@ test('signed-in shell reads teams and members from Supabase', () => {
   const team = read('app/teams/[id]/page.js');
   assert.match(data, /from\('teams'\)/);
   assert.match(data, /from\('members'\)/);
+  assert.match(data, /shared_docs/);
+  assert.match(dash, /OrgDashboard/);
   assert.match(dash, /listTeams/);
   assert.match(team, /listMembers/);
+  assert.match(team, /CopyInvite/);
+  assert.match(read('components/org-dashboard.js'), /postgres_changes/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

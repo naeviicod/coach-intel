@@ -24,6 +24,6 @@ Authentication → URL Configuration. Redirect URLs must match exactly (no `?nex
 
 Keep the existing `coachintel://auth-callback` URL for the desktop app.
 
-Invite links copied in the desktop app now open `https://coach.championshipseries.eu/invite/<token>`. Teammates sign in with Discord in the browser.
+Org sign-in alias: `https://coach.championshipseries.eu/join`. Per-player invites are `https://coach.championshipseries.eu/join/<token>` (old `/invite/<token>` URLs redirect). Copy them from a team roster on the site, or Players → Invite in the desktop app.
 
 Local preview: `cd web && npm install && npm run dev`.

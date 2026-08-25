@@ -15,7 +15,7 @@ const notificationStore = require('./notificationStore');
 const supabase = require('./supabase');
 const { syncLocalRosterToRemote, sharedWriteHint } = require('./rosterSync');
 const cloudSync = require('./cloudSync');
-const { assertCanEdit, seesAllTeams } = require('./access');
+const { assertCanEdit, scopeTeams } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
@@ -117,11 +117,8 @@ async function teamsForSession(teams) {
     const state = await supabase.get().getState();
     if (!state?.session) return teams;
     const { me } = await supabase.get().listProfiles();
-    if (!me || seesAllTeams(me.role)) return teams;
-    const ids = await supabase.get().teamIdsForUser(me.id);
-    if (!ids) return teams;
-    const allow = new Set(ids);
-    return teams.filter((team) => allow.has(team.id));
+    const ids = await supabase.get().teamIdsForUser(me?.id);
+    return scopeTeams(teams, { role: me?.role, teamIds: ids });
   } catch (err) {
     console.warn('[main] team scope failed', err.message);
     return teams;

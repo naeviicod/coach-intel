@@ -112,7 +112,8 @@ async function existingOrgLogo() {
 }
 
 async function getOrg() {
-  const profile = (await readJson(path.join(ORG_DIR, 'org-profile.json'))) || {
+  const raw = await readJson(path.join(ORG_DIR, 'org-profile.json'));
+  const profile = raw || {
     name: 'My Organization',
     logo: null,
   };
@@ -127,7 +128,13 @@ async function getOrg() {
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
   }
-  return { ...profile, teamIds };
+  const provisioned = Boolean(raw) || teamIds.length > 0;
+  return {
+    ...profile,
+    teamIds,
+    provisioned,
+    locked: Boolean(raw?.locked) || provisioned,
+  };
 }
 
 async function saveOrg(org) {
@@ -148,6 +155,7 @@ async function saveOrg(org) {
     profileTitle,
     profilePhoto: org.profilePhoto !== undefined ? org.profilePhoto : existing.profilePhoto || null,
     accent: org.accent !== undefined ? org.accent : existing.accent || null,
+    locked: true,
     updated_at: nowIso(),
   });
   return getOrg();

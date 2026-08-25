@@ -156,4 +156,6 @@ test('getOrg finds org-logo.png when the profile path was wiped', async () => {
   fss.writeFileSync(dest, 'png');
   const org = await store.getOrg();
   assert.equal(org.logo, 'org/logos/org-logo.png');
+  assert.equal(org.locked, true);
+  assert.equal(org.provisioned, true);
 });

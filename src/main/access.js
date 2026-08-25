@@ -11,6 +11,17 @@ function seesAllTeams(role) {
   return ALL_TEAMS_ROLES.has(r);
 }
 
+// Unlinked players used to filter this list to [] — then the app thought
+// the org was missing and reopened first-run setup. Revoking an invite
+// only unlinks that roster slot; it must never hide a provisioned org.
+function scopeTeams(teams, { role, teamIds } = {}) {
+  const list = Array.isArray(teams) ? teams : [];
+  if (!role || seesAllTeams(role)) return list;
+  if (!Array.isArray(teamIds) || teamIds.length === 0) return list;
+  const allow = new Set(teamIds);
+  return list.filter((team) => team && allow.has(team.id));
+}
+
 async function assertCanEdit(supabase) {
   const state = await supabase.get().getState();
   if (!state?.configured || !state.session) return;
@@ -32,4 +43,4 @@ async function assertCanEdit(supabase) {
   if (!isStaff(me.role)) throw new Error('You do not have permission to edit.');
 }
 
-module.exports = { isStaff, seesAllTeams, assertCanEdit };
+module.exports = { isStaff, seesAllTeams, assertCanEdit, scopeTeams };

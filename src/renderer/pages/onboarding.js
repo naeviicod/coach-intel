@@ -2,11 +2,39 @@ import { el } from '../utils.js';
 import { asset } from '../lib/assets.js';
 import { DEFAULT_ACCENT, applyAccent } from '../lib/accent.js';
 import { toast } from '../components/modal.js';
+import { orgIsProvisioned } from '../lib/orgLock.js';
 
 export async function render(container, ctx) {
+  const existing = await window.cci.getOrg().catch(() => null);
+  const teams = await window.cci.getTeams().catch(() => []);
+  if (orgIsProvisioned(existing) || teams.length) {
+    await ctx.onComplete?.();
+    return;
+  }
   applyAccent(DEFAULT_ACCENT);
   const state = { step: 1, org: { name: '', tag: '', logo: null }, team: { name: '', tag: '' } };
   draw(container, ctx, state);
+}
+
+export function renderUnlinked(container) {
+  applyAccent(DEFAULT_ACCENT);
+  container.innerHTML = '';
+  container.append(
+    el('div', { class: 'onboarding-screen' }, [
+      el('div', { class: 'onboarding-brand-wrap' }, [
+        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260818`, alt: 'Coach Intel' }),
+      ]),
+      el('div', { class: 'onboarding-card' }, [
+        el('div', { class: 'onboarding-step-label' }, 'INVITE REQUIRED'),
+        el('div', { class: 'onboarding-title' }, 'This Discord is not on a roster slot'),
+        el(
+          'div',
+          { class: 'onboarding-sub' },
+          'Revoking an invite only unlinks that player. It does not delete the organization. Ask staff for a new link from Players, or open coach.championshipseries.eu/join.'
+        ),
+      ]),
+    ])
+  );
 }
 
 function draw(container, ctx, state) {
@@ -53,6 +81,7 @@ function orgStep(container, ctx, state) {
     'button',
     {
       class: 'btn primary onboarding-continue',
+      type: 'button',
       onclick: () => {
         const name = card.querySelector('#ob-org-name').value.trim();
         if (!name) return;
@@ -100,6 +129,7 @@ function teamStep(container, ctx, state) {
       'button',
       {
         class: 'btn',
+        type: 'button',
         onclick: () => {
           state.step = 1;
           draw(container, ctx, state);
@@ -111,6 +141,7 @@ function teamStep(container, ctx, state) {
       'button',
       {
         class: 'btn primary onboarding-continue',
+        type: 'button',
         style: 'flex:1;',
         onclick: async (e) => {
           const name = card.querySelector('#ob-team-name').value.trim();
@@ -125,8 +156,13 @@ function teamStep(container, ctx, state) {
               tag: state.org.tag || null,
               logo: state.org.logo,
               accent: DEFAULT_ACCENT,
+              locked: true,
             });
             await window.cci.saveTeam({ name, tag: tag || null, accent: DEFAULT_ACCENT });
+            const teams = await window.cci.getTeams();
+            if (!teams?.length) {
+              throw new Error('The team was saved on this Mac but is not visible yet. Open Coach Intel again — do not create a second organization.');
+            }
             await ctx.onComplete();
           } catch (err) {
             btn.disabled = false;

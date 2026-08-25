@@ -101,3 +101,12 @@ test('every role that plans still reaches the team hub planner', () => {
     assert.equal(canAccessPage(role, 'team-hub'), true, role);
   }
 });
+
+test('unlinked players keep local teams so a revoke cannot wipe the org', () => {
+  const { scopeTeams } = require('../src/main/access');
+  const teams = [{ id: 'rome' }, { id: 'other' }];
+  assert.deepEqual(scopeTeams(teams, { role: 'user', teamIds: [] }).map((t) => t.id), ['rome', 'other']);
+  assert.deepEqual(scopeTeams(teams, { role: 'user', teamIds: null }).map((t) => t.id), ['rome', 'other']);
+  assert.deepEqual(scopeTeams(teams, { role: 'user', teamIds: ['rome'] }).map((t) => t.id), ['rome']);
+  assert.deepEqual(scopeTeams(teams, { role: 'developer', teamIds: [] }).map((t) => t.id), ['rome', 'other']);
+});

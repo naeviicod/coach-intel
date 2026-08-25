@@ -33,7 +33,7 @@ export function accessRoleLabel(role) {
 const INVITE_SITE = 'https://coach.championshipseries.eu';
 
 export function inviteUrl(token) {
-  return `${INVITE_SITE}/invite/${String(token || '').trim()}`;
+  return `${INVITE_SITE}/join/${String(token || '').trim()}`;
 }
 
 export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
@@ -58,7 +58,7 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
     el('div', { class: 'field', id: 'invite-link-field', style: 'display:none;' }, [
       el('label', {}, 'Invite link'),
       el('input', { type: 'text', id: 'invite-link', readonly: 'readonly' }),
-      el('div', { class: 'field-hint' }, 'Send it in Discord. They sign in at coach.championshipseries.eu — no desktop app needed.'),
+      el('div', { class: 'field-hint' }, 'Send it in Discord. It looks like coach.championshipseries.eu/join/… — they open it in a browser, no desktop app.'),
     ]),
   ]);
   const overlay = openModal(body, { width: '520px' });

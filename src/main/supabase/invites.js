@@ -12,7 +12,7 @@ function newToken() {
 const INVITE_SITE = 'https://coach.championshipseries.eu';
 
 function inviteUrl(token) {
-  return `${INVITE_SITE}/invite/${token}`;
+  return `${INVITE_SITE}/join/${token}`;
 }
 
 function raise(error, fallback) {
@@ -157,6 +157,8 @@ function createInviteService({ client, dataRoot }) {
 
   async function revoke(teamId, memberId) {
     const c = requireClient();
+    // Expire the open invite and unlink Discord from THIS roster slot only.
+    // Never touch org profile, teams, or anyone else's membership.
     await c
       .from('invites')
       .update({ expires_at: new Date().toISOString() })

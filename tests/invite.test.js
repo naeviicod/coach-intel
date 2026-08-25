@@ -20,7 +20,18 @@ test('staff titles pick an invite access role', async () => {
   assert.equal(accessRoleLabel('user'), 'Player');
   assert.equal(accessRoleLabel('admin'), 'Admin');
   assert.equal(accessRoleLabel('owner'), 'Org owner');
-  assert.equal(inviteUrl('abc_DEF-1234567890'), 'https://coach.championshipseries.eu/invite/abc_DEF-1234567890');
+  assert.equal(inviteUrl('abc_DEF-1234567890'), 'https://coach.championshipseries.eu/join/abc_DEF-1234567890');
+});
+
+test('a provisioned org never reopens first-run setup', async () => {
+  const { shouldRunOnboarding, shouldRunUnlinked, orgIsProvisioned } = await import(libUrl('orgLock.js'));
+  assert.equal(orgIsProvisioned({ name: 'VANTIX' }), true);
+  assert.equal(orgIsProvisioned({ locked: true, name: 'My Organization' }), true);
+  assert.equal(shouldRunOnboarding({ org: { name: 'VANTIX' }, teams: [], signedIn: true }), false);
+  assert.equal(shouldRunOnboarding({ org: { name: 'VANTIX' }, teams: [], signedIn: false }), false);
+  assert.equal(shouldRunOnboarding({ org: { name: 'My Organization' }, teams: [], signedIn: false }), true);
+  assert.equal(shouldRunUnlinked({ org: { name: 'My Organization' }, teams: [], signedIn: true }), true);
+  assert.equal(shouldRunUnlinked({ org: { name: 'VANTIX' }, teams: [], signedIn: true }), false);
 });
 
 test('players and team leaders do not see every team', async () => {

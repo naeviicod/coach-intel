@@ -218,6 +218,9 @@ begin
   end if;
 end $$;
 
+alter table public.teams replica identity full;
+alter table public.members replica identity full;
+
 -- Existing projects already have profiles.role check without admin/user.
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
@@ -234,7 +237,7 @@ create unique index if not exists members_user_id_unique
   where user_id is not null;
 
 -- Invite a roster member to sign in with Discord and bind that account to this
--- player + team. The token is the web path: https://coach.championshipseries.eu/invite/<id>
+-- player + team. The token is the web path: https://coach.championshipseries.eu/join/<id>
 create table if not exists public.invites (
   id text primary key,
   team_id text not null references public.teams (id) on delete cascade,

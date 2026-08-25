@@ -11,6 +11,7 @@ import {
   roleLabel as accessRoleLabel,
 } from './lib/access.js';
 import { chipIdentity } from './lib/profile.js';
+import { shouldRunOnboarding, shouldRunUnlinked } from './lib/orgLock.js';
 import { toast } from './components/modal.js';
 import { openFeedbackModal, stashFeedback } from './components/feedback.js';
 import * as onboarding from './pages/onboarding.js';
@@ -617,8 +618,9 @@ function revealFromSplash(showFn) {
       return;
     }
     const signin = document.querySelector('.signin-screen');
-    if (signin) {
-      signin.classList.add('gate-in');
+    const onboarding = document.querySelector('.onboarding-screen');
+    if (signin || onboarding) {
+      (signin || onboarding).classList.add('gate-in');
     } else {
       app.classList.add('shell');
     }
@@ -643,7 +645,20 @@ async function prepareApp({ fast = false } = {}) {
     window.cci.syncRoster().catch((err) => console.warn('[renderer] roster sync failed', err));
   }
 
-  if (!state.teams.length) return renderOnboarding;
+  if (shouldRunOnboarding({
+    org: state.org,
+    teams: state.teams,
+    signedIn: Boolean(authState?.session),
+  })) {
+    return renderOnboarding;
+  }
+  if (shouldRunUnlinked({
+    org: state.org,
+    teams: state.teams,
+    signedIn: Boolean(authState?.session),
+  })) {
+    return renderUnlinked;
+  }
 
   if (!fast) {
     await loadAlerts();
@@ -738,6 +753,15 @@ function renderOnboarding() {
   onboarding.render(content, {
     onComplete: () => enterApp(),
   });
+}
+
+function renderUnlinked() {
+  for (const id of ['sidebar', 'topbar', 'statusbar']) document.getElementById(id).style.display = 'none';
+  const content = document.getElementById('content');
+  content.className = '';
+  content.style.padding = '0';
+  content.innerHTML = '';
+  onboarding.renderUnlinked(content);
 }
 
 function renderSignIn() {
