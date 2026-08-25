@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './lib/config';
+import { isAppPath } from './lib/nav';
 
 export async function middleware(request) {
   const incoming = request.nextUrl;
@@ -31,8 +32,7 @@ export async function middleware(request) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const needsAuth = path.startsWith('/dashboard') || path.startsWith('/teams');
-  if (needsAuth && !user) {
+  if (isAppPath(path) && !user) {
     const signIn = new URL('/sign-in', request.url);
     signIn.searchParams.set('next', path);
     return NextResponse.redirect(signIn);

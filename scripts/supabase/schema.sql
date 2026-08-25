@@ -394,23 +394,17 @@ grant execute on function public.my_team_id() to authenticated;
 
 drop policy if exists "teams are readable by any signed-in teammate" on public.teams;
 drop policy if exists "teams are readable by org-wide staff or your own team" on public.teams;
-create policy "teams are readable by org-wide staff or your own team"
+create policy "teams are readable by any signed-in teammate"
   on public.teams for select
   to authenticated
-  using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
-    or id = public.my_team_id()
-  );
+  using (exists (select 1 from public.profiles p where p.id = auth.uid()));
 
 drop policy if exists "members are readable by any signed-in teammate" on public.members;
 drop policy if exists "members are readable by org-wide staff or your own team" on public.members;
-create policy "members are readable by org-wide staff or your own team"
+create policy "members are readable by any signed-in teammate"
   on public.members for select
   to authenticated
-  using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
-    or team_id = public.my_team_id()
-  );
+  using (exists (select 1 from public.profiles p where p.id = auth.uid()));
 
 drop policy if exists "owner/team_leader/coach can manage teams" on public.teams;
 drop policy if exists "owner/coach manage all teams, team_leader manages their own" on public.teams;

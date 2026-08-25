@@ -74,16 +74,24 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
 
 test('signed-in shell reads teams and members from Supabase', () => {
   const data = read('lib/data.js');
-  const dash = read('app/dashboard/page.js');
-  const team = read('app/teams/[id]/page.js');
+  const dash = read('app/(shell)/dashboard/page.js');
+  const team = read('app/(shell)/teams/[id]/page.js');
+  const calendar = read('app/(shell)/calendar/page.js');
+  const nav = read('lib/nav.js');
+  const shell = read('components/desktop-shell.js');
   assert.match(data, /from\('teams'\)/);
   assert.match(data, /from\('members'\)/);
   assert.match(data, /shared_docs/);
   assert.match(dash, /OrgDashboard/);
-  assert.match(dash, /listTeams/);
+  assert.match(dash, /loadAppData/);
   assert.match(team, /listMembers/);
   assert.match(team, /CopyInvite/);
+  assert.match(calendar, /OrgCalendar/);
+  assert.match(nav, /label: 'Calendar'/);
+  assert.match(nav, /label: 'Intel Feed'/);
+  assert.match(shell, /Online · Synced/);
   assert.match(read('components/org-dashboard.js'), /postgres_changes/);
+  assert.match(read('middleware.js'), /isAppPath/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

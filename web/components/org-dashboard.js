@@ -4,27 +4,35 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { createBrowserSupabase } from '../lib/supabase/browser';
 
-function hexAccent(value) {
-  const m = String(value || '').trim().match(/^#?([0-9a-fA-F]{6})$/);
-  return m ? `#${m[1].toLowerCase()}` : null;
-}
-
-export function OrgDashboard({ org: initialOrg, teams: initialTeams, members: initialMembers }) {
+export function OrgDashboard({
+  org: initialOrg,
+  teams: initialTeams,
+  members: initialMembers,
+  tasks: initialTasks = [],
+  matches: initialMatches = [],
+}) {
   const [org, setOrg] = useState(initialOrg);
   const [teams, setTeams] = useState(initialTeams || []);
   const [members, setMembers] = useState(initialMembers || []);
+  const [tasks, setTasks] = useState(initialTasks || []);
+  const [matches, setMatches] = useState(initialMatches || []);
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
     async function refresh() {
-      const [{ data: teamRows }, { data: memberRows }, { data: orgRow }] = await Promise.all([
-        supabase.from('teams').select('id, name, tag, logo, accent').order('created_at', { ascending: true }),
+      const [{ data: teamRows }, { data: memberRows }, { data: orgRow }, { data: docs }] = await Promise.all([
+        supabase.from('teams').select('id, name, tag, logo').order('created_at', { ascending: true }),
         supabase.from('members').select('id, team_id, gamertag, name, role, slot, title, user_id'),
         supabase.from('shared_docs').select('payload').eq('kind', 'org').eq('id', 'profile').is('deleted_at', null).maybeSingle(),
+        supabase.from('shared_docs').select('kind, team_id, payload').is('deleted_at', null).in('kind', ['task', 'match']),
       ]);
       if (teamRows) setTeams(teamRows);
       if (memberRows) setMembers(memberRows);
       if (orgRow?.payload) setOrg(orgRow.payload);
+      if (docs) {
+        setTasks(docs.filter((d) => d.kind === 'task').map((d) => ({ ...d.payload, team_id: d.team_id })));
+        setMatches(docs.filter((d) => d.kind === 'match').map((d) => ({ ...d.payload, team_id: d.team_id })));
+      }
     }
     const channel = supabase
       .channel('ci-org-live')
@@ -32,19 +40,11 @@ export function OrgDashboard({ org: initialOrg, teams: initialTeams, members: in
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_docs' }, refresh)
       .subscribe();
+    refresh();
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
-
-  const accent = hexAccent(org?.accent) || hexAccent(teams.find((t) => t.accent)?.accent);
-  useEffect(() => {
-    if (!accent) return undefined;
-    const root = document.documentElement;
-    const prev = root.style.getPropertyValue('--accent');
-    root.style.setProperty('--accent', accent);
-    return () => root.style.setProperty('--accent', prev);
-  }, [accent]);
 
   const byTeam = useMemo(() => {
     const map = new Map(teams.map((team) => [team.id, []]));
@@ -55,42 +55,48 @@ export function OrgDashboard({ org: initialOrg, teams: initialTeams, members: in
     return map;
   }, [teams, members]);
 
-  const linked = members.filter((m) => m.user_id).length;
+  const openTasks = tasks.filter((t) => !t.done);
+  const orgName = org?.name || 'Your organization';
 
   return (
     <>
       <header className="page-head dash-head">
-        <p className="eyebrow">{org?.tag || 'Organization'}</p>
-        <h1>{org?.name || 'Your organization'}</h1>
-        <p className="page-kicker">Dashboard</p>
-        <p className="lede">What needs attention today</p>
+        <div className="dash-identity">
+          <span className="org-mark">{(org?.tag || orgName).slice(0, 3)}</span>
+          <div>
+            <p className="eyebrow">{orgName}</p>
+            <h1>Dashboard</h1>
+            <p className="lede">What needs attention today</p>
+          </div>
+        </div>
       </header>
       <div className="kpi-row">
-        <div className="kpi">
+        <Link href="/teams" className="kpi">
           <p>Teams</p>
           <strong>{teams.length}</strong>
           <span>In organization</span>
-        </div>
-        <div className="kpi">
-          <p>Roster</p>
-          <strong>{members.length}</strong>
-          <span>{linked} linked to Discord</span>
-        </div>
-        <div className="kpi">
-          <p>Open tasks</p>
-          <strong>0</strong>
+        </Link>
+        <Link href="/tasks" className="kpi">
+          <p>Open Tasks</p>
+          <strong>{openTasks.length}</strong>
           <span>Nothing overdue</span>
-        </div>
-        <div className="kpi">
-          <p>Matches</p>
+        </Link>
+        <Link href="/needs-review" className="kpi">
+          <p>Scoreboard Inbox</p>
           <strong>0</strong>
-          <span>None yet</span>
-        </div>
+          <span>Queue clear</span>
+        </Link>
+        <Link href="/matches" className="kpi">
+          <p>Matches</p>
+          <strong>{matches.length}</strong>
+          <span>{matches.length ? 'On the book' : 'None yet'}</span>
+        </Link>
       </div>
       <div className="dash-grid">
         <section className="dash-card">
           <div className="dash-card-head">
             <h2>Needs Attention</h2>
+            <Link href="/tasks" className="text-link">All tasks →</Link>
           </div>
           <p className="dash-empty-title">Nothing pending</p>
           <p className="dash-empty">No open tasks and no screenshots waiting for review.</p>
@@ -98,6 +104,7 @@ export function OrgDashboard({ org: initialOrg, teams: initialTeams, members: in
         <section className="dash-card">
           <div className="dash-card-head">
             <h2>Recent Intel</h2>
+            <Link href="/intel-feed" className="text-link">Intel Feed →</Link>
           </div>
           <p className="dash-empty-title">No signals yet</p>
           <p className="dash-empty">Signals surface once teams have enough matches and scrims on the books.</p>

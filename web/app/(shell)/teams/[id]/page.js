@@ -1,8 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
-import { CopyInvite } from '../../../components/copy-invite';
-import { getProfile, getTeam, listMembers } from '../../../lib/data';
-import { STAFF_INVITE_ROLES, suggestedAccessRole } from '../../../lib/invite';
-import { createServerSupabase, getSessionUser } from '../../../lib/supabase/server';
+import { CopyInvite } from '../../../../components/copy-invite';
+import { getProfile, getTeam, listMembers } from '../../../../lib/data';
+import { STAFF_INVITE_ROLES, suggestedAccessRole } from '../../../../lib/invite';
+import { createServerSupabase, getSessionUser } from '../../../../lib/supabase/server';
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -24,14 +24,13 @@ export default async function TeamPage({ params }) {
 
   const members = await listMembers(supabase, teamId).catch(() => []);
   const canInvite = STAFF_INVITE_ROLES.has(profile?.role);
-
   const starters = members.filter((m) => m.slot === 'starter');
   const bench = members.filter((m) => m.slot === 'bench');
   const staff = members.filter((m) => m.slot === 'staff');
 
   return (
     <>
-      <header className="page-head">
+      <header className="page-head dash-head">
         <p className="eyebrow">{team.tag || 'Team'}</p>
         <h1>{team.name}</h1>
         <p className="lede">
