@@ -9,8 +9,10 @@ function newToken() {
   return crypto.randomBytes(18).toString('base64url');
 }
 
+const INVITE_SITE = 'https://coach.championshipseries.eu';
+
 function inviteUrl(token) {
-  return `coachintel://invite/${token}`;
+  return `${INVITE_SITE}/invite/${token}`;
 }
 
 function raise(error, fallback) {

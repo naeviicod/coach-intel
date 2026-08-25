@@ -20,7 +20,7 @@ test('staff titles pick an invite access role', async () => {
   assert.equal(accessRoleLabel('user'), 'Player');
   assert.equal(accessRoleLabel('admin'), 'Admin');
   assert.equal(accessRoleLabel('owner'), 'Org owner');
-  assert.equal(inviteUrl('abc_DEF-1234567890'), 'coachintel://invite/abc_DEF-1234567890');
+  assert.equal(inviteUrl('abc_DEF-1234567890'), 'https://coach.championshipseries.eu/invite/abc_DEF-1234567890');
 });
 
 test('players and team leaders do not see every team', async () => {

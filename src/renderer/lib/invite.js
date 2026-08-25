@@ -30,15 +30,17 @@ export function accessRoleLabel(role) {
     || 'Player';
 }
 
+const INVITE_SITE = 'https://coach.championshipseries.eu';
+
 export function inviteUrl(token) {
-  return `coachintel://invite/${String(token || '').trim()}`;
+  return `${INVITE_SITE}/invite/${String(token || '').trim()}`;
 }
 
 export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
   const body = el('div', {}, [
     el('h3', {}, `Invite ${member.gamertag}`),
     el('div', { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
-      'Creates a one-time link. They open it, sign in with Discord, and that account is bound to this member — they get the access you pick.'),
+      'Creates a one-time link. They open it in a browser, sign in with Discord, and that account is bound to this member — they get the access you pick.'),
     el('div', { class: 'field-hint', id: 'invite-status' }, 'Loading…'),
     el('div', { class: 'field' }, [
       el('label', { for: 'invite-role' }, 'Access in Coach Intel'),
@@ -56,7 +58,7 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
     el('div', { class: 'field', id: 'invite-link-field', style: 'display:none;' }, [
       el('label', {}, 'Invite link'),
       el('input', { type: 'text', id: 'invite-link', readonly: 'readonly' }),
-      el('div', { class: 'field-hint' }, 'Works on a Mac that has Coach Intel installed. Send it in Discord.'),
+      el('div', { class: 'field-hint' }, 'Send it in Discord. They sign in at coach.championshipseries.eu — no desktop app needed.'),
     ]),
   ]);
   const overlay = openModal(body, { width: '520px' });

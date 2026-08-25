@@ -234,7 +234,7 @@ create unique index if not exists members_user_id_unique
   where user_id is not null;
 
 -- Invite a roster member to sign in with Discord and bind that account to this
--- player + team. The token is the deep-link path: coachintel://invite/<id>
+-- player + team. The token is the web path: https://coach.championshipseries.eu/invite/<id>
 create table if not exists public.invites (
   id text primary key,
   team_id text not null references public.teams (id) on delete cascade,

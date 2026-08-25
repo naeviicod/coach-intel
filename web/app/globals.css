@@ -180,6 +180,14 @@ a { color: inherit; }
   font-size: 13px;
   line-height: 1.45;
 }
+.invite-note {
+  margin: 18px 0 0;
+  max-width: 420px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
 .brand-lockup {
   display: inline-flex;

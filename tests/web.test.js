@@ -55,6 +55,12 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(callback, /exchangeCodeForSession/);
   assert.match(signIn, /PublicGateway/);
   assert.match(gateway, /DiscordSignIn/);
+  const invite = read('lib/invite.js');
+  const invitePage = read('app/invite/[token]/page.js');
+  assert.match(invite, /invite_preview/);
+  assert.match(invite, /redeem_invite/);
+  assert.match(invitePage, /previewInvite/);
+  assert.match(invitePage, /redeemInvite/);
   const oauth = read('components/discord-sign-in.js');
   const middleware = read('middleware.js');
   assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback`/);
