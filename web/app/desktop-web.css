@@ -16,7 +16,7 @@ body:has(#app.shell) {
 #app.shell {
   height: 100dvh;
   min-height: 100dvh;
-  padding-top: var(--shell-gap);
+  padding: var(--shell-gap);
 }
 #splash { display: none !important; }
 
@@ -28,7 +28,11 @@ a.note-row,
 a.btn,
 a.sb-wordmark,
 a.topbar-profile,
-a.topbar-search-row {
+a.topbar-search-row,
+a.rail-link,
+a.pool-tile,
+a.ctx-alert,
+a.ctx-row {
   text-decoration: none;
   color: inherit;
 }
@@ -39,7 +43,11 @@ a.btn {
 }
 a.kpi { display: block; }
 a.crow,
-a.team-tile { display: flex; }
+a.team-tile,
+a.rail-link,
+a.pool-tile,
+a.ctx-alert,
+a.ctx-row { display: flex; }
 a.sb-wordmark { display: block; }
 a.topbar-profile { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 a.topbar-search-row { display: flex; }
@@ -60,22 +68,11 @@ button.sb-section-label { cursor: pointer; }
   mask-image: url("/assets/wordmark-intel.png");
 }
 
-.topbar-signout {
-  -webkit-app-region: no-drag;
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.select.team-select-name,
+.team-select select {
+  appearance: none;
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: var(--radius);
 }
-.topbar-signout:hover { color: var(--text); background: #ffffff0a; }
-.topbar-signout:active { transform: scale(0.97); }
 
 .copy-invite {
   display: flex;

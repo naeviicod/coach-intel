@@ -5,7 +5,7 @@ import { aggregate, fmtObj, objStatsForModes, statsForMember } from '../lib/stat
 import { PlayerAvatar, RoleBadge } from '../lib/marks';
 import { EmptyState, PageHeader } from './page-header';
 
-export function StatisticsView({ teams, members, matches }) {
+export function StatisticsView({ teams, members, matches, embedded }) {
   const rowsAll = useMemo(
     () =>
       members.map((member) => {
@@ -21,7 +21,7 @@ export function StatisticsView({ teams, members, matches }) {
   if (!members.length) {
     return (
       <>
-        <PageHeader title="Statistics" subtitle="Compare players across the organization and spot who needs coaching attention" />
+        {embedded ? null : <PageHeader title="Statistics" subtitle="Compare players across the organization and spot who needs coaching attention" />}
         <EmptyState title="Nothing to compare yet" body="Add players and log a few matches first." />
       </>
     );
@@ -38,7 +38,7 @@ export function StatisticsView({ teams, members, matches }) {
 
   return (
     <>
-      <PageHeader title="Statistics" subtitle="Compare players across the organization and spot who needs coaching attention" />
+      {embedded ? null : <PageHeader title="Statistics" subtitle="Compare players across the organization and spot who needs coaching attention" />}
       <div className="filter-bar">
         <select aria-label="Mode" value={mode} onChange={(e) => setMode(e.target.value)}>
           <option value="">All Modes</option>

@@ -6,6 +6,7 @@ import { canEdit } from '../../../lib/access';
 import { suggestedAccessRole } from '../../../lib/invite';
 import { getProfile, loadAppData } from '../../../lib/data';
 import { createServerSupabase, getSessionUser } from '../../../lib/supabase/server';
+import Link from 'next/link';
 
 export const metadata = { title: 'Players · Coach Intel' };
 
@@ -52,6 +53,7 @@ function RosterGroup({ title, rows, teamId, showInvite }) {
                   <CopyInvite
                     teamId={teamId}
                     memberId={member.id}
+                    gamertag={member.gamertag}
                     accessRole={suggestedAccessRole(member)}
                     linked={Boolean(member.user_id)}
                   />
@@ -79,7 +81,7 @@ export default async function PlayersPage() {
       <PageHeader
         title="Players"
         subtitle={showInvite
-          ? 'Players, staff, and creatives. Invite copies a coach.championshipseries.eu/join link for that roster slot.'
+          ? 'Players, staff, and creatives. Invite copies a personal join link with that player\'s gamertag on it.'
           : 'Members across the organization'}
       />
       <AddPlayer teams={teams} canEdit={showInvite} />

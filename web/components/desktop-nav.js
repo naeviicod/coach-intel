@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { canAccessPage } from '../lib/access';
 import { NAV_GROUPS, SETTINGS_ITEM, TEAM_NAV_PAGES } from '../lib/nav';
+import { isTeamHubPath } from '../lib/hub';
 import { Icon } from './icon';
 
 function active(pathname, item) {
-  if (item.page === 'team-hub' && pathname.startsWith('/teams/')) return true;
+  if (item.page === 'teams') return pathname === '/teams';
+  if (item.page === 'team-hub') return isTeamHubPath(pathname) || pathname.startsWith('/team-hub');
   if (item.aliases?.some((alias) => pathname.startsWith(`/${alias}`))) return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }

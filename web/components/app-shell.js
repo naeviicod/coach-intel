@@ -23,11 +23,6 @@ export function AppShell({ userLabel, teams, children }) {
         </nav>
         <div className="app-nav-foot">
           <p className="nav-user">{userLabel}</p>
-          <form action="/auth/sign-out" method="post">
-            <button type="submit" className="text-link">
-              Sign out
-            </button>
-          </form>
         </div>
       </aside>
       <main className="app-main">{children}</main>

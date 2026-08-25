@@ -1,4 +1,5 @@
 import { accentCssText, accentVars } from '../lib/accent';
+import { ContentMain } from './content-main';
 import { DesktopNav } from './desktop-nav';
 import { DesktopTopbar } from './desktop-topbar';
 import { LookSync } from './look-sync';
@@ -51,7 +52,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
             teams={teams}
             members={members}
           />
-          <main id="content">{children}</main>
+          <ContentMain>{children}</ContentMain>
           <footer id="statusbar">
             <div className="sbar-group">
               <span className="sbar-label">{RULESET.label}</span>

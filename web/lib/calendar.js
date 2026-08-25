@@ -50,8 +50,21 @@ const CHIP_CLS = {
   other: 'other',
 };
 
+export const TYPE_META = {
+  match: { label: 'League match', cls: 'match' },
+  'league-match': { label: 'League match', cls: 'match' },
+  scrim: { label: 'Scrim', cls: 'scrim' },
+  'scrim-block': { label: 'Scrim', cls: 'scrim' },
+  'vod-review': { label: 'VOD review', cls: 'vod' },
+  meeting: { label: 'Meeting', cls: 'meeting' },
+  training: { label: 'Training', cls: 'training' },
+  practice: { label: 'Training', cls: 'training' },
+  task: { label: 'Task', cls: 'task' },
+  other: { label: 'Other', cls: 'other' },
+};
+
 export function chipClass(type) {
-  return CHIP_CLS[type] || 'other';
+  return CHIP_CLS[type] || TYPE_META[type]?.cls || 'other';
 }
 
 export function bucketByDate(items = []) {

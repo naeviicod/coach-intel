@@ -71,8 +71,12 @@ export function SettingsView({ org, canEdit }) {
         <div className="card-head"><h2>Invites</h2></div>
         <p className="field-hint">Org sign-in: coach.championshipseries.eu/join. <CopyJoinAlias /></p>
         <p className="field-hint">Per-player binds are copied from a team roster.</p>
-        <form action="/auth/sign-out" method="post" style={{ marginTop: 16 }}>
-          <button type="submit" className="btn sm">Sign out</button>
+      </div>
+      <div className="card compact">
+        <div className="card-head"><h2>Account</h2></div>
+        <p className="field-hint">Sign out of Coach Intel on this browser. This is the only place to sign out.</p>
+        <form action="/auth/sign-out" method="post" style={{ marginTop: 12 }}>
+          <button type="submit" className="btn">Sign out</button>
         </form>
       </div>
     </>

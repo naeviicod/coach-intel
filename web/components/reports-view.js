@@ -5,9 +5,9 @@ import { buildOpponentReport, buildTeamReport } from '../lib/report';
 import { EmptyState, PageHeader } from './page-header';
 import { Kpi } from './workspace';
 
-export function ReportsView({ teams, members, matches, scrims, opponents }) {
+export function ReportsView({ teams, members, matches, scrims, opponents, embedded, lockedTeamId }) {
   const [type, setType] = useState('team');
-  const [teamId, setTeamId] = useState(teams[0]?.id || '');
+  const [teamId, setTeamId] = useState(lockedTeamId || teams[0]?.id || '');
   const [opponentId, setOpponentId] = useState(opponents[0]?.opponent_id || opponents[0]?.id || '');
 
   const report = useMemo(() => {
@@ -29,7 +29,7 @@ export function ReportsView({ teams, members, matches, scrims, opponents }) {
   if (!teams.length) {
     return (
       <>
-        <PageHeader title="Reports" subtitle="Exportable opponent and performance reports" />
+        {embedded ? null : <PageHeader title="Reports" subtitle="Exportable opponent and performance reports" />}
         <EmptyState title="No teams yet" body="Create a team and log some matches to generate reports." />
       </>
     );
@@ -37,17 +37,17 @@ export function ReportsView({ teams, members, matches, scrims, opponents }) {
 
   return (
     <>
-      <PageHeader title="Reports" subtitle="Exportable opponent and performance reports" />
+      {embedded ? null : <PageHeader title="Reports" subtitle="Exportable opponent and performance reports" />}
       <div className="filter-bar">
         <select value={type} onChange={(e) => setType(e.target.value)}>
           <option value="team">Team Performance</option>
           <option value="opponent">Opponent Scout</option>
         </select>
-        {type === 'team' ? (
+        {type === 'team' && !lockedTeamId ? (
           <select value={teamId} onChange={(e) => setTeamId(e.target.value)}>
             {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-        ) : opponents.length ? (
+        ) : opponents.length && type === 'opponent' ? (
           <select value={opponentId} onChange={(e) => setOpponentId(e.target.value)}>
             {opponents.map((o) => <option key={o.opponent_id || o.id} value={o.opponent_id || o.id}>{o.name}</option>)}
           </select>

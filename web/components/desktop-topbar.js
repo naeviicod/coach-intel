@@ -110,11 +110,6 @@ export function DesktopTopbar({ userLabel, role, title, avatarUrl, org, teams, m
         </div>
         <Face photo={avatarUrl || org?.profilePhoto} name={userLabel} />
       </Link>
-      <form action="/auth/sign-out" method="post">
-        <button type="submit" className="topbar-signout">
-          Sign out
-        </button>
-      </form>
     </header>
   );
 }
