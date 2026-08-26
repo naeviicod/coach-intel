@@ -1,7 +1,7 @@
 export const INVITE_SITE = 'https://coach.championshipseries.eu';
 export const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
 export const INVITE_ROLES = new Set([
-  'owner', 'admin', 'developer', 'user', 'team_leader', 'coach', 'analyst', 'creative',
+  'owner', 'admin', 'developer', 'user', 'team_leader', 'coach', 'analyst', 'creative', 'free_agent',
 ]);
 export const STAFF_INVITE_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
 
@@ -38,6 +38,7 @@ export function accessRoleLabel(role) {
       analyst: 'Analyst',
       creative: 'Creative',
       user: 'Player',
+      free_agent: 'Free Agent',
     }[role] || 'Player'
   );
 }
@@ -52,6 +53,7 @@ export function rosterSlotLabel(slot) {
   const s = String(slot || '').toLowerCase();
   if (s === 'bench') return 'Bench';
   if (s === 'staff') return 'Staff';
+  if (s === 'fa') return 'Free Agent';
   return 'Main roster';
 }
 
@@ -64,6 +66,10 @@ export function inviteChips({ team, playRole, slot, accessRole } = {}) {
   if (s === 'staff') {
     const staff = accessRoleLabel(accessRole);
     chips.push(staff === 'Player' ? 'Staff' : staff);
+    return chips;
+  }
+  if (s === 'fa') {
+    chips.push('Free Agent');
     return chips;
   }
   if (s === 'bench' || s === 'starter' || position) chips.push(rosterSlotLabel(slot));
@@ -81,6 +87,10 @@ export function invitePlacement({ team, playRole, slot } = {}) {
     if (teamName && position) return ` as ${position} on ${teamName}`;
     if (teamName) return ` on ${teamName}`;
     return position ? ` as ${position}` : '';
+  }
+  if (s === 'fa') {
+    if (teamName) return ` as a free agent with ${teamName}`;
+    return ' as a free agent in the org';
   }
   if (s === 'bench') {
     if (teamName && position) return ` as ${position} on ${teamName}'s bench`;
@@ -138,6 +148,7 @@ export function suggestedAccessRole(member) {
   const title = String(member?.title || '').toLowerCase();
   if (/\borg\s*owner\b|\bowner\b/.test(title) && !/team/.test(title)) return 'owner';
   if (/\badmin\b|\bgeneral\s*manager\b|\bgm\b/.test(title)) return 'admin';
+  if (member?.slot === 'fa' || /free\s*agent|\bf\/?a\b/.test(title)) return 'free_agent';
   if (/team\s*leader|team\s*manager/.test(title)) return 'team_leader';
   if (/head\s*coach|\bcoach\b/.test(title)) return 'coach';
   if (/analyst/.test(title)) return 'analyst';

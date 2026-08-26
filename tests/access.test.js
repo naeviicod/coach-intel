@@ -74,6 +74,16 @@ test('assertCanEdit allows a session when the roster cannot be loaded', async ()
   await assertCanEdit(supabase);
 });
 
+test('team leaders are not org editors; they only manage their own roster', () => {
+  const { canEdit, canEditTeam, canTransferMembers } = require('../src/main/access');
+  assert.equal(canEdit('team_leader'), false);
+  assert.equal(canEdit('coach'), true);
+  assert.equal(canEdit('developer'), true);
+  assert.equal(canEditTeam('team_leader', 'rome', { teamIds: ['rome'] }), true);
+  assert.equal(canEditTeam('team_leader', 'other', { teamIds: ['rome'] }), false);
+  assert.equal(canTransferMembers('team_leader'), false);
+});
+
 test('org roles that span every team include coaches, analysts, creatives and team leaders', () => {
   const { seesAllTeams, canEditTeam, canTransferMembers } = require('../src/main/access');
   assert.equal(seesAllTeams('owner'), true);

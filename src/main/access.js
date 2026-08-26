@@ -1,5 +1,5 @@
 const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
 const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
 const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
 
@@ -34,6 +34,10 @@ function isStaff(role) {
 function seesAllTeams(role) {
   const r = String(role || '').toLowerCase().trim();
   return ALL_TEAMS_ROLES.has(r);
+}
+
+function canEdit(role) {
+  return ORG_EDIT_ROLES.has(String(role || '').toLowerCase().trim());
 }
 
 function canEditTeam(role, teamId, { local, teamIds } = {}) {
@@ -72,7 +76,7 @@ async function assertCanEdit(supabase) {
       }),
     ]);
     me = listed?.me || null;
-    if (me && !isStaff(resolveAccessRole(me, { names: listed?.linkedNames }))) {
+    if (me && !canEdit(resolveAccessRole(me, { names: listed?.linkedNames }))) {
       throw new Error('You do not have permission to edit.');
     }
     return;
@@ -114,7 +118,6 @@ async function sessionEditor(supabase) {
 }
 
 async function assertCanEditTeam(supabase, teamId) {
-  await assertCanEdit(supabase);
   const session = await sessionEditor(supabase);
   if (session.local) return;
   if (!canEditTeam(session.role, teamId, session)) {
@@ -133,6 +136,7 @@ async function assertCanTransfer(supabase) {
 
 module.exports = {
   isStaff,
+  canEdit,
   seesAllTeams,
   canEditTeam,
   canTransferMembers,

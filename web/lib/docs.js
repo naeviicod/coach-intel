@@ -83,7 +83,7 @@ export async function saveTeam({ id, name, tag }) {
 
 export async function saveMember(member) {
   const supabase = createBrowserSupabase();
-  const slot = member.slot === 'bench' || member.slot === 'staff' ? member.slot : 'starter';
+  const slot = member.slot === 'bench' || member.slot === 'staff' || member.slot === 'fa' ? member.slot : 'starter';
   const row = {
     id: member.id || newId('mem'),
     team_id: member.team_id,
@@ -101,6 +101,12 @@ export async function saveMember(member) {
   const { error } = await supabase.from('members').upsert(row);
   if (error) throw error;
   return row;
+}
+
+export async function deleteMember({ team_id, id }) {
+  const supabase = createBrowserSupabase();
+  const { error } = await supabase.from('members').delete().eq('team_id', team_id).eq('id', id);
+  if (error) throw error;
 }
 
 export async function updateMyProfile({ displayName, title }) {

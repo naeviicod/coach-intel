@@ -12,7 +12,7 @@ export function RosterSlotButton({ member, canEdit }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  if (!canEdit || member?.slot === 'staff') return null;
+  if (!canEdit || member?.slot === 'staff' || member?.slot === 'fa') return null;
   const onBench = member.slot === 'bench';
 
   async function toggle() {

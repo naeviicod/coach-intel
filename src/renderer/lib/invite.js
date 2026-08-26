@@ -4,7 +4,8 @@ import { ROLE_LABELS } from './access.js';
 
 export const ACCESS_ROLES = [
   { value: 'user', label: 'Player', hint: 'Analytics + Team Hub, only their team.' },
-  { value: 'team_leader', label: 'Team leader', hint: 'Sees every team. Can edit only their own. Cannot transfer players.' },
+  { value: 'free_agent', label: 'Free Agent', hint: 'Stays in the org without a starting lineup slot.' },
+  { value: 'team_leader', label: 'Team leader', hint: 'Sees everything. Read-only except adding, editing, and removing players on their own team.' },
   { value: 'coach', label: 'Coach', hint: 'Full staff access across the org.' },
   { value: 'analyst', label: 'Analyst', hint: 'Analytics only, across the org.' },
   { value: 'creative', label: 'Creative', hint: 'Team Hub + member directory, their team. For artists, designers, and content.' },
@@ -17,6 +18,7 @@ export function suggestedAccessRole(member) {
   const title = String(member?.title || '').toLowerCase();
   if (/\borg\s*owner\b|\bowner\b/.test(title) && !/team/.test(title)) return 'owner';
   if (/\badmin\b|\bgeneral\s*manager\b|\bgm\b/.test(title)) return 'admin';
+  if (member?.slot === 'fa' || /free\s*agent|\bf\/?a\b/.test(title)) return 'free_agent';
   if (/team\s*leader|team\s*manager/.test(title)) return 'team_leader';
   if (/head\s*coach|\bcoach\b/.test(title)) return 'coach';
   if (/analyst/.test(title)) return 'analyst';
@@ -52,7 +54,7 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
   const body = el('div', {}, [
     el('h3', {}, `Invite ${member.gamertag}`),
     el('div', { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
-      'Creates a one-time link with their gamertag on it. They open it in a browser, sign in with Discord, and that account is bound to this member — they get the access you pick.'),
+      'Creates a one-time website link with their gamertag on it (coach.championshipseries.eu/join/…). They open it in a browser, sign in with Discord, and land in the web app — no desktop install required.'),
     el('div', { class: 'field-hint', id: 'invite-status' }, 'Loading…'),
     el('div', { class: 'field' }, [
       el('label', { for: 'invite-role' }, 'Access in Coach Intel'),

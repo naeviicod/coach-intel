@@ -1066,13 +1066,14 @@ ipcMain.handle('cci:authSignOut', async () => {
 ipcMain.handle('cci:authListProfiles', () => safeSupabaseCall(() => supabase.get().listProfiles()));
 ipcMain.handle('cci:authUpdateRole', requireEdit((e, userId, role) => safeSupabaseCall(() => supabase.get().updateProfileRole(userId, role))));
 
-ipcMain.handle('cci:inviteCreate', requireEdit((e, payload) =>
-  safeSupabaseCall(() => supabase.get().create(payload || {}))
-));
+ipcMain.handle('cci:inviteCreate', async (e, payload) => {
+  await assertCanEditTeam(supabase, payload?.teamId);
+  return safeSupabaseCall(() => supabase.get().create(payload || {}));
+});
 ipcMain.handle('cci:inviteStatus', (e, teamId, memberId) =>
   safeSupabaseCall(() => supabase.get().status(teamId, memberId))
 );
-ipcMain.handle('cci:inviteRevoke', requireEdit((e, teamId, memberId) =>
+ipcMain.handle('cci:inviteRevoke', requireEditTeam((e, teamId, memberId) =>
   safeSupabaseCall(() => supabase.get().revoke(teamId, memberId))
 ));
 ipcMain.handle('cci:invitePending', () => safeSupabaseCall(() => supabase.get().pending()));

@@ -28,6 +28,15 @@ test('twitch VODs stamp a timestamp onto the watch link', async () => {
   assert.equal(parseClock('1:02:03'), 3723);
 });
 
+test('free agents stay off the starting lineup', async () => {
+  const { splitRoster, isFreeAgent, normalizeSlot } = await import(libUrl('roster.js'));
+  assert.equal(normalizeSlot('fa'), 'fa');
+  const split = splitRoster([{ id: 'f', gamertag: 'FA', slot: 'fa' }]);
+  assert.equal(isFreeAgent(split.freeAgents[0]), true);
+  assert.equal(split.starters.length, 0);
+  assert.equal(split.freeAgents.length, 1);
+});
+
 test('a fifth player defaults onto the bench', async () => {
   const { defaultSlot, splitRoster, isBench } = await import(libUrl('roster.js'));
   const members = [

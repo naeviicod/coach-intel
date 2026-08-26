@@ -11,7 +11,7 @@ create table if not exists public.profiles (
   display_name text,
   title text,
   role text not null default 'member'
-    check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative')),
+    check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative', 'free_agent')),
   created_at timestamptz not null default now()
 );
 
@@ -28,11 +28,8 @@ create policy "profiles are readable by any signed-in teammate"
   to authenticated
   using (true);
 
--- Only an owner or team leader can change someone's role. The `using` clause
--- alone only gates who may attempt an update — without a matching `with check`,
--- a team_leader could set anyone's (including their own) role to 'owner',
--- since nothing constrained the *new* value being written. The check below
--- requires the actor to already be an owner before a row can end up as 'owner'.
+-- Only an owner, admin, or developer can change someone's Discord access role.
+-- Team leaders manage their own roster; they cannot promote or demote accounts.
 drop policy if exists "only owner or team_leader can edit roles" on public.profiles;
 create policy "only owner or team_leader can edit roles"
   on public.profiles for update
@@ -40,7 +37,7 @@ create policy "only owner or team_leader can edit roles"
   using (
     exists (
       select 1 from public.profiles p
-      where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader')
+      where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer')
     )
   )
   with check (
@@ -333,7 +330,7 @@ alter table public.profiles replica identity full;
 -- Existing projects already have profiles.role check without admin/user.
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
-  check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative'));
+  check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative', 'free_agent'));
 
 alter table public.members add column if not exists slot text not null default 'starter';
 alter table public.members add column if not exists title text;
@@ -352,7 +349,7 @@ create table if not exists public.invites (
   team_id text not null references public.teams (id) on delete cascade,
   member_id text not null references public.members (id) on delete cascade,
   access_role text not null default 'user'
-    check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative')),
+    check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative', 'free_agent')),
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '14 days'),
   accepted_at timestamptz,
@@ -367,7 +364,7 @@ alter table public.invites enable row level security;
 -- Existing projects already have invites.access_role without owner/admin/creative.
 alter table public.invites drop constraint if exists invites_access_role_check;
 alter table public.invites add constraint invites_access_role_check
-  check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative'));
+  check (access_role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'user', 'creative', 'free_agent'));
 
 drop policy if exists "staff can manage invites" on public.invites;
 create policy "staff can manage invites"

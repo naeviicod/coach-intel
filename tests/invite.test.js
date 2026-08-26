@@ -7,6 +7,8 @@ const libUrl = (name) => pathToFileURL(path.join(__dirname, '..', 'src', 'render
 
 test('staff titles pick an invite access role', async () => {
   const { suggestedAccessRole, accessRoleLabel, inviteUrl } = await import(libUrl('invite.js'));
+  assert.equal(suggestedAccessRole({ title: 'Free Agent' }), 'free_agent');
+  assert.equal(suggestedAccessRole({ slot: 'fa' }), 'free_agent');
   assert.equal(suggestedAccessRole({ title: 'Team Leader' }), 'team_leader');
   assert.equal(suggestedAccessRole({ title: 'Head Coach' }), 'coach');
   assert.equal(suggestedAccessRole({ title: 'Analyst' }), 'analyst');
@@ -234,6 +236,9 @@ test('players do not see every team; team leaders see them but only edit their o
   assert.equal(isStaff('creative'), false);
   assert.equal(canEditTeam('team_leader', 'rome', { teamIds: ['rome'] }), true);
   assert.equal(canEditTeam('team_leader', 'other', { teamIds: ['rome'] }), false);
+  const { canEdit } = await import(libUrl('access.js'));
+  assert.equal(canEdit('team_leader'), false);
+  assert.equal(canEdit('coach'), true);
   assert.equal(canTransferMembers('team_leader'), false);
   assert.equal(canTransferMembers('admin'), true);
   assert.equal(canAccessPage('admin', 'war-room'), true);

@@ -195,7 +195,7 @@ function createTeamsService({ client }) {
       role: member.role || 'Flex',
       aliases: member.aliases || [],
       photo: member.photo ?? null,
-      slot: member.slot === 'bench' || member.slot === 'staff' ? member.slot : 'starter',
+      slot: member.slot === 'bench' || member.slot === 'staff' || member.slot === 'fa' ? member.slot : 'starter',
       title: member.title || null,
       handles: member.handles && typeof member.handles === 'object' ? member.handles : {},
       updated_at: new Date().toISOString(),
@@ -235,7 +235,7 @@ function createTeamsService({ client }) {
     const patch = {
       team_id: toTeamId,
       updated_at: new Date().toISOString(),
-      ...(slot === 'bench' || slot === 'staff' || slot === 'starter' ? { slot } : {}),
+      ...(slot === 'bench' || slot === 'staff' || slot === 'starter' || slot === 'fa' ? { slot } : {}),
     };
     const { data, error } = await c
       .from('members')

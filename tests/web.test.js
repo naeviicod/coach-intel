@@ -11,6 +11,15 @@ function read(rel) {
   return fs.readFileSync(path.join(web, rel), 'utf8');
 }
 
+test('Discord return paths survive encoding so invites redeem on the website', async () => {
+  const { pathToFileURL } = require('node:url');
+  const { safeAuthNext } = await import(pathToFileURL(path.join(web, 'lib/auth-next.js')).href);
+  assert.equal(safeAuthNext('%2Fjoin%2Fbracke%2FabcDEF1234567890abcd'), '/join/bracke/abcDEF1234567890abcd');
+  assert.equal(safeAuthNext('/join/bracke/abcDEF1234567890abcd'), '/join/bracke/abcDEF1234567890abcd');
+  assert.equal(safeAuthNext('https://evil.example'), '/dashboard');
+  assert.equal(safeAuthNext('//evil.example'), '/dashboard');
+});
+
 test('the public site is a product gateway, not an Open App splash', () => {
   const page = read('app/page.js');
   const gateway = read('components/public-gateway.js');
@@ -102,8 +111,8 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(legacyInvite, /redirect\(`\/join\//);
   const oauth = read('components/discord-sign-in.js');
   const middleware = read('middleware.js');
-  assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback`/);
-  assert.doesNotMatch(oauth, /callback\?next=/);
+  assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback\?next=\$\{encodeURIComponent\(next\)\}`/);
+  assert.match(oauth, /ci-auth-next=\$\{encodeURIComponent\(next\)\}/);
   assert.match(middleware, /pathname !== '\/auth\/callback'/);
   assert.match(middleware, /searchParams\.get\('code'\)/);
 });
@@ -143,6 +152,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/refresh-button.js'), /router.refresh/);
   assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /alter publication supabase_realtime add table public.profiles/);
   assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /is_org_writer/);
+  assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /free_agent/);
   assert.match(settings, /Sign out/);
   assert.match(settings, /Your Profile/);
   assert.match(settings, /updateMyProfile/);
@@ -154,6 +164,11 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/roster-slot-button.js'), /nextLineupSlot|slot === 'bench'/);
   assert.match(read('app/(shell)/players/page.js'), /RosterSlotButton/);
   assert.match(read('app/(shell)/players/page.js'), /canManageTeam/);
+  assert.match(read('app/(shell)/players/page.js'), /player-group-grid/);
+  assert.match(read('app/(shell)/players/page.js'), /Free Agents/);
+  assert.match(read('lib/auth-next.js'), /safeAuthNext/);
+  assert.match(read('app/auth/callback/route.js'), /safeAuthNext/);
+  assert.match(read('components/discord-sign-in.js'), /encodeURIComponent\(next\)/);
   assert.match(read('app/(shell)/players/page.js'), /VerifiedMark/);
   assert.match(read('app/(shell)/players/page.js'), /memberDiscordVerified/);
   assert.match(settings, /list-item-row/);

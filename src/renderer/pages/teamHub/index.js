@@ -92,7 +92,7 @@ export async function render(container, ctx) {
     goTeam: (teamId) => ctx.navigate('team-hub', `${teamId}/${hubCtx.section}`),
     openPlaybooks: (...rest) =>
       ctx.navigate('playbooks', [team.id, ...rest.filter(Boolean)].join('/')),
-    canEdit: Boolean(ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit),
+    canEdit: Boolean(ctx.canEdit),
     ctxToggle: contextToggle(context),
     refreshRail: null,
   };

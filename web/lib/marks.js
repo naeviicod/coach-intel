@@ -124,10 +124,20 @@ export function splitRoster(members) {
     return member;
   });
   return {
-    starters: list.filter((m) => m?.slot !== 'bench' && m?.slot !== 'staff'),
+    starters: list.filter((m) => m?.slot !== 'bench' && m?.slot !== 'staff' && m?.slot !== 'fa'),
     bench: list.filter((m) => m?.slot === 'bench'),
     staff: list.filter((m) => m?.slot === 'staff'),
+    freeAgents: list.filter((m) => m?.slot === 'fa'),
   };
+}
+
+export function memberOrgGroup(member) {
+  const title = String(member?.title || '').toLowerCase();
+  if (member?.slot === 'fa' || /free\s*agent|\bf\/?a\b/.test(title)) return 'fa';
+  if (/\b(org\s*owner|admin|general\s*manager|\bgm\b|developer)\b/.test(title)) return 'admins';
+  if (/\bcoach\b/.test(title)) return 'coaches';
+  if (member?.slot === 'staff') return 'staff';
+  return 'players';
 }
 
 export function fmtDue(dateStr) {

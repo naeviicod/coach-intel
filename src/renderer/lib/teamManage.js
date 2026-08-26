@@ -90,6 +90,7 @@ function imageExt(sourcePath) {
 function memberHeading(isEdit, member, slot) {
   if (isEdit) return `Edit ${member.gamertag}`;
   if (slot === 'staff') return 'Add Org Member';
+  if (slot === 'fa') return 'Add Free Agent';
   if (slot === 'bench') return 'Add Bench Player';
   return 'Add Member';
 }
@@ -181,6 +182,7 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
         el('select', { id: 'member-slot' }, [
           el('option', { value: 'starter', selected: initialSlot === 'starter' ? 'selected' : null }, 'Starter'),
           el('option', { value: 'bench', selected: initialSlot === 'bench' ? 'selected' : null }, 'Backup / Bench'),
+          el('option', { value: 'fa', selected: initialSlot === 'fa' ? 'selected' : null }, 'Free Agent'),
           el('option', { value: 'staff', selected: initialSlot === 'staff' ? 'selected' : null }, 'Staff / Org'),
         ]),
         el('div', { class: 'field-hint' }, 'Where they sit on this roster. Org roles are separate — a starter can also be a developer or coach.'),
@@ -407,6 +409,7 @@ export async function openTransferModal(ctx, fromTeam, members, { onDone } = {})
         bulk ? el('option', { value: 'keep', selected: 'selected' }, 'Keep current slot') : null,
         el('option', { value: 'starter', selected: !bulk && initialSlot === 'starter' ? 'selected' : null }, 'Starter'),
         el('option', { value: 'bench', selected: !bulk && initialSlot === 'bench' ? 'selected' : null }, 'Backup / Bench'),
+        el('option', { value: 'fa', selected: !bulk && initialSlot === 'fa' ? 'selected' : null }, 'Free Agent'),
         el('option', { value: 'staff', selected: !bulk && initialSlot === 'staff' ? 'selected' : null }, 'Staff / Org'),
       ]),
     ]),

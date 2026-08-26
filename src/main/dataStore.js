@@ -282,7 +282,7 @@ async function saveMember(teamId, member) {
     aliases: member.aliases || [],
     role: member.role || 'Flex',
     photo: member.photo || null,
-    slot: member.slot === 'bench' || member.slot === 'staff' ? member.slot : 'starter',
+    slot: member.slot === 'bench' || member.slot === 'staff' || member.slot === 'fa' ? member.slot : 'starter',
     title: memberTitle(member.title, member),
     handles: memberHandles(member.handles),
     updated_at: member.updated_at || new Date().toISOString(),
@@ -330,7 +330,7 @@ async function transferMember(fromTeamId, toTeamId, memberId, { slot } = {}) {
   }
 
   const source = member || dest;
-  const nextSlot = slot === 'bench' || slot === 'staff' || slot === 'starter' ? slot : source.slot;
+  const nextSlot = slot === 'bench' || slot === 'staff' || slot === 'starter' || slot === 'fa' ? slot : source.slot;
   const saved = await saveMember(to, { ...source, id, slot: nextSlot });
   if (member) await deleteMember(from, id);
   return { ...saved, team_id: to, from_team_id: from };

@@ -25,7 +25,7 @@ export async function JoinInvite({ token }) {
   return (
     <InviteGate
       invite={preview}
-      nextPath={`/join/${encodeURIComponent(slug)}/${encodeURIComponent(inviteToken)}`}
+      nextPath={`/join/${slug}/${inviteToken}`}
     />
   );
 }

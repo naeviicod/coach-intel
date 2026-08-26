@@ -26,14 +26,14 @@ export async function render(panel, ctx) {
 
   const { profiles, me, linkedNames } = result.data;
   const myRole = resolveAccessRole(me, { names: linkedNames });
-  const canEditRoles = Boolean(me && canEdit(myRole) && (myRole === 'owner' || myRole === 'admin' || myRole === 'developer' || myRole === 'team_leader'));
+  const canEditRoles = Boolean(me && canEdit(myRole) && (myRole === 'owner' || myRole === 'admin' || myRole === 'developer'));
 
   const card = el('div', { class: 'card section' }, [
     el('div', { class: 'section-title' }, 'Who can sign in'),
     el(
       'div',
       { class: 'field-hint', style: 'margin-bottom:10px;' },
-      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite from Players (or a team page on the website) — the link is coach.championshipseries.eu/join/… and binds Discord to that roster slot. Org sign-in without a slot is /join. Team leaders see every team but only edit their own. Only org owners, admins, and developers can transfer players between teams.'
+      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite from Players — the link is coach.championshipseries.eu/join/… and opens the website. Team leaders see everything and may only add, edit, or remove players on their own team. Only org owners, admins, and developers can transfer players between teams.'
     ),
   ]);
 

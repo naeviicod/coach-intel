@@ -1311,6 +1311,24 @@ body.is-refreshing .refresh-icon,
 
 body.access-readonly .edit-only,
 .team-readonly .edit-only { display: none !important; }
+body.access-readonly .roster-manage .edit-only { display: flex !important; }
+
+.player-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.player-group-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.player-group-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 
 .lineup-grid {
   display: grid;

@@ -37,7 +37,7 @@ export default async function TeamHubPage({ params }) {
       scrims={scoped(data.scrims)}
       opponents={data.opponents}
       ruleset={resolveRuleset(data.rulesetDocs)}
-      canEdit={data.canManageTeam(team.id)}
+      canEdit={data.canEdit}
       author={data.org?.profileName || 'Coach'}
       reviewCount={0}
     />

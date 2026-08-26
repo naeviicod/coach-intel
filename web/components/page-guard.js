@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { canAccessPage, isPlayer, landingPath } from '../lib/access';
+import { canAccessPage, canEdit, isPlayer, landingPath } from '../lib/access';
 import { pageFromPath } from '../lib/nav';
 
 export function PageGuard({ role }) {
@@ -10,6 +10,7 @@ export function PageGuard({ role }) {
   const router = useRouter();
 
   useEffect(() => {
+    document.body.classList.toggle('access-readonly', !canEdit(role));
     const page = pageFromPath(pathname);
     if (!page || canAccessPage(role, page)) return;
     const dest = isPlayer(role) ? landingPath(role) : '/dashboard';

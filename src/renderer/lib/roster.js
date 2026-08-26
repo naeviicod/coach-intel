@@ -8,7 +8,7 @@ export function nextLineupSlot(slot) {
 }
 
 export function normalizeSlot(slot) {
-  if (slot === 'bench' || slot === 'staff') return slot;
+  if (slot === 'bench' || slot === 'staff' || slot === 'fa') return slot;
   return 'starter';
 }
 
@@ -24,8 +24,12 @@ export function isStaffMember(member) {
   return normalizeMember(member)?.slot === 'staff';
 }
 
+export function isFreeAgent(member) {
+  return normalizeMember(member)?.slot === 'fa';
+}
+
 export function isPlayingMember(member) {
-  return !isStaffMember(member);
+  return !isStaffMember(member) && !isFreeAgent(member);
 }
 
 export function isBench(member) {
@@ -42,9 +46,19 @@ export function splitRoster(members) {
     starters: list.filter(isStarter),
     bench: list.filter(isBench),
     staff: list.filter(isStaffMember),
+    freeAgents: list.filter(isFreeAgent),
   };
 }
 
 export function defaultSlot(members) {
   return splitRoster(members).starters.length >= 4 ? 'bench' : 'starter';
+}
+
+export function memberOrgGroup(member) {
+  const title = String(member?.title || '').toLowerCase();
+  if (isFreeAgent(member) || /free\s*agent|\bf\/?a\b/.test(title)) return 'fa';
+  if (/\b(org\s*owner|admin|general\s*manager|\bgm\b|developer)\b/.test(title)) return 'admins';
+  if (/\bcoach\b/.test(title)) return 'coaches';
+  if (isStaffMember(member)) return 'staff';
+  return 'players';
 }

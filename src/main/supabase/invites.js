@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 
-const ACCESS_ROLES = new Set(['owner', 'admin', 'user', 'team_leader', 'coach', 'analyst', 'creative']);
+const ACCESS_ROLES = new Set(['owner', 'admin', 'developer', 'user', 'team_leader', 'coach', 'analyst', 'creative', 'free_agent']);
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

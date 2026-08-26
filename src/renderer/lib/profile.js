@@ -27,6 +27,7 @@ export const TITLE_SUGGESTIONS = [
   'Social Media',
   'Video Editor',
   'Developer',
+  'Free Agent',
 ];
 
 const STAFF_TITLE_RE = /\b(org\s*owner|owner|admin|general\s*manager|\bgm\b|team\s*manager|head\s*coach|coach|team\s*leader|analyst|artist|graphic\s*designer|designer|content(\s*creator)?|social(\s*media)?|video\s*editor|developer)\b/i;

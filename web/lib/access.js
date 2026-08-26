@@ -1,7 +1,7 @@
 const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
-const PLAYER_ROLES = new Set(['member', 'user', 'player']);
+const PLAYER_ROLES = new Set(['member', 'user', 'player', 'free_agent']);
 const CREATIVE_ROLES = new Set(['creative']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
 const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
 const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
 
@@ -27,6 +27,7 @@ export const ROLE_LABELS = {
   coach: 'Coach',
   analyst: 'Analyst',
   creative: 'Creative',
+  free_agent: 'Free Agent',
   member: 'Player',
   user: 'Player',
   player: 'Player',
@@ -50,7 +51,7 @@ export function isPlayer(role) {
 }
 
 export function canEdit(role) {
-  return isStaff(role);
+  return ORG_EDIT_ROLES.has(String(role || '').toLowerCase().trim());
 }
 
 export function canEditTeam(role, teamId, { local, teamIds } = {}) {
