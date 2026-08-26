@@ -1313,22 +1313,75 @@ body.access-readonly .edit-only,
 .team-readonly .edit-only { display: none !important; }
 body.access-readonly .roster-manage .edit-only { display: flex !important; }
 
+.player-group-board { display: flex; flex-direction: column; gap: 22px; }
+.player-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
 .player-group-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
 }
 .player-group-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  padding: 16px 18px;
+  min-height: 92px;
   text-align: left;
   cursor: pointer;
   width: 100%;
   color: inherit;
   text-decoration: none;
+  transition: border-color var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
 }
-.player-group-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.player-group-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--surface-border));
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.player-group-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, #141414);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.player-group-mark .icon,
+.player-group-mark svg { display: block; }
+.player-group-card .team-logo.lg {
+  width: 56px;
+  height: 56px;
+  font-size: 16px;
+  border-radius: 14px;
+}
+.player-group-copy { min-width: 0; flex: 1; text-align: left; }
+.player-group-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 2px;
+}
+.player-group-card .team-identity-name { font-size: 16px; }
+.player-group-count {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  min-width: 1.4em;
+  text-align: right;
+}
 
 .lineup-grid {
   display: grid;

@@ -1,5 +1,6 @@
 import { AddPlayer, EditMember, RemoveMember } from '../../../components/add-records';
 import { CopyInvite } from '../../../components/copy-invite';
+import { Icon } from '../../../components/icon';
 import { RosterSlotButton } from '../../../components/roster-slot-button';
 import { PageHeader, EmptyState } from '../../../components/page-header';
 import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified } from '../../../lib/marks';
@@ -10,10 +11,10 @@ import Link from 'next/link';
 export const metadata = { title: 'Players · Coach Intel' };
 
 const ORG_GROUPS = {
-  staff: { title: 'Staff', meta: 'Analysts, creatives, and org staff' },
-  coaches: { title: 'Coaches', meta: 'Coaching staff across the org' },
-  admins: { title: 'Admins', meta: 'Owners, admins, and developers' },
-  fa: { title: 'Free Agents', meta: 'In the org, not on a starting lineup' },
+  staff: { title: 'Staff', kicker: 'Org group', meta: 'Analysts, creatives, and org staff', icon: 'database' },
+  coaches: { title: 'Coaches', kicker: 'Org group', meta: 'Coaching staff across the org', icon: 'scouting' },
+  admins: { title: 'Admins', kicker: 'Org group', meta: 'Owners, admins, and developers', icon: 'settings' },
+  fa: { title: 'Free Agents', kicker: 'Org group', meta: 'In the org, not on a starting lineup', icon: 'players' },
 };
 
 function lineupMeta(starters, bench, staff, fa) {
@@ -24,15 +25,22 @@ function lineupMeta(starters, bench, staff, fa) {
   return bits.join(' · ');
 }
 
-function GroupTile({ href, title, meta, count, team }) {
+function GroupTile({ href, kicker, title, meta, count, team, iconName }) {
   return (
     <Link href={href} className="card player-group-card">
-      {team ? <TeamMark team={team} className="team-logo lg" /> : <div className="team-logo lg">{title.slice(0, 2)}</div>}
-      <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+      {team ? (
+        <TeamMark team={team} className="team-logo lg" />
+      ) : (
+        <div className="player-group-mark">
+          <Icon name={iconName} size={22} />
+        </div>
+      )}
+      <div className="player-group-copy">
+        {kicker ? <div className="player-group-kicker">{kicker}</div> : null}
         <div className="team-identity-name">{title}</div>
         <div className="team-meta">{meta}</div>
       </div>
-      <div className="card-meta">{String(count)}</div>
+      <div className="player-group-count">{String(count)}</div>
     </Link>
   );
 }
@@ -109,7 +117,7 @@ function RosterGroup({ title, rows, teamId, showInvite, canEdit }) {
 export default async function PlayersPage({ searchParams }) {
   const params = await searchParams;
   const group = String(params?.group || '');
-  const { teams, members, canManageTeam } = await loadWorkspace();
+  const { teams, members, canManageTeam } = await loadWorkspace({ rosterOnly: true });
   const orgOf = (key) => members.filter((member) => memberOrgGroup(member) === key);
   const canManageAny = teams.some((team) => canManageTeam(team.id));
 
@@ -129,30 +137,43 @@ export default async function PlayersPage({ searchParams }) {
           <Link href="/teams" className="btn primary" style={{ marginTop: 14 }}>Go to Teams</Link>
         </EmptyState>
       ) : !group ? (
-        <div className="player-group-grid">
-          {teams.map((team) => {
-            const roster = members.filter((m) => m.team_id === team.id);
-            const { starters, bench, staff, freeAgents } = splitRoster(roster);
-            return (
-              <GroupTile
-                key={team.id}
-                href={`/players?group=team-${encodeURIComponent(team.id)}`}
-                title={`${team.name} Roster`}
-                meta={lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)}
-                count={roster.length}
-                team={team}
-              />
-            );
-          })}
-          {Object.entries(ORG_GROUPS).map(([key, info]) => (
-            <GroupTile
-              key={key}
-              href={`/players?group=${key}`}
-              title={info.title}
-              meta={info.meta}
-              count={orgOf(key).length}
-            />
-          ))}
+        <div className="player-group-board">
+          <div className="player-group-block">
+            <div className="player-group-label">Rosters</div>
+            <div className="player-group-grid">
+              {teams.map((team) => {
+                const roster = members.filter((m) => m.team_id === team.id);
+                const { starters, bench, staff, freeAgents } = splitRoster(roster);
+                return (
+                  <GroupTile
+                    key={team.id}
+                    href={`/players?group=team-${encodeURIComponent(team.id)}`}
+                    kicker={team.tag || 'Team'}
+                    title={`${team.name} Roster`}
+                    meta={lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)}
+                    count={roster.length}
+                    team={team}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div className="player-group-block">
+            <div className="player-group-label">Organization</div>
+            <div className="player-group-grid">
+              {Object.entries(ORG_GROUPS).map(([key, info]) => (
+                <GroupTile
+                  key={key}
+                  href={`/players?group=${key}`}
+                  kicker={info.kicker}
+                  title={info.title}
+                  meta={info.meta}
+                  count={orgOf(key).length}
+                  iconName={info.icon}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       ) : group.startsWith('team-') ? (
         (() => {

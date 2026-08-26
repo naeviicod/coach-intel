@@ -1,9 +1,16 @@
-import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark } from '../utils.js';
+import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark, icon } from '../utils.js';
 import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
 import { defaultSlot, isStaffMember, isFreeAgent, nextLineupSlot, splitRoster, memberOrgGroup } from '../lib/roster.js';
 import { isNaevii, memberStaffTitle, orgTitles, memberDiscordVerified } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
 import { toast } from '../components/modal.js';
+
+const ORG_GROUPS = {
+  staff: { title: 'Staff', kicker: 'Org group', meta: 'Analysts, creatives, and org staff', icon: 'database' },
+  coaches: { title: 'Coaches', kicker: 'Org group', meta: 'Coaching staff across the org', icon: 'scouting' },
+  admins: { title: 'Admins', kicker: 'Org group', meta: 'Owners, admins, and developers', icon: 'settings' },
+  fa: { title: 'Free Agents', kicker: 'Org group', meta: 'In the org, not on a starting lineup', icon: 'players' },
+};
 
 function groupMeta(members) {
   const { starters, bench, staff, freeAgents } = splitRoster(members);
@@ -13,6 +20,7 @@ function groupMeta(members) {
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
   const group = String(ctx.param || '');
+  const manageFor = (teamId) => (ctx.canEditTeam ? ctx.canEditTeam(teamId) : ctx.canEdit);
 
   container.append(
     el('div', { class: 'page-header' }, [
@@ -35,48 +43,59 @@ export async function render(container, ctx) {
     return;
   }
 
-  const packed = [];
-  for (const team of teams) {
-    const [rawMembers, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
-    const members = await repairPlayingNaevii(team.id, rawMembers, ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit);
-    packed.push({ team, members, matches });
+  async function packTeam(team, { withMatches, repair }) {
+    const [rawMembers, matches] = await Promise.all([
+      window.cci.getMembers(team.id),
+      withMatches ? window.cci.getMatches(team.id) : Promise.resolve([]),
+    ]);
+    const members = repair
+      ? await repairPlayingNaevii(team.id, rawMembers, manageFor(team.id))
+      : rawMembers;
+    return { team, members, matches };
   }
 
-  const orgRows = packed.flatMap(({ team, members, matches }) =>
-    members.map((member) => ({ member, team, matches }))
-  );
-  const orgOf = (key) => orgRows.filter((row) => memberOrgGroup(row.member) === key);
-
   if (!group) {
-    container.append(el('div', { class: 'player-group-grid' }, [
-      ...packed.map(({ team, members }) =>
-        groupTile(ctx, `team-${team.id}`, `${team.name} Roster`, groupMeta(members), members.length, team)
-      ),
-      groupTile(ctx, 'staff', 'Staff', 'Analysts, creatives, and org staff', orgOf('staff').length),
-      groupTile(ctx, 'coaches', 'Coaches', 'Coaching staff across the org', orgOf('coaches').length),
-      groupTile(ctx, 'admins', 'Admins', 'Owners, admins, and developers', orgOf('admins').length),
-      groupTile(ctx, 'fa', 'Free Agents', 'In the org, not on a starting lineup', orgOf('fa').length),
+    const packed = await Promise.all(teams.map((team) => packTeam(team, { withMatches: false, repair: false })));
+    const orgRows = packed.flatMap(({ team, members }) => members.map((member) => ({ member, team })));
+    const orgOf = (key) => orgRows.filter((row) => memberOrgGroup(row.member) === key);
+    container.append(el('div', { class: 'player-group-board' }, [
+      el('div', { class: 'player-group-block' }, [
+        el('div', { class: 'player-group-label' }, 'Rosters'),
+        el('div', { class: 'player-group-grid' }, packed.map(({ team, members }) =>
+          groupTile(ctx, `team-${team.id}`, team.tag || 'Team', `${team.name} Roster`, groupMeta(members), members.length, team)
+        )),
+      ]),
+      el('div', { class: 'player-group-block' }, [
+        el('div', { class: 'player-group-label' }, 'Organization'),
+        el('div', { class: 'player-group-grid' }, Object.entries(ORG_GROUPS).map(([key, info]) =>
+          groupTile(ctx, key, info.kicker, info.title, info.meta, orgOf(key).length, null, info.icon)
+        )),
+      ]),
     ]));
     return;
   }
 
   if (group.startsWith('team-')) {
     const teamId = group.slice(5);
-    const pack = packed.find((row) => row.team.id === teamId);
-    if (!pack) {
+    const team = teams.find((row) => row.id === teamId);
+    if (!team) {
       ctx.navigate('players');
       return;
     }
+    const pack = await packTeam(team, { withMatches: true, repair: true });
     container.append(rosterCard(pack.team, pack.members, pack.matches, ctx, teams));
     return;
   }
 
-  const labels = { staff: 'Staff', coaches: 'Coaches', admins: 'Admins', fa: 'Free Agents' };
-  const rows = orgOf(group);
-  const anyManage = rows.some((row) => (ctx.canEditTeam ? ctx.canEditTeam(row.team.id) : ctx.canEdit));
+  const packed = await Promise.all(teams.map((team) => packTeam(team, { withMatches: true, repair: true })));
+  const orgRows = packed.flatMap(({ team, members, matches }) =>
+    members.map((member) => ({ member, team, matches }))
+  );
+  const rows = orgRows.filter((row) => memberOrgGroup(row.member) === group);
+  const anyManage = rows.some((row) => manageFor(row.team.id));
   const card = el('div', { class: `card section${anyManage ? ' roster-manage' : ''}` }, [
     el('div', { class: 'card-head' }, [
-      el('div', { class: 'card-title' }, labels[group] || 'Group'),
+      el('div', { class: 'card-title' }, ORG_GROUPS[group]?.title || 'Group'),
       el('div', { class: 'card-meta' }, String(rows.length)),
     ]),
   ]);
@@ -84,9 +103,8 @@ export async function render(container, ctx) {
     card.append(el('div', { class: 'field-hint' }, 'Nobody in this group yet. Add a member and set their slot or title.'));
   } else {
     for (const row of rows) {
-      const manage = ctx.canEditTeam ? ctx.canEditTeam(row.team.id) : ctx.canEdit;
       card.append(memberRow(row.member, row.team, row.matches, ctx, {
-        manage,
+        manage: manageFor(row.team.id),
         canTransfer: Boolean(ctx.canTransfer) && teams.some((t) => t.id !== row.team.id),
       }));
     }
@@ -94,18 +112,23 @@ export async function render(container, ctx) {
   container.append(card);
 }
 
-function groupTile(ctx, key, title, meta, count, team) {
+function groupTile(ctx, key, kicker, title, meta, count, team, iconName) {
   return el('button', {
     type: 'button',
     class: 'card player-group-card',
     onclick: () => ctx.navigate('players', key),
   }, [
-    team ? teamMark(team, { class: 'team-logo lg' }) : el('div', { class: 'team-logo lg' }, title.slice(0, 2)),
-    el('div', { style: 'min-width:0;flex:1;text-align:left;' }, [
+    team
+      ? teamMark(team, { class: 'team-logo lg' })
+      : el('div', { class: 'player-group-mark' }, [
+          el('span', { class: 'icon', html: icon(iconName || 'players', 22) }),
+        ]),
+    el('div', { class: 'player-group-copy' }, [
+      kicker ? el('div', { class: 'player-group-kicker' }, kicker) : null,
       el('div', { class: 'team-identity-name' }, title),
       el('div', { class: 'team-meta' }, meta),
     ]),
-    el('div', { class: 'card-meta' }, String(count)),
+    el('div', { class: 'player-group-count' }, String(count)),
   ]);
 }
 

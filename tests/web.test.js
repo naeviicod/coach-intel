@@ -166,7 +166,16 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/players/page.js'), /RosterSlotButton/);
   assert.match(read('app/(shell)/players/page.js'), /canManageTeam/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-grid/);
+  assert.match(read('app/(shell)/players/page.js'), /player-group-mark/);
   assert.match(read('app/(shell)/players/page.js'), /Free Agents/);
+  assert.match(read('app/(shell)/players/page.js'), /rosterOnly:\s*true/);
+  assert.doesNotMatch(read('app/(shell)/players/page.js'), /title\.slice\(0,\s*2\)/);
+  assert.match(read('lib/workspace.js'), /loadRosterCore/);
+  assert.match(read('lib/workspace.js'), /rosterOnly/);
+  assert.match(read('app/(shell)/layout.js'), /loadRosterCore/);
+  assert.match(read('lib/supabase/server.js'), /cache\(/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /Promise\.all\(teams\.map/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /title\.slice\(0,\s*2\)/);
   assert.match(read('lib/auth-next.js'), /safeAuthNext/);
   assert.match(read('app/auth/callback/route.js'), /safeAuthNext/);
   assert.match(read('components/discord-sign-in.js'), /encodeURIComponent\(next\)/);

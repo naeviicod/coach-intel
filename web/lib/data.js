@@ -108,12 +108,9 @@ export async function listGuildLinks(supabase) {
   return data || [];
 }
 
-export async function loadAppData(supabase) {
-  const [org, teams, members, events, tasks, matches, notes, strats, scrims, vods, vetoes, opponents, rankingsDocs, rulesetDocs] =
+export async function loadDocBundles(supabase) {
+  const [events, tasks, matches, notes, strats, scrims, vods, vetoes, opponents, rankingsDocs, rulesetDocs] =
     await Promise.all([
-      getOrg(supabase).catch(() => null),
-      listTeams(supabase).catch(() => []),
-      listAllMembers(supabase).catch(() => []),
       listDocs(supabase, 'event').catch(() => []),
       listDocs(supabase, 'task').catch(() => []),
       listDocs(supabase, 'match').catch(() => []),
@@ -128,9 +125,6 @@ export async function loadAppData(supabase) {
     ]);
   const rankings = rankingsDocs.find((d) => d.id === 'current') || rankingsDocs[0] || { region: '', teams: [] };
   return {
-    org,
-    teams,
-    members,
     events,
     tasks,
     matches,
@@ -143,4 +137,14 @@ export async function loadAppData(supabase) {
     rankings,
     rulesetDocs,
   };
+}
+
+export async function loadAppData(supabase) {
+  const [org, teams, members, docs] = await Promise.all([
+    getOrg(supabase).catch(() => null),
+    listTeams(supabase).catch(() => []),
+    listAllMembers(supabase).catch(() => []),
+    loadDocBundles(supabase),
+  ]);
+  return { org, teams, members, ...docs };
 }
