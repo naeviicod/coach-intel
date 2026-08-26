@@ -44,8 +44,8 @@ test('the public site is a product gateway, not an Open App splash', () => {
   assert.equal(fs.existsSync(path.join(web, 'app', 'icon.png')), true);
   assert.equal(fs.existsSync(path.join(web, 'app', 'favicon.ico')), false);
   const icon = fs.readFileSync(path.join(web, 'app', 'icon.png'));
-  assert.equal(icon.readUInt32BE(16), 32);
-  assert.equal(icon.readUInt32BE(20), 32);
+  assert.equal(icon.readUInt32BE(16), 64);
+  assert.equal(icon.readUInt32BE(20), 64);
   for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
