@@ -71,6 +71,7 @@ export async function render(panel, ctx) {
 
 function accentCard(org, save) {
   const current = normalizeHex(org.accent) || DEFAULT_ACCENT;
+  applyAccent(current);
   const hexInput = el('input', { type: 'text', value: current, spellcheck: 'false', maxlength: 7 });
   const picker = el('input', { type: 'color', value: current, class: 'accent-picker' });
 

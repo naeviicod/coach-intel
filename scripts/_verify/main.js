@@ -383,7 +383,7 @@ async function runShell(win) {
 async function runPlanning(win) {
   const pages = [
     ['teams', ['Teams', 'Add Team'], '29-teams'],
-    ['players', ['Players', 'Add Member', 'Roster'], '29a-players'],
+    ['players', ['Members', 'Add Member', 'Roster'], '29a-players'],
     ['calendar', ['Calendar'], '30-calendar'],
     ['scrim-hub', ['Scrim Hub'], '31-scrim-hub'],
     ['vod-library', ['VOD Library'], '32-vod-library'],

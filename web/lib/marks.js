@@ -182,7 +182,7 @@ export function VerifiedMark() {
     <span
       className="verified-mark"
       title="Confirmed · signed in with Discord"
-      dangerouslySetInnerHTML={{ __html: icon('check', 9) }}
+      dangerouslySetInnerHTML={{ __html: icon('check', 10) }}
     />
   );
 }

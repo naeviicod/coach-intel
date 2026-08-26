@@ -75,7 +75,7 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(invite, /invite_preview/);
   assert.match(invite, /redeem_invite/);
   assert.match(invite, /\/join\//);
-  assert.match(invite, /You've been invited/);
+  assert.match(invite, /You've been selected/);
   assert.match(invite, /inviteeSlug/);
   assert.match(invite, /gamertag/);
   assert.match(read('lib/invite-email.js'), /Coach Intel/);
@@ -84,21 +84,27 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(read('lib/invite-email.js'), /teamLogoSrc/);
   assert.match(read('app/join/email-preview/page.js'), /loadInviteFromApp/);
   assert.match(read('app/join/email-preview/page.js'), /previewJoinUrl/);
+  assert.match(read('app/join/email-preview/page.js'), /markSrc/);
   assert.doesNotMatch(read('app/join/email-preview/page.js'), /localhost/);
   assert.match(read('app/join/preview/page.js'), /loadInviteFromApp/);
   assert.match(joinPage, /preview/);
   assert.match(gate, /signin-screen/);
   assert.match(gate, /signin-lockup/);
+  assert.match(gate, /invite-pass/);
+  assert.match(gate, /invite-pass-welcome/);
   assert.match(gate, /Join as/);
   assert.match(gate, /change your profile later in Settings/);
+  assert.match(gate, /OrgMark/);
+  assert.match(gate, /TeamMark/);
   assert.doesNotMatch(gate, /BrandLockup/);
   assert.doesNotMatch(gate, /SplashLockup/);
-  assert.doesNotMatch(gate, /inviteCopy/);
-  assert.match(css, /#b6f542 11%/);
+  assert.match(gate, /inviteCopy/);
+  assert.match(css, /var\(--accent\) 11%/);
   assert.doesNotMatch(css, /intel-wave/);
   assert.doesNotMatch(css, /pitFrostLift/);
   assert.match(sql, /invitee_email/);
   assert.match(sql, /org_name/);
+  assert.match(sql, /org_logo/);
   assert.match(sql, /play_role/);
   assert.match(sql, /display_name/);
   assert.match(sql, /update_my_profile/);
@@ -271,8 +277,18 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/database-view.js'), /VerifiedMark/);
   assert.match(read('lib/marks.js'), /memberIsNaevii/);
   assert.match(read('lib/series.js'), /showsCompetitiveStats/);
+  assert.match(read('lib/nav.js'), /label: 'Members'/);
+  assert.match(read('app/(shell)/players/page.js'), /title="Members"/);
+  assert.match(read('components/settings-view.js'), /export function ProfileCard/);
+  assert.match(read('components/roster-transfer.js'), /roster-check/);
+  assert.match(read('components/roster-transfer.js'), /TransferMember/);
+  assert.match(read('components/roster-transfer.js'), /Transfer selected/);
+  assert.doesNotMatch(read('components/roster-transfer.js'), /isProtectedPerson/);
+  assert.match(read('app/(shell)/players/page.js'), /TransferMember/);
   assert.match(read('app/desktop-web.css'), /padding: 7px 14px/);
-  assert.match(read('app/desktop-ui.css'), /#b6f542 11%/);
+  assert.match(read('app/desktop-web.css'), /#app\.shell \.btn\.refresh-btn/);
+  assert.match(read('app/desktop-web.css'), /height: 24px/);
+  assert.match(read('app/desktop-ui.css'), /var\(--accent\) 11%/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

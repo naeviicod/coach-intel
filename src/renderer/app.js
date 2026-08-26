@@ -14,7 +14,7 @@ import {
 } from './lib/access.js';
 import { chipIdentity } from './lib/profile.js';
 import { orgRefreshBtn } from './lib/orgRefresh.js';
-import { shouldRunOnboarding, shouldRunUnlinked } from './lib/orgLock.js';
+import { orgIsProvisioned, shouldRunOnboarding, shouldRunUnlinked } from './lib/orgLock.js';
 import { toast } from './components/modal.js';
 import { openFeedbackModal, stashFeedback } from './components/feedback.js';
 import * as onboarding from './pages/onboarding.js';
@@ -88,7 +88,7 @@ const NAV_GROUPS = [
     label: 'Analytics',
     items: [
       { page: 'teams', label: 'Teams', icon: 'teams' },
-      { page: 'players', label: 'Players', icon: 'players', aliases: ['member'] },
+      { page: 'players', label: 'Members', icon: 'players', aliases: ['member'] },
       { page: 'matches', label: 'Matches', icon: 'matches' },
       { page: 'statistics', label: 'Statistics', icon: 'performance' },
       { page: 'database', label: 'Member Database', icon: 'database' },
@@ -254,8 +254,11 @@ window.cci?.onDataChanged?.((payload) => {
 // Sign-in/out flips the topbar between "Offline · On-device" (local cache
 // only) and "Online · Synced" (signed in, Supabase is the source of truth)
 // without needing a restart.
-window.cci?.auth?.onAuthStateChanged?.(() => {
-  if (!booted) return;
+window.cci?.auth?.onAuthStateChanged?.(({ session } = {}) => {
+  if (!booted) {
+    if (session && document.querySelector('.signin-screen')) enterApp();
+    return;
+  }
   loadAccess()
     .then(() => {
       renderSidebar();
@@ -375,7 +378,7 @@ async function loadShellDataBody(onProgress, { search = true } = {}) {
     invite: inviteAccent,
     org: state.org?.accent,
     shared: state.teams.find((team) => team?.accent)?.accent,
-    firstLaunch: !state.teams.length,
+    firstLaunch: !orgIsProvisioned(state.org) && !state.teams.length,
   });
   if (state.org) state.org = { ...state.org, accent };
   // Splash stays Intel Lime. Accent and wallpaper wait until the splash hides.
@@ -489,9 +492,9 @@ function prefersReducedMotion() {
 // as the splash clears.
 let lookApplied = false;
 let splashSignalled = false;
+let entering = false;
 
 function applySavedLook() {
-  if (lookApplied) return;
   lookApplied = true;
   applyAccent(state.org?.accent || DEFAULT_ACCENT);
   applyBackground(getPref('background', DEFAULT_BACKGROUND));
@@ -681,11 +684,7 @@ function revealFromSplash(showFn) {
 }
 
 async function prepareApp({ fast = false } = {}) {
-  const authState = await raceTimeout(
-    window.cci.auth.getState(),
-    2500,
-    { configured: true, session: null }
-  ).catch(() => ({ configured: false, session: null }));
+  const authState = await window.cci.auth.getState().catch(() => ({ configured: false, session: null }));
 
   if (authState?.configured && !authState.session) return renderSignIn;
 
@@ -733,8 +732,14 @@ async function prepareApp({ fast = false } = {}) {
 
   return () => {
     booted = true;
-    document.getElementById('app').classList.add('shell');
+    const app = document.getElementById('app');
+    const content = document.getElementById('content');
+    app.classList.add('shell');
+    content?.querySelectorAll('.signin-screen, .onboarding-screen').forEach((node) => node.remove());
+    content.className = '';
+    content.style.padding = '';
     restAtmosphere();
+    applySavedLook();
     document.getElementById('sidebar').style.display = '';
     document.getElementById('topbar').style.display = '';
     document.getElementById('statusbar').style.display = '';
@@ -766,16 +771,21 @@ async function boot() {
   const barAnim = runSplashBar();
   const minTime = wait(SPLASH_MIN_MS - SPLASH_BAR_MS);
   let showFn = renderSignIn;
-  let finished = false;
+  const prepared = prepareApp();
   try {
-    showFn = await Promise.race([
-      prepareApp().then((fn) => { finished = true; return fn; }),
-      wait(BOOT_TIMEOUT_MS).then(() => {
-        if (finished) return showFn;
-        console.warn('[renderer] boot timed out — showing sign-in');
-        return renderSignIn;
-      }),
+    const first = await Promise.race([
+      prepared.then((fn) => ({ kind: 'ready', fn })),
+      wait(BOOT_TIMEOUT_MS).then(() => ({ kind: 'timeout' })),
     ]);
+    if (first.kind === 'ready') {
+      showFn = first.fn;
+    } else {
+      console.warn('[renderer] boot timed out — showing sign-in');
+      showFn = renderSignIn;
+      prepared.then((fn) => {
+        if (typeof fn === 'function' && fn !== renderSignIn) enterApp();
+      }).catch((err) => console.error('[renderer] late boot failed', err));
+    }
   } catch (err) {
     console.error('[renderer] boot failed', err);
     showFn = renderSignIn;
@@ -789,13 +799,22 @@ async function boot() {
 }
 
 async function enterApp() {
-  const showFn = await prepareApp({ fast: true });
-  showFn();
-  const app = document.getElementById('app');
-  const gated = document.querySelector('.signin-screen, .onboarding-screen');
-  if (!gated) {
-    app.classList.add('shell');
-    app.classList.add('ready');
+  if (entering) return;
+  entering = true;
+  try {
+    const content = document.getElementById('content');
+    content?.querySelectorAll('.signin-screen, .onboarding-screen').forEach((node) => node.remove());
+    const showFn = await prepareApp({ fast: true });
+    applySavedLook();
+    showFn();
+    const app = document.getElementById('app');
+    const gated = document.querySelector('.signin-screen, .onboarding-screen');
+    if (!gated) {
+      app.classList.add('shell');
+      app.classList.add('ready');
+    }
+  } finally {
+    entering = false;
   }
 }
 
@@ -1337,6 +1356,9 @@ function pageCtx() {
 
 function mountPage(content, incoming, { flush, studio }) {
   stopFades(content);
+  [...content.children].forEach((child) => {
+    if (child !== incoming && !child.classList.contains('page-root')) child.remove();
+  });
   const sidebar = document.getElementById('sidebar');
   sidebar?.classList.add('swap-lock');
   applyStudioChrome(studio);

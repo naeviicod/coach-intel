@@ -1,5 +1,5 @@
 import { DEFAULT_ACCENT, accentInk, normalizeHex } from './accent.js';
-import { inviteChips, invitePlacement } from './invite.js';
+import { inviteChips, inviteCopy } from './invite.js';
 
 const SITE = 'https://coach.championshipseries.eu';
 const UI = 'Arial,Helvetica,sans-serif';
@@ -19,7 +19,7 @@ function escapeHtml(value) {
 export function inviteEmailSubject({ who, org } = {}) {
   const name = String(who || '').trim() || 'you';
   const orgName = String(org || '').trim() || 'the organization';
-  return `${name}, you've been invited to ${orgName}`;
+  return `${name}, you've been selected for ${orgName}`;
 }
 
 export function inviteEmailText({
@@ -32,14 +32,21 @@ export function inviteEmailText({
   url = `${SITE}/join/preview`,
   email = '',
 } = {}) {
+  const copy = inviteCopy({
+    gamertag: who,
+    org_name: org,
+    team_name: team,
+    access_role: role,
+    play_role: playRole,
+    slot,
+  });
   const chips = inviteChips({ team, playRole, slot, accessRole: role });
-  const place = invitePlacement({ team, playRole, slot });
   return [
-    `${who}, you've been invited to ${org} on Coach Intel${place}.`,
+    copy.body,
     chips.join(' · '),
     `Open your invite: ${url}`,
     `Signed for ${email}. This link binds your Discord to that roster slot. It expires in 14 days.`,
-    'Coach Intel — Know More. Win More.',
+    'Coach Intel. Know More. Win More.',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -58,11 +65,19 @@ export function renderInviteEmail({
   orgLogoSrc = '',
   teamLogoSrc = '',
 } = {}) {
+  const copy = inviteCopy({
+    gamertag: who,
+    org_name: org,
+    team_name: team,
+    access_role: role,
+    play_role: playRole,
+    slot,
+  });
   const name = escapeHtml(who);
   const orgName = escapeHtml(org);
   const teamName = escapeHtml(team);
   const chips = inviteChips({ team, playRole, slot, accessRole: role }).map(escapeHtml);
-  const place = escapeHtml(invitePlacement({ team, playRole, slot }));
+  const body = escapeHtml(copy.body);
   const to = escapeHtml(email);
   const href = escapeHtml(url);
   const ciLogo = escapeHtml(ciLogoSrc);
@@ -105,7 +120,7 @@ export function renderInviteEmail({
                   </td>
                 </tr>
               </table>` : '';
-  const kicker = `<p style="margin:${seals ? '22px' : '18px'} 0 0;font-family:${UI};font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#f4f6f8;">You've been invited</p>`;
+  const kicker = `<p style="margin:${seals ? '22px' : '18px'} 0 0;font-family:${UI};font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:#f4f6f8;">${escapeHtml(copy.kicker)}</p>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -118,7 +133,7 @@ export function renderInviteEmail({
 </head>
 <body bgcolor="${CANVAS}" style="margin:0;padding:0;background-color:${CANVAS};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-    ${name} — ${orgName} selected you for Coach Intel.
+    ${name}: ${orgName} selected you for Coach Intel.
   </div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CANVAS}">
     <tr>
@@ -135,7 +150,7 @@ export function renderInviteEmail({
             <td bgcolor="${PAPER}" style="padding:28px 32px 30px;border-radius:0 0 24px 24px;">
               <h1 style="margin:0;font-family:${DISPLAY};font-size:34px;line-height:1.05;font-weight:700;color:${INK};">Join ${orgName}</h1>
               <p style="margin:14px 0 0;max-width:420px;font-family:${UI};font-size:15px;line-height:1.55;color:${INK};">
-                ${name}, you've been invited to ${orgName} on Coach Intel${place}.
+                ${body}
               </p>
               ${meta}
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 0;">

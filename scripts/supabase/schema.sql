@@ -384,6 +384,8 @@ declare
   mem public.members%rowtype;
   tm public.teams%rowtype;
   org_name text;
+  org_logo text;
+  org_accent text;
 begin
   if invite_token is null or length(invite_token) < 16 then
     return json_build_object('ok', false, 'error', 'Invalid invite');
@@ -400,8 +402,11 @@ begin
   end if;
   select * into mem from public.members where id = inv.member_id and team_id = inv.team_id;
   select * into tm from public.teams where id = inv.team_id;
-  select coalesce(nullif(trim(payload->>'name'), ''), nullif(trim(payload->>'tag'), ''))
-    into org_name
+  select
+    coalesce(nullif(trim(payload->>'name'), ''), nullif(trim(payload->>'tag'), '')),
+    nullif(trim(payload->>'logo'), ''),
+    nullif(trim(payload->>'accent'), '')
+    into org_name, org_logo, org_accent
     from public.shared_docs
     where kind = 'org' and id = 'profile' and deleted_at is null
     limit 1;
@@ -411,13 +416,17 @@ begin
     'member_name', mem.name,
     'invitee_email', nullif(to_jsonb(inv)->>'invitee_email', ''),
     'org_name', coalesce(org_name, tm.name, 'the organization'),
+    'org_logo', org_logo,
+    'org_accent', org_accent,
     'team_name', coalesce(tm.name, 'Team'),
+    'team_tag', tm.tag,
+    'team_logo', tm.logo,
     'team_id', inv.team_id,
     'member_id', inv.member_id,
     'access_role', inv.access_role,
     'play_role', mem.role,
     'slot', mem.slot,
-    'accent', tm.accent
+    'accent', coalesce(nullif(trim(tm.accent), ''), org_accent)
   );
 end;
 $$;

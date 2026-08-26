@@ -2,13 +2,14 @@ import { AddPlayer, EditMember, RemoveMember } from '../../../components/add-rec
 import { CopyInvite } from '../../../components/copy-invite';
 import { Icon } from '../../../components/icon';
 import { RosterSlotButton } from '../../../components/roster-slot-button';
+import { TransferBar, RosterCheck, TransferMember } from '../../../components/roster-transfer';
 import { PageHeader, EmptyState } from '../../../components/page-header';
 import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified } from '../../../lib/marks';
 import { suggestedAccessRole } from '../../../lib/invite';
 import { loadWorkspace } from '../../../lib/workspace';
 import Link from 'next/link';
 
-export const metadata = { title: 'Players · Coach Intel' };
+export const metadata = { title: 'Members · Coach Intel' };
 
 const ORG_GROUPS = {
   staff: { title: 'Staff', kicker: 'Org group', meta: 'Analysts, creatives, and org staff', icon: 'database' },
@@ -45,12 +46,14 @@ function GroupTile({ href, kicker, title, meta, count, team, iconName }) {
   );
 }
 
-function MemberRow({ member, teamId, showInvite, canEdit }) {
+function MemberRow({ member, teamId, teams, showInvite, canEdit, canTransfer }) {
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
   const staff = member.slot === 'staff';
   const fa = member.slot === 'fa';
+  const row = { ...member, team_id: teamId };
   return (
     <div className="roster-row">
+      <RosterCheck member={row} canTransfer={canTransfer} />
       <PlayerAvatar member={member} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="gamertag">
@@ -68,10 +71,11 @@ function MemberRow({ member, teamId, showInvite, canEdit }) {
       ))}
       {staff || fa ? null : <RoleBadge role={member.role} />}
       {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
-      {canEdit || showInvite ? (
+      {canEdit || showInvite || canTransfer ? (
         <div className="row-actions edit-only">
-          <RosterSlotButton member={{ ...member, team_id: teamId }} canEdit={canEdit} />
-          {canEdit ? <EditMember member={{ ...member, team_id: teamId }} canEdit={canEdit} /> : null}
+          <RosterSlotButton member={row} canEdit={canEdit} />
+          {canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}
+          <TransferMember member={row} teams={teams} canTransfer={canTransfer} />
           {showInvite ? (
             <CopyInvite
               teamId={teamId}
@@ -81,14 +85,14 @@ function MemberRow({ member, teamId, showInvite, canEdit }) {
               linked={Boolean(member.user_id)}
             />
           ) : null}
-          {canEdit ? <RemoveMember member={{ ...member, team_id: teamId }} canEdit={canEdit} /> : null}
+          {canEdit ? <RemoveMember member={row} canEdit={canEdit} /> : null}
         </div>
       ) : null}
     </div>
   );
 }
 
-function RosterGroup({ title, rows, teamId, showInvite, canEdit }) {
+function RosterGroup({ title, rows, teamId, teams, showInvite, canEdit, canTransfer }) {
   return (
     <>
       <div className="card-head" style={{ padding: '8px 0 6px' }}>
@@ -105,8 +109,10 @@ function RosterGroup({ title, rows, teamId, showInvite, canEdit }) {
             key={member.id}
             member={member}
             teamId={teamId}
+            teams={teams}
             showInvite={showInvite}
             canEdit={canEdit}
+            canTransfer={canTransfer}
           />
         ))
       )}
@@ -117,14 +123,14 @@ function RosterGroup({ title, rows, teamId, showInvite, canEdit }) {
 export default async function PlayersPage({ searchParams }) {
   const params = await searchParams;
   const group = String(params?.group || '');
-  const { teams, members, canManageTeam } = await loadWorkspace({ rosterOnly: true });
+  const { teams, members, canManageTeam, canTransfer } = await loadWorkspace({ rosterOnly: true });
   const orgOf = (key) => members.filter((member) => memberOrgGroup(member) === key);
   const canManageAny = teams.some((team) => canManageTeam(team.id));
 
   return (
     <>
       <PageHeader
-        title="Players"
+        title="Members"
         subtitle={canManageAny
           ? 'Open a team, staff, coaches, admins, or free agents. Invite copies a website join link.'
           : 'Members across the organization'}
@@ -185,8 +191,12 @@ export default async function PlayersPage({ searchParams }) {
           const roster = members.filter((m) => m.team_id === team.id);
           const { starters, bench, staff, freeAgents } = splitRoster(roster);
           const manage = canManageTeam(team.id);
+          const transfer = Boolean(canTransfer);
           return (
-            <div className={`card section${manage ? ' roster-manage' : ' team-readonly'}`}>
+            <div
+              className={`card section${manage ? ' roster-manage' : ' team-readonly'}`}
+              data-roster-team={team.id}
+            >
               <div className="team-identity" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
                 <TeamMark team={team} className="team-logo lg" />
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -194,18 +204,19 @@ export default async function PlayersPage({ searchParams }) {
                   <div className="team-identity-name">{team.name} Roster</div>
                   <div className="team-meta">{lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)}</div>
                 </div>
-                <div className="edit-only" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="edit-only" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <AddPlayer teams={teams} canEdit={manage} teamId={team.id} />
+                  {transfer ? <TransferBar teamId={team.id} teams={teams} members={roster} /> : null}
                 </div>
               </div>
               {roster.length === 0 ? (
                 <div className="field-hint">No members yet. Add a player to this roster.</div>
               ) : (
                 <>
-                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} showInvite={manage} canEdit={manage} />
-                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} showInvite={manage} canEdit={manage} />
-                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} showInvite={manage} canEdit={manage} />
-                  <RosterGroup title="Free Agents" rows={freeAgents} teamId={team.id} showInvite={manage} canEdit={manage} />
+                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Free Agents" rows={freeAgents} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
                 </>
               )}
             </div>
@@ -216,12 +227,14 @@ export default async function PlayersPage({ searchParams }) {
           const info = ORG_GROUPS[group] || { title: 'Group' };
           const rows = orgOf(group);
           const anyManage = rows.some((member) => canManageTeam(member.team_id));
+          const transfer = Boolean(canTransfer);
           return (
-            <div className={`card section${anyManage ? ' roster-manage' : ''}`}>
+            <div className={`card section${anyManage ? ' roster-manage' : ''}`} data-roster-team="org-group">
               <div className="card-head">
                 <div className="card-title">{info.title}</div>
                 <div className="card-meta">{rows.length}</div>
               </div>
+              {transfer ? <TransferBar teamId="org-group" teams={teams} members={rows} /> : null}
               {rows.length === 0 ? (
                 <div className="field-hint">Nobody in this group yet. Add a member and set their slot or title.</div>
               ) : (
@@ -232,8 +245,10 @@ export default async function PlayersPage({ searchParams }) {
                       key={`${member.team_id}-${member.id}`}
                       member={member}
                       teamId={member.team_id}
+                      teams={teams}
                       showInvite={manage}
                       canEdit={manage}
+                      canTransfer={transfer}
                     />
                   );
                 })

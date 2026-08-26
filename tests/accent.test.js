@@ -5,10 +5,17 @@ const { pathToFileURL } = require('node:url');
 
 const libUrl = pathToFileURL(path.join(__dirname, '..', 'src', 'renderer', 'lib', 'accent.js')).href;
 
-test('first launch uses lime even if a leftover org accent exists', async () => {
+test('red is a first-class accent so Vantix does not have to use a leftover custom picker value', async () => {
+  const { ACCENT_PRESETS, resolveAccent } = await import(libUrl);
+  assert.equal(ACCENT_PRESETS.find((p) => p.name === 'Red')?.hex, '#e10600');
+  assert.equal(resolveAccent({ firstLaunch: true, org: '#e10600' }), '#e10600');
+});
+
+test('first launch uses lime when the org has no color yet', async () => {
   const { DEFAULT_ACCENT, resolveAccent } = await import(libUrl);
   assert.equal(DEFAULT_ACCENT, '#b6f542');
-  assert.equal(resolveAccent({ firstLaunch: true, org: '#ff0000' }), DEFAULT_ACCENT);
+  assert.equal(resolveAccent({ firstLaunch: true }), DEFAULT_ACCENT);
+  assert.equal(resolveAccent({ firstLaunch: true, org: '#e10600' }), '#e10600');
 });
 
 test('an invite accent wins so invited users adapt to the org color', async () => {

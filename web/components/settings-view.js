@@ -19,7 +19,7 @@ function Face({ photo, name, size = 52 }) {
   );
 }
 
-function ProfileCard({ identity, profile }) {
+export function ProfileCard({ identity, profile }) {
   const router = useRouter();
   const [name, setName] = useState(identity?.name || '');
   const [title, setTitle] = useState(identity?.title || '');
@@ -112,6 +112,10 @@ export function OrganizationCard({ org, isOrgAdmin }) {
   const [accent, setAccent] = useState(normalizeHex(org?.accent) || DEFAULT_ACCENT);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    applyAccent(accent);
+  }, [accent]);
 
   async function save(e) {
     e.preventDefault();

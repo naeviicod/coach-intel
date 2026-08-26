@@ -2,6 +2,7 @@ export const DEFAULT_ACCENT = '#b6f542';
 
 export const ACCENT_PRESETS = [
   { name: 'Intel Lime', hex: '#b6f542' },
+  { name: 'Red', hex: '#e10600' },
   { name: 'Mint', hex: '#5ee0b0' },
   { name: 'Ice', hex: '#7ec8e3' },
   { name: 'Amber', hex: '#e8c15a' },
@@ -56,8 +57,11 @@ function brandTintFilter(hex) {
 
 export function resolveAccent({ invite, shared, org, firstLaunch } = {}) {
   const fromInvite = normalizeHex(invite);
-  if (firstLaunch && !fromInvite) return DEFAULT_ACCENT;
-  return fromInvite || normalizeHex(shared) || normalizeHex(org) || DEFAULT_ACCENT;
+  if (fromInvite) return fromInvite;
+  const fromOrg = normalizeHex(org);
+  const fromShared = normalizeHex(shared);
+  if (firstLaunch && !fromOrg && !fromShared) return DEFAULT_ACCENT;
+  return fromOrg || fromShared || DEFAULT_ACCENT;
 }
 
 function srgbChannel(c) {

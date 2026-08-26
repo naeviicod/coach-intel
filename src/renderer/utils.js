@@ -53,7 +53,7 @@ export function verifiedMark() {
   return el('span', {
     class: 'verified-mark',
     title: 'Confirmed · signed in with Discord',
-    html: icon('check', 9),
+    html: icon('check', 10),
   });
 }
 

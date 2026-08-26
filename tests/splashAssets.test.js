@@ -57,11 +57,11 @@ test('the splash logo has a staged GPU-only entrance that is visible before hand
   }
   assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,450}animation:\s*splashMarkIn 1600ms var\(--ease-out\) 650ms/);
+  assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,450}animation:\s*splashMarkIn 980ms var\(--ease-out\) 180ms/);
   assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,450}animation:\s*splashCopyIn 1680ms var\(--ease-out\) 740ms/);
+  assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,450}animation:\s*splashCopyIn 1040ms var\(--ease-out\) 260ms/);
   assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,400}opacity:\s*0/);
-  assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,450}animation:\s*splashSloganIn 1500ms var\(--ease-out\) 900ms/);
+  assert.match(styles, /\.splash-slogan-frame \{[\s\S]{0,450}animation:\s*splashSloganIn 900ms var\(--ease-out\) 420ms/);
   assert.doesNotMatch(styles, /@keyframes splashLogoScan/);
   assert.doesNotMatch(styles, /\.splash-logo::after/);
   assert.match(styles, /will-change:\s*transform, opacity/);
@@ -139,6 +139,8 @@ test('splash sits on the app pit with no pulse HUD', () => {
   assert.doesNotMatch(html, /arena-scan/);
   assert.doesNotMatch(html, /splash-glow/);
   assert.doesNotMatch(html, /class="splash-background"/);
+  assert.doesNotMatch(styles, /splashBarPulse/);
+  assert.doesNotMatch(styles, /splashSheen/);
   assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /#splash\.dissolving/);
 });

@@ -29,12 +29,7 @@ function createService({ dataRoot, secretStore }) {
   async function getState() {
     if (!client) return { configured: false, session: null };
     try {
-      const session = await Promise.race([
-        auth.getSession(),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('auth getSession timed out')), 2500);
-        }),
-      ]);
+      const session = await auth.getSession();
       return { configured: true, session };
     } catch (err) {
       console.warn('[supabase] getState failed:', err?.message || err);

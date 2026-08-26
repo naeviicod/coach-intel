@@ -1,7 +1,7 @@
 {
   "name": "coach-intel",
   "productName": "Coach Intel",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Coach Intel — offline competitive intelligence assistant for Call of Duty",
   "homepage": "https://coach.championshipseries.eu/",
   "main": "src/main/main.js",

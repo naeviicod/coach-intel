@@ -12,7 +12,7 @@ export const NAV_GROUPS = [
     label: 'Analytics',
     items: [
       { href: '/teams', page: 'teams', label: 'Teams', icon: 'teams' },
-      { href: '/players', page: 'players', label: 'Players', icon: 'players', aliases: ['member'] },
+      { href: '/players', page: 'players', label: 'Members', icon: 'players', aliases: ['member'] },
       { href: '/matches', page: 'matches', label: 'Matches', icon: 'matches' },
       { href: '/statistics', page: 'statistics', label: 'Statistics', icon: 'performance' },
       { href: '/database', page: 'database', label: 'Member Database', icon: 'database' },

@@ -39,13 +39,16 @@ test('a personal invite names the org and the gamertag', async () => {
     team_name: 'CDL',
     access_role: 'user',
   });
-  assert.equal(named.kicker, "You've been invited");
+  assert.equal(named.kicker, "You've been selected");
   assert.equal(named.title, 'Join Phantix');
-  assert.equal(named.body, "Bracke, you've been invited to Phantix on Coach Intel.");
+  assert.equal(
+    named.body,
+    "Bracke, you were selected for Phantix on Coach Intel. Few people get this invite. This seat is yours."
+  );
   assert.doesNotMatch(named.body, /xx@gmail/);
   assert.match(named.detail, /CDL/);
   const byTag = inviteCopy({ org_name: 'VANTIX', gamertag: 'Rome', team_name: 'Challengers', access_role: 'coach' });
-  assert.equal(byTag.body, "Rome, you've been invited to VANTIX on Coach Intel.");
+  assert.match(byTag.body, /Rome, you were selected for VANTIX on Coach Intel/);
   const starter = inviteCopy({
     org_name: 'Vantix',
     gamertag: 'NaeviiSZN',
@@ -114,7 +117,7 @@ test('session identity prefers the linked roster slot over Discord, then Setting
 test('the invite email is signed for the invitee and uses Coach Intel marks', async () => {
   const webUrl = pathToFileURL(path.join(__dirname, '..', 'web', 'lib', 'invite-email.js')).href;
   const { inviteEmailSubject, renderInviteEmail } = await import(webUrl);
-  assert.equal(inviteEmailSubject({ who: 'Ion', org: 'Vantix' }), "Ion, you've been invited to Vantix");
+  assert.equal(inviteEmailSubject({ who: 'Ion', org: 'Vantix' }), "Ion, you've been selected for Vantix");
   const html = renderInviteEmail({
     who: 'Ion',
     email: 'ion@ikstudios.nl',
@@ -129,12 +132,13 @@ test('the invite email is signed for the invitee and uses Coach Intel marks', as
   assert.match(html, /border-radius:24px/);
   assert.match(html, /border-radius:999px/);
   assert.doesNotMatch(html, /<img/i);
-  assert.match(html, /Ion, you've been invited to Vantix on Coach Intel/);
+  assert.match(html, /Ion, you were selected for Vantix on Coach Intel/);
+  assert.match(html, /Few people get this invite/);
   assert.match(html, /ion@ikstudios\.nl/);
   assert.match(html, /Know More\. Win More/);
   assert.match(html, /Signed for/);
   assert.match(html, /#b6f542/);
-  assert.match(html, /bgcolor="#1c2127"[\s\S]*color:#f4f6f8[\s\S]*You've been invited[\s\S]*bgcolor="#ebe6d6"/);
+  assert.match(html, /bgcolor="#1c2127"[\s\S]*color:#f4f6f8[\s\S]*been selected[\s\S]*bgcolor="#ebe6d6"/);
   assert.match(html, /https:\/\/coach\.championshipseries\.eu\/join\/preview/);
   assert.doesNotMatch(html, /localhost/);
 });
@@ -166,12 +170,12 @@ test('a Vantix invite can carry the org and team logos', async () => {
   assert.match(html, /border-radius:36px/);
   assert.match(html, /alt="Vantix"/);
   assert.match(html, /alt="Rome"/);
-  assert.match(html, /NaeviiSZN, you've been invited to Vantix on Coach Intel as SMG on Rome(&#39;|')s main roster/);
+  assert.match(html, /NaeviiSZN, you were selected for Vantix on Coach Intel as SMG on Rome(&#39;|')s main roster/);
   assert.match(html, /Main roster/);
   assert.match(html, />SMG</);
   assert.match(html, /bgcolor="#e10600"/);
   assert.doesNotMatch(html, /#b6f542/);
-  assert.match(html, /bgcolor="#1c2127"[\s\S]*color:#f4f6f8[\s\S]*You've been invited[\s\S]*bgcolor="#ebe6d6"/);
+  assert.match(html, /bgcolor="#1c2127"[\s\S]*color:#f4f6f8[\s\S]*been selected[\s\S]*bgcolor="#ebe6d6"/);
   assert.match(html, /https:\/\/coach\.championshipseries\.eu\/join\/naeviiszn\/preview/);
 });
 
@@ -202,12 +206,51 @@ test('invite copy and email read org and roster from the app', async () => {
     email: 'ion@ikstudios.nl',
   });
   assert.equal(invite.org_name, 'Vantix');
+  assert.equal(invite.org_logo, 'org/logos/org-logo.png');
   assert.equal(invite.team_name, 'Rome');
+  assert.equal(invite.team_logo, 'org/logos/teams/rome.png');
   assert.equal(invite.gamertag, 'NaeviiSZN');
   assert.equal(invite.play_role, 'SMG');
   assert.equal(invite.slot, 'starter');
   assert.equal(invite.invitee_email, 'ion@ikstudios.nl');
   assert.equal(invite.accent, '#e10600');
+});
+
+test('a vxlt demo invite is Rome Team Leader with org and team marks', async () => {
+  const appUrl = pathToFileURL(path.join(__dirname, '..', 'web', 'lib', 'app-invite.js')).href;
+  const inviteUrl = pathToFileURL(path.join(__dirname, '..', 'web', 'lib', 'invite.js')).href;
+  const { buildInviteFromApp } = await import(appUrl);
+  const { inviteCopy, previewJoinUrl } = await import(inviteUrl);
+  const invite = buildInviteFromApp({
+    org: { name: 'Vantix', tag: 'VTX', logo: 'org/logos/org-logo.png', accent: '#ff0800' },
+    teams: [{ id: 'rome', name: 'Rome', tag: 'ROM', logo: 'org/logos/teams/rome.png' }],
+    members: [{
+      gamertag: 'vxlt',
+      name: 'Bracke',
+      role: 'Flex',
+      slot: 'starter',
+      title: 'Team Leader',
+      team_id: 'rome',
+    }],
+    who: 'vxlt',
+  });
+  assert.equal(invite.gamertag, 'vxlt');
+  assert.equal(invite.member_name, 'Bracke');
+  assert.equal(invite.access_role, 'team_leader');
+  assert.equal(invite.play_role, 'Flex');
+  assert.equal(invite.slot, 'starter');
+  assert.equal(invite.org_name, 'Vantix');
+  assert.equal(invite.org_logo, 'org/logos/org-logo.png');
+  assert.equal(invite.team_name, 'Rome');
+  assert.equal(invite.team_tag, 'ROM');
+  assert.equal(invite.team_logo, 'org/logos/teams/rome.png');
+  const copy = inviteCopy(invite);
+  assert.equal(copy.kicker, "You've been selected");
+  assert.match(copy.body, /vxlt, you were selected for Vantix/);
+  assert.match(copy.body, /as Flex on Rome's main roster/);
+  assert.match(copy.body, /Few people get this invite/);
+  assert.match(copy.detail, /Team leader/);
+  assert.equal(previewJoinUrl('vxlt'), 'https://coach.championshipseries.eu/join/vxlt/preview');
 });
 
 test('a provisioned org never reopens first-run setup', async () => {

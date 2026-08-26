@@ -25,7 +25,7 @@ export async function render(container, ctx) {
   container.append(
     el('div', { class: 'page-header' }, [
       el('div', {}, [
-        el('div', { class: 'page-title' }, 'Players'),
+        el('div', { class: 'page-title' }, 'Members'),
         el('div', { class: 'page-subtitle' }, 'Open a team, staff, coaches, admins, or free agents. Invite copies a website join link.'),
       ]),
       group
@@ -105,7 +105,7 @@ export async function render(container, ctx) {
     for (const row of rows) {
       card.append(memberRow(row.member, row.team, row.matches, ctx, {
         manage: manageFor(row.team.id),
-        canTransfer: Boolean(ctx.canTransfer) && teams.some((t) => t.id !== row.team.id),
+        canTransfer: Boolean(ctx.canTransfer),
       }));
     }
   }
@@ -136,7 +136,7 @@ function rosterCard(team, members, matches, ctx, teams) {
   const { starters, bench, staff, freeAgents } = splitRoster(members);
   const playing = starters.length + bench.length;
   const manage = ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit;
-  const canTransfer = Boolean(ctx.canTransfer) && (teams || []).some((t) => t.id !== team.id);
+  const canTransfer = Boolean(ctx.canTransfer);
   const transferSelected = el('button', {
     class: 'btn primary',
     onclick: () => {
@@ -271,7 +271,7 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
         onclick: () => toggleSlot(ctx, team.id, member),
       }, onBench ? 'Start' : 'Bench'),
       el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
-      canTransfer && !isNaevii(member.gamertag) && !isNaevii(member.name)
+      canTransfer
         ? el('button', {
           class: 'btn sm',
           onclick: () => openTransferModal(ctx, team, member),

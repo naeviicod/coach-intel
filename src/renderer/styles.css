@@ -269,9 +269,9 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
    modules keep the focus. */
 #atmosphere.arena {
   background:
-    radial-gradient(ellipse 52% 38% at 64% 12%, color-mix(in srgb, #b6f542 11%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 52% 38% at 64% 12%, color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 70%),
     radial-gradient(ellipse 36% 48% at 88% 58%, rgba(228, 232, 226, 0.05) 0%, transparent 72%),
-    radial-gradient(ellipse 42% 32% at 52% 92%, color-mix(in srgb, #b6f542 6%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 42% 32% at 52% 92%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 70%),
     radial-gradient(ellipse 28% 40% at 38% 42%, rgba(228, 232, 226, 0.035) 0%, transparent 74%),
     linear-gradient(180deg, #0b0d10 0%, #070809 48%, #050607 100%);
 }
@@ -648,7 +648,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   z-index: 2;
   opacity: 0;
   transform: translate3d(0, 8px, 0);
-  animation: splashMarkIn 1600ms var(--ease-out) 650ms forwards;
+  animation: splashMarkIn 980ms var(--ease-out) 180ms forwards;
   will-change: transform, opacity;
 }
 .splash-logo-mark {
@@ -662,7 +662,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   align-items: center;
   opacity: 0;
   transform: translate3d(0, 8px, 0);
-  animation: splashCopyIn 1680ms var(--ease-out) 740ms forwards;
+  animation: splashCopyIn 1040ms var(--ease-out) 260ms forwards;
   will-change: transform, opacity;
 }
 .splash-wordmark-frame,
@@ -686,7 +686,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   aspect-ratio: 17 / 1;
   opacity: 0;
   transform: translate3d(0, 6px, 0);
-  animation: splashSloganIn 1500ms var(--ease-out) 900ms forwards;
+  animation: splashSloganIn 900ms var(--ease-out) 420ms forwards;
   will-change: transform, opacity;
 }
 .splash-slogan {
@@ -703,17 +703,16 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   gap: 14px;
   margin-top: clamp(24px, 3vw, 34px);
   opacity: 0;
-  animation: splashMetaIn 480ms var(--ease-out) 650ms forwards;
+  animation: splashMetaIn 480ms var(--ease-out) 380ms forwards;
 }
 .splash-bar {
   position: relative;
-  width: 240px;
-  height: 4px;
+  width: 196px;
+  height: 2px;
   overflow: hidden;
   border-radius: 999px;
-  background: #b6f54226;
-  box-shadow: 0 0 28px #b6f54288, 0 0 8px #b6f54255, inset 0 0 0 1px #b6f54233;
-  animation: splashBarPulse 1200ms ease-in-out infinite;
+  background: color-mix(in srgb, var(--accent) 16%, #12161a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .splash-bar-fill,
 .splash-bar-sheen {
@@ -722,28 +721,19 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   border-radius: inherit;
 }
 .splash-bar-fill {
-  background: linear-gradient(90deg, #6f9a22 0%, #b6f542 48%, #f3ffc2 100%);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
   z-index: 1;
 }
 .splash-bar-sheen {
-  z-index: 2;
-  width: 72px;
-  inset: 0 auto 0 0;
-  background: linear-gradient(90deg, transparent 0%, #ffffffcc 48%, transparent 100%);
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transform: translateX(-72px);
-  animation: splashSheen 1800ms linear 650ms infinite;
+  display: none;
 }
 #splash.loaded .splash-bar {
-  animation: none;
   opacity: 1;
 }
 #splash.loaded .splash-bar-sheen {
-  animation: none;
-  opacity: 0;
+  display: none;
 }
 .splash-version {
   font-family: var(--font);
@@ -780,23 +770,18 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   to { opacity: 0; }
 }
 @keyframes splashMarkIn {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.97); }
   to { opacity: 1; transform: translate3d(0, var(--mark-nudge), 0) scale(1); }
 }
 @keyframes splashCopyIn {
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes splashSloganIn {
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes splashMetaIn { to { opacity: 1; } }
-@keyframes splashSheen {
-  from { transform: translateX(-72px); }
-  to { transform: translateX(240px); }
-}
-@keyframes splashBarPulse {
-  0%, 100% { opacity: 0.72; }
-  50% { opacity: 1; }
-}
 @keyframes splashFlowA {
   from { transform: rotate(-16deg) translate3d(0, 0, 0) scale(1); }
   to { transform: rotate(-16deg) translate3d(6%, 3%, 0) scale(1.05); }
@@ -1185,10 +1170,12 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 .combo-row:hover, .combo-row.active { background: #ffffff0a; }
 
 .status-pill {
+  box-sizing: border-box;
+  height: 24px;
   font-size: 10.5px; font-weight: 600; color: var(--text-faint);
   background: var(--bg-card); border: 1px solid var(--border);
-  padding: 4px 10px; border-radius: 20px; -webkit-app-region: no-drag;
-  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag;
+  display: inline-flex; align-items: center; gap: 6px; line-height: 1;
 }
 .status-pill .status-dot {
   width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0;
@@ -1210,15 +1197,16 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--verified);
   color: #f4f6f8;
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(244, 246, 248, 0.28);
 }
 .verified-mark .icon,
-.verified-mark svg { display: block; width: 9px; height: 9px; }
+.verified-mark svg { display: block; width: 10px; height: 10px; }
 .topbar-profile-role { font-size: 10px; color: var(--text-faint); }
 
 .topbar-icon-btn {
@@ -1361,13 +1349,15 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: auto;
-  padding: 4px 10px;
-  border-radius: 20px;
+  box-sizing: border-box;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0;
-  line-height: 1.2;
+  line-height: 1;
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
@@ -1838,8 +1828,44 @@ body.access-readonly .roster-manage .edit-only { display: flex !important; }
 }
 .roster-row:last-child { border-bottom: none; }
 .roster-check {
-  width: 14px; height: 14px; flex-shrink: 0;
-  accent-color: var(--accent); cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 4px;
+  background: #12161a;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.roster-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.roster-check:checked::after {
+  content: "";
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid var(--accent-ink);
+  border-bottom: 2px solid var(--accent-ink);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.roster-check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.roster-transfer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.roster-transfer-bar select {
+  min-width: 140px;
 }
 .avatar {
   width: 30px; height: 30px; border-radius: 50%;

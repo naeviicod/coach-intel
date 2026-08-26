@@ -15,7 +15,7 @@ export async function render(panel) {
         ]),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
-      aboutRow('Version', `v${version || '2.1.0'}`),
+      aboutRow('Version', `v${version || '2.2.0'}`),
       aboutLinkRow('Website', 'coach.championshipseries.eu', 'https://coach.championshipseries.eu/'),
       aboutRow('Mode', 'Offline · On-device only'),
       ruleset ? aboutRow('Ruleset', `${ruleset.game} · Season ${ruleset.season} · v${ruleset.version}`) : null,

@@ -2,6 +2,7 @@ export const DEFAULT_ACCENT = '#b6f542';
 
 export const ACCENT_PRESETS = [
   { name: 'Intel Lime', hex: '#b6f542' },
+  { name: 'Red', hex: '#e10600' },
   { name: 'Mint', hex: '#5ee0b0' },
   { name: 'Ice', hex: '#7ec8e3' },
   { name: 'Amber', hex: '#e8c15a' },

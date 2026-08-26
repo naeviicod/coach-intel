@@ -14,7 +14,7 @@ export function HubRoster({ team, members, matches, ctxToggle }) {
           <div className="card-title">Team Logo</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <div className="card-meta">{`${members.length} member${members.length === 1 ? '' : 's'}`}</div>
-            <Link href="/players" className="btn subtle sm">Add / Edit Players</Link>
+            <Link href="/players" className="btn subtle sm">Add / Edit Members</Link>
             {ctxToggle}
           </div>
         </div>

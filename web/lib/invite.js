@@ -75,7 +75,21 @@ export function inviteChips({ team, playRole, slot, accessRole } = {}) {
   }
   if (s === 'bench' || s === 'starter' || position) chips.push(rosterSlotLabel(slot));
   if (position) chips.push(position);
+  const access = accessRoleLabel(accessRole);
+  if (access && access !== 'Player' && s !== 'staff' && s !== 'fa') chips.push(access);
   return chips;
+}
+
+export function inviteVisual(invite) {
+  const teamId = String(invite?.team_id || '').trim();
+  return {
+    orgLogo: String(invite?.org_logo || '').trim() || 'org/logos/org-logo.png',
+    orgName: String(invite?.org_name || '').trim() || 'the organization',
+    teamLogo: String(invite?.team_logo || '').trim() || (teamId ? `org/logos/teams/${teamId}.png` : ''),
+    teamName: String(invite?.team_name || '').trim() || 'Team',
+    teamTag: String(invite?.team_tag || '').trim(),
+    accent: String(invite?.accent || invite?.org_accent || '').trim() || null,
+  };
 }
 
 export function invitePlacement({ team, playRole, slot } = {}) {
@@ -119,7 +133,7 @@ export function inviteCopy(invite) {
     return {
       kicker: 'Coach Intel',
       title: 'Sign in to your org',
-      body: 'If you were invited, open the personal link they sent — it will have your gamertag on it. Staff already on Discord can sign in here.',
+      body: 'If you were invited, open the personal link they sent. It will have your gamertag on it. Staff already on Discord can sign in here.',
       detail: 'No desktop app required.',
     };
   }
@@ -134,13 +148,14 @@ export function inviteCopy(invite) {
     accessRole: invite.access_role,
   });
   const place = invitePlacement({ team, playRole: invite.play_role, slot: invite.slot });
+  const lead = who
+    ? `${who}, you were selected for ${org} on Coach Intel${place}.`
+    : `You were selected for ${org} on Coach Intel${place}.`;
 
   return {
-    kicker: "You've been invited",
+    kicker: "You've been selected",
     title: `Join ${org}`,
-    body: who
-      ? `${who}, you've been invited to ${org} on Coach Intel${place}.`
-      : `You've been invited to ${org} on Coach Intel${place}.`,
+    body: `${lead} Few people get this invite. This seat is yours.`,
     detail: chips.join(' · '),
   };
 }

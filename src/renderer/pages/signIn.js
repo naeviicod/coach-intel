@@ -5,10 +5,9 @@ import { accessRoleLabel } from '../lib/invite.js';
 
 function paintInviteAccent(invite) {
   if (!splashDismissed()) return;
-  applyAccent(resolveAccent({
-    invite: invite?.accent,
-    firstLaunch: !invite?.accent,
-  }));
+  const fromInvite = invite?.accent;
+  if (!fromInvite) return;
+  applyAccent(resolveAccent({ invite: fromInvite }));
 }
 
 // Full-chrome sign-in gate, shown by app.js in place of the app shell whenever
@@ -47,6 +46,10 @@ export function render(container, { onComplete } = {}) {
     state.error = error || 'Sign-in did not complete. Try again.';
     draw(container, state);
   });
+
+  window.cci.auth.getState().then(({ session } = {}) => {
+    if (session) onComplete?.();
+  }).catch(() => {});
 }
 
 function splashDismissed() {
