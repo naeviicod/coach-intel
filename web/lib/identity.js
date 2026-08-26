@@ -52,7 +52,7 @@ export function sessionIdentity({ user, profile, members = [], org = null }) {
     title,
     role: resolveAccessRole(profile, { names: [name, me?.gamertag, me?.name, discord] }),
     avatarUrl: profile?.avatar_url || null,
-    photo: me?.photo || null,
+    photo: profile?.photo || me?.photo || null,
     member: me,
   };
 }

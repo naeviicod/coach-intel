@@ -3,6 +3,7 @@ import { ContentMain } from './content-main';
 import { DesktopNav } from './desktop-nav';
 import { DesktopTopbar } from './desktop-topbar';
 import { LookSync } from './look-sync';
+import { OrgLiveSync } from './org-live-sync';
 import { PageGuard } from './page-guard';
 
 const RULESET = {
@@ -26,6 +27,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
         }}
       />
       <LookSync accent={org?.accent} background={org?.background} />
+      <OrgLiveSync />
       <div id="atmosphere" className="splash-atmosphere arena" data-background="pit" aria-hidden="true">
         <span className="arena-field arena-field-soft" />
         <span className="arena-field" />
@@ -68,7 +70,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
               <span>Ruleset checked {RULESET.last_checked}</span>
             </div>
             <div className="sbar-group sources">
-              <span className="sbar-label">v1.5.4</span>
+              <span className="sbar-label">v2.1.0</span>
               <span className="sbar-src">{RULESET.label}</span>
               <span className="sbar-src">On-device Match Log</span>
             </div>

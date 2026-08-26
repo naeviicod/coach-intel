@@ -91,7 +91,7 @@ function memberHeading(isEdit, member, slot) {
   if (isEdit) return `Edit ${member.gamertag}`;
   if (slot === 'staff') return 'Add Org Member';
   if (slot === 'bench') return 'Add Bench Player';
-  return 'Add Player';
+  return 'Add Member';
 }
 
 export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = {}) {

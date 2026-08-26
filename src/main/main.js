@@ -532,12 +532,16 @@ ipcMain.handle('cci:saveTeam', requireEdit(async (e, team) => {
   if (team?.id && team.logo) await dataStore.patchTeamLogo(team.id, team.logo);
   const savedLocal = await dataStore.saveTeam(team);
   const payload = { ...team, ...savedLocal, id: savedLocal.id };
-  // Local write is enough to enter the app. Supabase sync must not block Create.
-  supabase.get().ensureProfile().catch(() => null).then(() =>
-    supabase.get().saveTeam(payload)
-  ).catch((err) => {
+  const { session } = await supabase.get().getState();
+  try {
+    if (session) {
+      await supabase.get().ensureProfile().catch(() => null);
+      await supabase.get().saveTeam(payload);
+    }
+  } catch (err) {
     console.error('[main] saveTeam sync failed', sharedWriteHint(err));
-  });
+    if (session) throw new Error(sharedWriteHint(err));
+  }
   return dataStore.applyLocalLogo(savedLocal);
 }));
 ipcMain.handle('cci:deleteTeam', requireEdit(async (e, teamId) => {
@@ -984,6 +988,28 @@ ipcMain.handle('cci:copyImage', requireEdit(async (e, sourcePath, destRelative) 
   syncAssetToCloud(rel).catch(() => {});
   return rel;
 }));
+
+const PROFILE_PHOTO_EXTS = new Set(['png', 'jpg', 'jpeg', 'webp']);
+
+ipcMain.handle('cci:updateMyProfile', async (e, payload) => {
+  const { session } = await supabase.get().getState();
+  if (!session?.user?.id) throw new Error('Sign in first.');
+  return supabase.get().updateMyProfile(payload || {});
+});
+
+ipcMain.handle('cci:setMyPhoto', async (e, sourcePath) => {
+  const { session } = await supabase.get().getState();
+  if (!session?.user?.id) throw new Error('Sign in to set a photo the rest of the org can see.');
+  const ext = path.extname(String(sourcePath || '')).slice(1).toLowerCase();
+  if (!PROFILE_PHOTO_EXTS.has(ext)) throw new Error('Choose a PNG, JPG, or WebP image.');
+  const userId = String(session.user.id);
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('Invalid account.');
+  const relative = `org/profiles/${userId}.${ext === 'jpeg' ? 'jpg' : ext}`;
+  const saved = await dataStore.copyImage(sourcePath, relative);
+  syncAssetToCloud(saved).catch(() => {});
+  await supabase.get().updateMyPhoto(saved);
+  return saved;
+});
 ipcMain.handle('cci:saveMapArt', requireEdit(async (e, sourcePath, mapName, layoutKey) => {
   const rel = await dataStore.saveMapArt(sourcePath, mapName, layoutKey);
   syncAssetToCloud(rel).catch(() => {});
@@ -1029,6 +1055,7 @@ async function safeSupabaseCall(fn) {
 }
 
 ipcMain.handle('cci:syncRoster', requireEdit(() => syncLocalRosterToRemote({ supabase, dataStore })));
+ipcMain.handle('cci:syncNow', () => syncLocalRosterToRemote({ supabase, dataStore }));
 
 ipcMain.handle('cci:authGetState', () => supabase.get().getState());
 ipcMain.handle('cci:authSignInWithDiscord', () => safeSupabaseCall(() => supabase.get().signInWithDiscord()));

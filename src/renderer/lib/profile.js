@@ -70,8 +70,15 @@ export function memberDiscordVerified(member) {
 
 export function chipIdentity(org, access) {
   const me = access?.me;
-  const name = String(org?.profileName || me?.discord_username || org?.coachName || '').trim() || 'Coach';
-  let title = String(org?.profileTitle || '').trim();
+  const signedIn = Boolean(!access?.local && me);
+  const name = String(
+    (signedIn && (me?.display_name || me?.discord_username)) ||
+      org?.profileName ||
+      me?.discord_username ||
+      org?.coachName ||
+      ''
+  ).trim() || 'Coach';
+  let title = String((signedIn && me?.title) || org?.profileTitle || '').trim();
   if (!title) {
     if (isNaevii(name) || isNaevii(me?.discord_username)) title = 'Developer';
     else if (access?.local) title = 'Local';
@@ -82,8 +89,8 @@ export function chipIdentity(org, access) {
     name,
     title,
     role,
-    verified: Boolean(!access?.local && me),
-    photo: org?.profilePhoto || null,
+    verified: signedIn,
+    photo: (signedIn && me?.photo) || org?.profilePhoto || null,
     avatarUrl: me?.avatar_url || null,
   };
 }

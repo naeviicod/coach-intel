@@ -53,12 +53,21 @@ test('handles keep known social and gaming ids', async () => {
 test('top-bar chip uses the signed-in person, not a generic Coach', async () => {
   const { chipIdentity } = await import(libUrl('profile.js'));
   const filled = chipIdentity(
-    { profileName: 'Ion', profileTitle: 'Head Coach', profilePhoto: 'org/profile-photo.png' },
-    { local: false, me: { discord_username: 'NaeviiSZN', avatar_url: 'https://cdn.discordapp.com/a.png' } }
+    { profileName: 'Org Chip', profileTitle: 'Org Title', profilePhoto: 'org/profile-photo.png' },
+    {
+      local: false,
+      me: {
+        display_name: 'Ion',
+        title: 'Head Coach',
+        discord_username: 'NaeviiSZN',
+        photo: 'org/profiles/u.png',
+        avatar_url: 'https://cdn.discordapp.com/a.png',
+      },
+    }
   );
   assert.equal(filled.name, 'Ion');
   assert.equal(filled.title, 'Head Coach');
-  assert.equal(filled.photo, 'org/profile-photo.png');
+  assert.equal(filled.photo, 'org/profiles/u.png');
 
   const discordFallback = chipIdentity(
     {},

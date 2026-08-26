@@ -66,7 +66,7 @@ function rosterCard(team, members, matches, ctx, teams) {
         el('button', {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: defaultSlot(members) }),
-        }, '+ Add Player'),
+        }, '+ Add Member'),
         canTransfer ? transferSelected : null,
       ]),
     ]),

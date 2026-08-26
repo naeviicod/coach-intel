@@ -49,6 +49,7 @@ function createService({ dataRoot, secretStore }) {
       .channel('org-data')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, () => onChange('teams'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => onChange('members'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => onChange('profiles'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_docs' }, () => onChange('shared_docs'))
       .subscribe();
     return () => client.removeChannel(channel);
@@ -61,6 +62,8 @@ function createService({ dataRoot, secretStore }) {
     listProfiles: profiles.list,
     updateProfileRole: profiles.updateRole,
     ensureProfile: profiles.ensure,
+    updateMyProfile: profiles.updateMyProfile,
+    updateMyPhoto: profiles.updateMyPhoto,
     submitFeedback: feedback.submit,
     uploadAsset: assets.upload,
     downloadAsset: assets.download,

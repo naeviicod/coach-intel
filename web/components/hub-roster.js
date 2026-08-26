@@ -29,7 +29,7 @@ export function HubRoster({ team, members, matches, ctxToggle }) {
       {members.length === 0 ? (
         <div className="card">
           <MiniEmpty title="No members yet" body="Add players on the Players page. They show here with match stats.">
-            <Link href="/players" className="btn primary sm">Add Player</Link>
+            <Link href="/players" className="btn primary sm">Add Member</Link>
           </MiniEmpty>
         </div>
       ) : (

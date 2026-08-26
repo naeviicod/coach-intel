@@ -20,7 +20,7 @@ export function OrgCalendar({ items, teams }) {
   const [filterId, setFilterId] = useState('');
   const weeks = useMemo(() => monthMatrix(cursor.year, cursor.month), [cursor]);
   const scoped = useMemo(
-    () => (filterId ? items.filter((item) => item.teamId === filterId || item.team_id === filterId) : items),
+    () => (filterId ? items.filter((item) => !item.teamId || item.teamId === filterId || item.team_id === filterId) : items),
     [items, filterId]
   );
   const byDay = useMemo(() => bucketByDate(scoped), [scoped]);

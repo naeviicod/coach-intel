@@ -67,6 +67,7 @@ async function writeJson(filePath, data) {
 }
 
 function teamFile(teamId, folder, id) {
+  if (!teamId) return path.join(dataRoot(), 'org', folder, `${safeId(id)}.json`);
   return path.join(dataRoot(), 'org', 'teams', safeId(teamId), 'data', folder, `${safeId(id)}.json`);
 }
 
@@ -112,6 +113,11 @@ function profileFromOrg(org) {
   if (!org) return { id: 'profile', updated_at: '1970-01-01T00:00:00.000Z' };
   const { teamIds, ...profile } = org;
   return { id: 'profile', ...profile, updated_at: profile.updated_at || '1970-01-01T00:00:00.000Z' };
+}
+
+function rlsPushBlocked(err) {
+  const msg = String(err?.message || err || '');
+  return /row-level security|schema cache|ensure_profile|shared_docs/i.test(msg);
 }
 
 const KINDS = {
@@ -301,7 +307,15 @@ async function syncAll() {
         if (spec.remove) await spec.remove(teamId, id);
       }
       for (const rec of merged.toPush) {
-        await docsApi().upsertDoc(kind, spec.team ? teamId : '', rec[spec.idKey], rec);
+        try {
+          await docsApi().upsertDoc(kind, spec.team ? teamId : '', rec[spec.idKey], rec);
+        } catch (err) {
+          if (rlsPushBlocked(err)) {
+            console.warn('[cloud-sync] push skipped', kind, rec[spec.idKey], err?.message || err);
+            continue;
+          }
+          throw err;
+        }
       }
     } catch (err) {
       errors.push(`${kind}${teamId ? `/${teamId}` : ''}: ${err?.message || err}`);
@@ -311,6 +325,7 @@ async function syncAll() {
   const orgKinds = Object.keys(KINDS).filter((k) => !KINDS[k].team);
   const teamKinds = Object.keys(KINDS).filter((k) => KINDS[k].team);
   for (const kind of orgKinds) await mergeKind(kind, '');
+  await mergeKind('event', '');
   for (const teamId of teamIds) {
     for (const kind of teamKinds) await mergeKind(kind, teamId);
   }

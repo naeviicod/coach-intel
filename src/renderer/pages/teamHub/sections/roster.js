@@ -18,7 +18,7 @@ export async function render(root, hub) {
         miniEmpty(
           'No members yet',
           'Add players on the Players page. They show here with match stats.',
-          el('button', { class: 'btn primary sm edit-only', onclick: () => hub.navigate('players') }, 'Add Player')
+          el('button', { class: 'btn primary sm edit-only', onclick: () => hub.navigate('players') }, 'Add Member')
         ),
       ])
     );

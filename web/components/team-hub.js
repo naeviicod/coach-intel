@@ -187,7 +187,7 @@ function HubHeadWrap({ title, sub, ctxToggle }) {
         <h1 className="hub-title">{title}</h1>
         {sub ? <div className="hub-sub">{sub}</div> : null}
       </div>
-      {ctxToggle}
+      {ctxToggle ? <div className="page-header-actions">{ctxToggle}</div> : null}
     </div>
   );
 }

@@ -16,6 +16,29 @@ export async function getTeam(supabase, teamId) {
   return withTeamLogo(data);
 }
 
+async function attachProfileFaces(supabase, rows) {
+  const list = rows || [];
+  const ids = [...new Set(list.map((row) => row.user_id).filter(Boolean))];
+  if (!ids.length) return list;
+  let profiles = [];
+  const withPhoto = await supabase.from('profiles').select('id, avatar_url, photo').in('id', ids);
+  if (withPhoto.error) {
+    const retry = await supabase.from('profiles').select('id, avatar_url').in('id', ids);
+    profiles = retry.data || [];
+  } else {
+    profiles = withPhoto.data || [];
+  }
+  const byId = new Map(profiles.map((row) => [row.id, row]));
+  return list.map((row) => {
+    const linked = row.user_id ? byId.get(row.user_id) : null;
+    return {
+      ...row,
+      photo: row.photo || linked?.photo || null,
+      avatar_url: linked?.avatar_url || null,
+    };
+  });
+}
+
 export async function listMembers(supabase, teamId) {
   const { data, error } = await supabase
     .from('members')
@@ -23,10 +46,16 @@ export async function listMembers(supabase, teamId) {
     .eq('team_id', teamId)
     .order('gamertag', { ascending: true });
   if (error) throw error;
-  return data || [];
+  return attachProfileFaces(supabase, data || []);
 }
 
 export async function getProfile(supabase, userId) {
+  const full = await supabase
+    .from('profiles')
+    .select('id, discord_username, avatar_url, role, display_name, title, photo')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!full.error) return full.data;
   const { data } = await supabase
     .from('profiles')
     .select('id, discord_username, avatar_url, role, display_name, title')
@@ -44,7 +73,7 @@ export async function listAllMembers(supabase) {
     .from('members')
     .select('id, team_id, gamertag, name, role, slot, title, user_id, photo');
   if (error) throw error;
-  return data || [];
+  return attachProfileFaces(supabase, data || []);
 }
 
 export async function getOrg(supabase) {
@@ -67,7 +96,7 @@ export async function listDocs(supabase, kind) {
   if (error) throw error;
   return (data || []).map((row) => ({
     ...(row.payload && typeof row.payload === 'object' ? row.payload : {}),
-    id: row.payload?.id || row.id,
+    id: row.payload?.strategy_id || row.payload?.id || row.id,
     team_id: row.team_id,
     updated_at: row.payload?.updated_at || row.updated_at,
   }));

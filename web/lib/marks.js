@@ -23,7 +23,7 @@ export function initials(name) {
 export function markSrc(value) {
   const src = String(value || '').trim();
   if (!src) return '';
-  if (/^(https?:|data:)/i.test(src)) return src;
+  if (/^(https?:|data:|blob:)/i.test(src)) return src;
   if (src.startsWith('/') && !src.startsWith('/org/')) return src;
   const key = src.replace(/^\/+/, '');
   if (!key || key.includes('..')) return '';
@@ -65,7 +65,7 @@ export function OrgMark({ org, className = 'sb-org-logo' }) {
 }
 
 export function PlayerAvatar({ member }) {
-  const src = markSrc(member?.photo);
+  const src = markSrc(member?.photo) || member?.avatar_url || '';
   return (
     <div className="avatar" title={member?.gamertag || ''}>
       {src ? <img src={src} alt="" /> : initials(member?.gamertag || member?.name)}

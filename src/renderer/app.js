@@ -13,6 +13,7 @@ import {
   roleLabel as accessRoleLabel,
 } from './lib/access.js';
 import { chipIdentity } from './lib/profile.js';
+import { orgRefreshBtn } from './lib/orgRefresh.js';
 import { shouldRunOnboarding, shouldRunUnlinked } from './lib/orgLock.js';
 import { toast } from './components/modal.js';
 import { openFeedbackModal, stashFeedback } from './components/feedback.js';
@@ -153,7 +154,7 @@ const TEAM_NAV_PAGES = new Set([
 const bootStart = performance.now();
 window.__cciBootStart = bootStart;
 
-let state = { org: null, teams: [], searchIndex: [], ruleset: null, alerts: 0, notifications: [], route: parseHash(), access: localStaffAccess(), online: false, syncing: false };
+let state = { org: null, teams: [], searchIndex: [], ruleset: null, alerts: 0, notifications: [], route: parseHash(), access: localStaffAccess(), online: false, syncing: false, refreshing: false };
 let navCollapsed = false;
 let navForced = false;
 let studioForced = false;
@@ -223,23 +224,31 @@ window.cci?.onDeepLink?.((route) => {
   navigate(page, target.param || undefined);
 });
 
-// Another signed-in teammate changed shared data — refresh so everyone sees
-// the same roster, K/D, and match history live instead of needing a reload.
+// Another signed-in teammate wrote to the org. Debounce so a burst of
+// roster + photo + plan rows does not rebuild the shell ten times; then
+// re-read from Supabase (each get* hydrates) so this window matches theirs.
+let liveRefreshTimer = 0;
+let liveDeferContent = false;
 window.cci?.onDataChanged?.((payload) => {
   if (!booted) return;
   const event = new CustomEvent('cci:remote-data-change', { cancelable: true, detail: payload || {} });
   document.dispatchEvent(event);
-  const deferContent = event.defaultPrevented;
-  loadShellData()
-    .then(() => {
-      renderSidebar();
-      renderStatusBar();
-      if (!deferContent) renderContent();
-    })
-    .catch((err) => console.error('[renderer] data refresh failed', err));
-  loadNotifications()
-    .then(() => paintBell())
-    .catch((err) => console.error('[renderer] notifications refresh failed', err));
+  liveDeferContent = event.defaultPrevented;
+  window.clearTimeout(liveRefreshTimer);
+  liveRefreshTimer = window.setTimeout(() => {
+    const deferContent = liveDeferContent;
+    loadShellData()
+      .then(() => {
+        renderSidebar();
+        renderTopbar();
+        renderStatusBar();
+        if (!deferContent) renderContent();
+      })
+      .catch((err) => console.error('[renderer] data refresh failed', err));
+    loadNotifications()
+      .then(() => paintBell())
+      .catch((err) => console.error('[renderer] notifications refresh failed', err));
+  }, 400);
 });
 
 // Sign-in/out flips the topbar between "Offline · On-device" (local cache
@@ -311,6 +320,42 @@ async function loadShellData(onProgress, { search = true } = {}) {
     paintStatusPill();
   }
 }
+
+async function refreshOrg({ silent = false } = {}) {
+  if (state.refreshing) return;
+  state.refreshing = true;
+  state.syncing = true;
+  document.body.classList.add('is-refreshing');
+  paintStatusPill();
+  try {
+    let failed = false;
+    if (state.online && window.cci.syncNow) {
+      const result = await window.cci.syncNow();
+      if (result?.ok === false && result.errors?.length) {
+        failed = true;
+        if (!silent) toast(result.errors[0], 'error');
+      }
+    }
+    await loadShellData();
+    renderSidebar();
+    renderTopbar();
+    renderStatusBar();
+    await renderContent();
+    if (!silent && !failed) toast('Org is up to date.');
+  } catch (err) {
+    console.error('[renderer] org refresh failed', err);
+    if (!silent) toast(err?.message || 'Could not refresh.', 'error');
+  } finally {
+    state.refreshing = false;
+    state.syncing = false;
+    document.body.classList.remove('is-refreshing');
+    paintStatusPill();
+  }
+}
+
+document.addEventListener('cci:org-refresh', () => {
+  refreshOrg().catch((err) => console.error('[renderer] org refresh failed', err));
+});
 
 async function loadShellDataBody(onProgress, { search = true } = {}) {
   state.org = await window.cci.getOrg();
@@ -1177,6 +1222,7 @@ function renderTopbar() {
     el('div', { class: 'topbar-search' }, [el('span', { class: 'topbar-search-icon' }, '⌕'), searchInput, resultsBox])
   );
   topbar.append(el('div', { class: 'topbar-spacer' }));
+  topbar.append(orgRefreshBtn());
   topbar.append(statusPill());
 
   topbar.append(notificationBell());

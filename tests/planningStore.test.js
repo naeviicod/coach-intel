@@ -49,6 +49,15 @@ test('calendar event types include league match, scrim and vod review', async ()
   await planning.deleteEvent(TEAM, vod.event_id);
 });
 
+test('org-wide events are stored off the team folders', async () => {
+  const saved = await planning.saveEvent('', { title: 'Staff meeting', type: 'meeting', date: '2026-08-26' });
+  assert.equal(saved.team_id, '');
+  assert.equal((await planning.getEvents('')).some((row) => row.event_id === saved.event_id), true);
+  assert.equal((await planning.getEvents(TEAM)).some((row) => row.event_id === saved.event_id), false);
+  await planning.deleteEvent('', saved.event_id);
+  assert.equal((await planning.getEvents('')).length, 0);
+});
+
 test('league-match events persist opponent, maps and time', async () => {
   const saved = await planning.saveEvent(TEAM, {
     title: 'vs FaZe',

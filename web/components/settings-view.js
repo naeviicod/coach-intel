@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ACCENT_PRESETS, applyAccent, DEFAULT_ACCENT, normalizeHex } from '../lib/accent';
-import { saveDoc, updateMyProfile } from '../lib/docs';
+import { saveDoc, updateMyProfile, uploadMyPhoto } from '../lib/docs';
 import { TITLE_SUGGESTIONS } from '../lib/identity';
 import { initials, markSrc } from '../lib/marks';
 import { CopyJoinAlias } from './copy-join-alias';
@@ -26,7 +26,8 @@ function ProfileCard({ identity, profile }) {
   const [title, setTitle] = useState(identity?.title || '');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
-  const photo = identity?.avatarUrl || identity?.photo;
+  const [preview, setPreview] = useState('');
+  const photo = preview || identity?.photo || identity?.avatarUrl;
   const discord = profile?.discord_username || 'Discord';
 
   async function save(e) {
@@ -42,11 +43,29 @@ function ProfileCard({ identity, profile }) {
     }
   }
 
+  async function onPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setSaved(false);
+    const localUrl = URL.createObjectURL(file);
+    setPreview(localUrl);
+    try {
+      await uploadMyPhoto(file);
+      setSaved(true);
+      router.refresh();
+    } catch (err) {
+      setPreview('');
+      setError(err.message || 'Could not save photo.');
+    }
+  }
+
   return (
     <form onSubmit={save} className="card section">
       <div className="section-title">Your Profile</div>
       <p className="field-hint" style={{ marginBottom: 14, maxWidth: 620, lineHeight: 1.5 }}>
-        This is who the top-right chip shows. Discord signed you into this roster slot. Change your name and title here — not from the invite link.
+        Your name, title, and photo. Teammates see this on Players, Team Hub, and the calendar — same as plans and meetings.
       </p>
       <div className="profile-photo-row">
         <Face photo={photo} name={name} />
@@ -57,8 +76,12 @@ function ProfileCard({ identity, profile }) {
               <Icon name="check" size={9} />
             </span>
           </div>
-          <div className="field-hint">Uses your Discord avatar. Linked as {discord}.</div>
+          <div className="field-hint">Square PNG or JPG. The whole org sees it. Linked as {discord}.</div>
         </div>
+        <label className="btn">
+          {identity?.photo ? 'Change Photo' : 'Upload Photo'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={onPhoto} />
+        </label>
       </div>
       <div className="inline-fields">
         <Field label="Your Name">

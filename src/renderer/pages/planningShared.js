@@ -13,7 +13,7 @@ export function pageHeader(title, subtitle, right = null) {
       el('div', { class: 'page-title' }, title),
       subtitle ? el('div', { class: 'page-subtitle' }, subtitle) : null,
     ]),
-    right,
+    right ? el('div', { class: 'page-header-actions' }, [right]) : null,
   ]);
 }
 

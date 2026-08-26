@@ -16,10 +16,12 @@ export async function loadWorkspace() {
   const role = resolveAccessRole(profile, {
     names: [identity?.name, ...linked.flatMap((row) => [row.gamertag, row.name])],
   });
-  const teams = scopeTeams(data.teams, { role, teamIds });
+  const allTeams = data.teams;
+  const teams = scopeTeams(allTeams, { role, teamIds });
   return {
     ...data,
     teams,
+    allTeams,
     canEdit: canEdit(role),
     canTransfer: canTransferMembers(role, { local: !profile }),
     teamIds,

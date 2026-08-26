@@ -41,6 +41,7 @@ const ICON_SHAPES = {
   trash: '<path d="M2.9 4.4h10.2M6.4 4.4V3a.8.8 0 01.8-.8h1.6a.8.8 0 01.8.8v1.4"/><path d="M4.4 4.4l.6 8.3a1 1 0 001 .9h4a1 1 0 001-.9l.6-8.3"/>',
   copy: '<rect x="5.4" y="5.4" width="8" height="8" rx="1.4"/><path d="M10.6 5.4V4a1.4 1.4 0 00-1.4-1.4H4a1.4 1.4 0 00-1.4 1.4v5.2A1.4 1.4 0 004 10.6h1.4"/>',
   feedback: '<path d="M2 3.4h12v7.6H8.6L5.6 13.6v-2.6H2z"/><path d="M5 6.4h6M5 8.4h3.6"/>',
+  refresh: '<path d="M3.1 8A4.9 4.9 0 018.4 3.2M12.9 8A4.9 4.9 0 017.6 12.8"/><path d="M8.5 2.4l.2 2.6-2.5-.7M7.5 13.6l-.2-2.6 2.5.7"/>',
 };
 
 export function icon(name, size = 15) {
@@ -133,9 +134,11 @@ export function playerAvatarSrc(seed) {
 
 export function playerAvatar(member, attrs = {}) {
   const classAttr = attrs.class ? `avatar ${attrs.class}` : 'avatar';
-  const mark = el('div', { ...attrs, class: classAttr }, [
-    el('img', { src: playerAvatarSrc(member?.id || member?.gamertag), alt: member?.gamertag || 'Player' }),
-  ]);
+  const discord = member?.linked?.avatar_url || member?.avatar_url || '';
+  const fallback = discord
+    ? el('img', { src: discord, alt: member?.gamertag || 'Player' })
+    : el('img', { src: playerAvatarSrc(member?.id || member?.gamertag), alt: member?.gamertag || 'Player' });
+  const mark = el('div', { ...attrs, class: classAttr }, [fallback]);
   if (member?.photo && window.cci?.dataUrlForPath) {
     window.cci.dataUrlForPath(member.photo).then((url) => {
       if (!url) return;

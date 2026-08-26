@@ -134,6 +134,9 @@ function registerIpc() {
   const passthrough = {
     'cci:getOrg': () => dataStore.getOrg(),
     'cci:saveOrg': (e, org) => dataStore.saveOrg(org),
+    'cci:syncNow': () => ({ ok: true }),
+    'cci:updateMyProfile': () => ({ ok: true }),
+    'cci:setMyPhoto': () => null,
     'cci:getTeams': () => dataStore.getTeams(),
     'cci:getTeam': (e, id) => dataStore.getTeam(id),
     'cci:getMembers': (e, id) => dataStore.getMembers(id),
@@ -367,7 +370,7 @@ async function runShell(win) {
 async function runPlanning(win) {
   const pages = [
     ['teams', ['Teams', 'Add Team'], '29-teams'],
-    ['players', ['Players', 'Add Player', 'Roster'], '29a-players'],
+    ['players', ['Players', 'Add Member', 'Roster'], '29a-players'],
     ['calendar', ['Calendar'], '30-calendar'],
     ['scrim-hub', ['Scrim Hub'], '31-scrim-hub'],
     ['vod-library', ['VOD Library'], '32-vod-library'],

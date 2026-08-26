@@ -1226,6 +1226,47 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   gap: 16px;
 }
 .page-header > :first-child { min-width: 0; flex: 1 1 220px; }
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.btn.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent);
+  -webkit-app-region: no-drag;
+}
+.btn.refresh-btn:hover {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+}
+.btn.refresh-btn:disabled { opacity: 0.7; }
+.btn.refresh-btn .refresh-icon,
+.btn.refresh-btn .icon { display: inline-flex; width: 11px; height: 11px; }
+body.is-refreshing .refresh-icon,
+.btn.refresh-btn.is-busy .refresh-icon,
+.btn.refresh-btn.is-busy .icon,
+.refresh-icon.is-spinning {
+  animation: refresh-spin 0.7s linear infinite;
+}
+@keyframes refresh-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* The org identity is the masthead of the app, not a label above a list, so
    it is sized to be read from across a desk. Scoped to .page-identity: other

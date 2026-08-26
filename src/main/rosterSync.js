@@ -47,20 +47,43 @@ function sharedWriteHint(err) {
   return msg;
 }
 
-async function syncLocalRosterToRemote({ supabase, dataStore }) {
+function needsTeamPush(local, remote) {
+  return Boolean(local?.id) && !remote;
+}
+
+function needsMemberPush(local, remote) {
+  if (!local?.id) return false;
+  if (!remote) return true;
+  return updatedAtMs(local) > updatedAtMs(remote);
+}
+
+function byId(rows) {
+  return new Map((rows || []).filter((row) => row?.id).map((row) => [row.id, row]));
+}
+
+async function syncLocalRosterToRemote({ supabase, dataStore, docs } = {}) {
   const state = await supabase.get().getState();
   if (!state?.session) return { ok: true, skipped: 'signed-out' };
 
   await supabase.get().ensureProfile().catch(() => null);
 
   const teams = await dataStore.getTeams();
+  let remoteTeams = [];
+  try {
+    remoteTeams = await supabase.get().getTeams();
+  } catch {
+    remoteTeams = [];
+  }
+  const remoteTeamById = byId(remoteTeams);
+
   const errors = [];
   for (const team of teams) {
-    try {
-      await supabase.get().saveTeam(team);
-    } catch (err) {
-      errors.push(`${team.name || team.id}: ${sharedWriteHint(err)}`);
-      continue;
+    if (needsTeamPush(team, remoteTeamById.get(team.id))) {
+      try {
+        await supabase.get().saveTeam(team);
+      } catch (err) {
+        errors.push(`${team.name || team.id}: ${sharedWriteHint(err)}`);
+      }
     }
     const members = await dataStore.getMembers(team.id);
     let remoteMembers = [];
@@ -69,7 +92,17 @@ async function syncLocalRosterToRemote({ supabase, dataStore }) {
     } catch {
       remoteMembers = [];
     }
+    const localById = byId(members);
+    const remoteMemberById = byId(remoteMembers);
     for (const member of mergeMemberLists(members, remoteMembers)) {
+      const local = localById.get(member.id);
+      const remote = remoteMemberById.get(member.id);
+      if (!needsMemberPush(local, remote)) {
+        if (!local || updatedAtMs(member) > updatedAtMs(local)) {
+          await dataStore.saveMember(team.id, member).catch(() => null);
+        }
+        continue;
+      }
       try {
         const saved = await supabase.get().saveMember(team.id, member);
         await dataStore.saveMember(team.id, {
@@ -84,8 +117,9 @@ async function syncLocalRosterToRemote({ supabase, dataStore }) {
     }
   }
 
-  const docs = await cloudSync.syncAll();
-  if (docs?.errors?.length) errors.push(...docs.errors);
+  const syncAll = docs?.syncAll || cloudSync.syncAll;
+  const docResult = await syncAll();
+  if (docResult?.errors?.length) errors.push(...docResult.errors);
 
   if (errors.length) {
     console.error('[roster-sync]', errors.join(' | '));
@@ -94,4 +128,10 @@ async function syncLocalRosterToRemote({ supabase, dataStore }) {
   return { ok: true, errors: [] };
 }
 
-module.exports = { syncLocalRosterToRemote, sharedWriteHint, mergeMemberLists };
+module.exports = {
+  syncLocalRosterToRemote,
+  sharedWriteHint,
+  mergeMemberLists,
+  needsTeamPush,
+  needsMemberPush,
+};

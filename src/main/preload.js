@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('cci', {
   getOrg: () => ipcRenderer.invoke('cci:getOrg'),
   saveOrg: (org) => ipcRenderer.invoke('cci:saveOrg', org),
+  updateMyProfile: (payload) => ipcRenderer.invoke('cci:updateMyProfile', payload),
+  setMyPhoto: (sourcePath) => ipcRenderer.invoke('cci:setMyPhoto', sourcePath),
 
   getTeams: () => ipcRenderer.invoke('cci:getTeams'),
   getTeam: (teamId) => ipcRenderer.invoke('cci:getTeam', teamId),
@@ -18,6 +20,7 @@ contextBridge.exposeInMainWorld('cci', {
   transferMembers: (fromTeamId, toTeamId, memberIds, opts) =>
     ipcRenderer.invoke('cci:transferMembers', fromTeamId, toTeamId, memberIds, opts),
   syncRoster: () => ipcRenderer.invoke('cci:syncRoster'),
+  syncNow: () => ipcRenderer.invoke('cci:syncNow'),
 
   getMatches: (teamId) => ipcRenderer.invoke('cci:getMatches', teamId),
   saveMatch: (teamId, match) => ipcRenderer.invoke('cci:saveMatch', teamId, match),

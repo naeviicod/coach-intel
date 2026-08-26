@@ -17,7 +17,11 @@ export async function render(root, hub) {
 
   const activeMaps = (ruleset?.maps || []).filter((m) => m.active !== false);
 
-  root.append(el('div', { class: 'hub-head', style: 'justify-content:flex-end;' }, [hub.ctxToggle]));
+  if (hub.ctxToggle) {
+    root.append(el('div', { class: 'hub-head', style: 'justify-content:flex-end;' }, [
+      el('div', { class: 'page-header-actions' }, [hub.ctxToggle]),
+    ]));
+  }
   root.append(kpiRow(hub, { matches, strats, activeMaps }));
   root.append(scoreboardCard(hub, boards));
 

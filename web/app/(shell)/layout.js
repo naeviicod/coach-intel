@@ -32,7 +32,7 @@ export default async function ShellLayout({ children }) {
       userLabel={identity.name}
       role={role}
       title={identity.title}
-      avatarUrl={identity.avatarUrl || identity.photo}
+      avatarUrl={identity.photo || identity.avatarUrl}
       org={org}
       teams={scopedTeams}
       members={members}

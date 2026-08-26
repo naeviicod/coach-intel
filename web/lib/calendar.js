@@ -77,8 +77,11 @@ export function bucketByDate(items = []) {
   return map;
 }
 
-export function calendarItems({ teams, events, tasks, matches, members, scrims }) {
-  const teamName = (id) => teams.find((t) => t.id === id)?.name || 'Team';
+export function calendarItems({ teams, events, tasks, matches, members, scrims, org }) {
+  const teamName = (id) => {
+    if (!id) return org?.name || org?.tag || 'Org';
+    return teams.find((t) => t.id === id)?.name || 'Team';
+  };
   const items = [];
   for (const event of events || []) {
     if (!event?.date) continue;

@@ -42,13 +42,36 @@ function createProfilesService({ client }) {
     let teamIds = [];
     let linkedNames = [];
     if (userId) {
-      const { data, error } = await c.from('members').select('team_id, gamertag, name').eq('user_id', userId);
+      const { data, error } = await c.from('members').select('team_id, gamertag, name, photo').eq('user_id', userId);
       if (!error) {
         teamIds = [...new Set((data || []).map((row) => row.team_id).filter(Boolean))];
         linkedNames = [...new Set((data || []).flatMap((row) => [row.gamertag, row.name]).filter(Boolean))];
+        const linkedPhoto = (data || []).find((row) => row.photo)?.photo;
+        if (listed.me && !listed.me.photo && linkedPhoto) {
+          listed.me = { ...listed.me, photo: linkedPhoto };
+        }
       }
     }
     return { ...listed, teamIds, linkedNames };
+  }
+
+  async function updateMyProfile({ displayName, title }) {
+    const c = requireClient();
+    const { data, error } = await c.rpc('update_my_profile', {
+      new_name: String(displayName || '').trim(),
+      new_title: String(title || '').trim(),
+    });
+    if (error) throw error;
+    if (data && data.ok === false) throw new Error(data.error || 'Could not save profile.');
+    return data;
+  }
+
+  async function updateMyPhoto(photo) {
+    const c = requireClient();
+    const { data, error } = await c.rpc('update_my_photo', { new_photo: String(photo || '').trim() });
+    if (error) throw error;
+    if (data && data.ok === false) throw new Error(data.error || 'Could not save photo.');
+    return data;
   }
 
   async function updateRole(userId, role) {
@@ -65,7 +88,7 @@ function createProfilesService({ client }) {
     return true;
   }
 
-  return { list, updateRole, ensure };
+  return { list, updateRole, ensure, updateMyProfile, updateMyPhoto };
 }
 
 module.exports = { createProfilesService };

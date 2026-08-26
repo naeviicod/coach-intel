@@ -8,7 +8,8 @@ export const metadata = { title: 'Calendar · Coach Intel' };
 
 export default async function CalendarPage() {
   const data = await loadWorkspace();
-  const items = calendarItems(data);
+  const teams = data.allTeams || data.teams;
+  const items = calendarItems({ ...data, teams });
 
   return (
     <>
@@ -16,14 +17,14 @@ export default async function CalendarPage() {
         title="Calendar"
         subtitle="Org overview — matches, meetings, reviews and tasks for every team and staff seat"
       />
-      <AddEvent teams={data.teams} canEdit={data.canEdit} />
-      {data.teams.length === 0 ? (
+      <AddEvent teams={teams} canEdit={data.canEdit} />
+      {teams.length === 0 && items.length === 0 ? (
         <EmptyState
           title="No teams yet"
           body="Create a team, then add a match, meeting, or task to put it on the org calendar."
         />
       ) : (
-        <OrgCalendar items={items} teams={data.teams} />
+        <OrgCalendar items={items} teams={teams} />
       )}
     </>
   );

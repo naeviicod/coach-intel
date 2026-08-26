@@ -15,12 +15,13 @@ export function modeKeyFor(mode) {
 }
 
 export function hubHead(title, sub, actions = []) {
+  const extras = actions.filter(Boolean);
   return el('div', { class: 'hub-head', style: 'display:flex;align-items:flex-start;gap:12px;' }, [
     el('div', { style: 'flex:1;min-width:0;' }, [
       el('h1', { class: 'hub-title' }, title),
       sub ? el('div', { class: 'hub-sub' }, sub) : null,
     ]),
-    ...actions,
+    extras.length ? el('div', { class: 'page-header-actions' }, extras) : null,
   ]);
 }
 

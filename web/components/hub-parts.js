@@ -9,7 +9,7 @@ export function HubHead({ title, sub, children }) {
         <h1 className="hub-title">{title}</h1>
         {sub ? <div className="hub-sub">{sub}</div> : null}
       </div>
-      {children}
+      {children ? <div className="page-header-actions">{children}</div> : null}
     </div>
   );
 }

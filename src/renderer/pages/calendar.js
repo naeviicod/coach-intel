@@ -1,7 +1,7 @@
 import { el, icon, fmtDate } from '../utils.js';
 import { iconBtn } from './teamHub/parts.js';
 import { openModal } from '../components/modal.js';
-import { pageHeader, emptyState, openForm, toast } from './planningShared.js';
+import { pageHeader, openForm, toast } from './planningShared.js';
 import {
   WEEKDAYS,
   MONTHS,
@@ -38,11 +38,6 @@ export const EVENT_TYPE_OPTIONS = [
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
-  if (!teams.length) {
-    container.append(pageHeader('Calendar', 'Org overview for every team, meeting, and assigned task'));
-    container.append(emptyState('No teams yet', 'Create a team, then add a match, meeting, or task to put it on the org calendar.'));
-    return;
-  }
   const filterId = teams.some((t) => t.id === ctx.param) ? ctx.param : null;
   const now = new Date();
   const state = { year: now.getFullYear(), month: now.getMonth() };
@@ -67,19 +62,24 @@ function orgTeamFilter(teams, activeId, onChange) {
 
 async function draw(container, ctx, teams, filterId, state, reload) {
   const scoped = filterId ? teams.filter((t) => t.id === filterId) : teams;
-  const packs = await Promise.all(
-    scoped.map(async (team) => {
-      const [events, matches, tasks, scrims, members] = await Promise.all([
-        window.cci.getEvents(team.id),
-        window.cci.getMatches(team.id),
-        window.cci.getTasks(team.id),
-        window.cci.getScrims(team.id),
-        window.cci.getMembers(team.id).catch(() => []),
-      ]);
-      return orgCalendarItems(team, { events, matches, tasks, scrims, members });
-    })
-  );
-  const items = packs.flat();
+  const [orgEvents, org, packs] = await Promise.all([
+    window.cci.getEvents('').catch(() => []),
+    window.cci.getOrg().catch(() => null),
+    Promise.all(
+      scoped.map(async (team) => {
+        const [events, matches, tasks, scrims, members] = await Promise.all([
+          window.cci.getEvents(team.id),
+          window.cci.getMatches(team.id),
+          window.cci.getTasks(team.id),
+          window.cci.getScrims(team.id),
+          window.cci.getMembers(team.id).catch(() => []),
+        ]);
+        return orgCalendarItems(team, { events, matches, tasks, scrims, members });
+      })
+    ),
+  ]);
+  const orgTeam = { id: '', name: org?.name || org?.tag || 'Org' };
+  const items = [...orgCalendarItems(orgTeam, { events: orgEvents }), ...packs.flat()];
   const byDate = bucketByDate(items);
 
   container.append(
@@ -92,7 +92,7 @@ async function draw(container, ctx, teams, filterId, state, reload) {
           'button',
           {
             class: 'btn primary edit-only',
-            onclick: () => addEvent(filterId || teams[0].id, todayIso(), reload, null, teams),
+            onclick: () => addEvent(filterId || '', todayIso(), reload, null, teams),
           },
           [
             el('span', { class: 'icon', style: 'display:inline-flex;vertical-align:-2px;margin-right:6px;', html: icon('plus', 13) }),
@@ -318,7 +318,7 @@ function openDay(ctx, teams, filterId, date, dayItems, reload) {
           class: 'btn primary edit-only',
           onclick: () => {
             overlay.remove();
-            addEvent(filterId || teams[0].id, date, reload, null, teams);
+            addEvent(filterId || '', date, reload, null, teams);
           },
         },
         '+ Add Event'
@@ -332,17 +332,22 @@ export async function addEvent(teamId, date, reload, event = null, teams = null)
   let members = [];
   const rosterTeam = event?.team_id || teamId;
   try {
-    members = await window.cci.getMembers(rosterTeam);
+    if (!rosterTeam && teams?.length) {
+      const packs = await Promise.all(teams.map((t) => window.cci.getMembers(t.id).catch(() => [])));
+      members = packs.flat();
+    } else if (rosterTeam) {
+      members = await window.cci.getMembers(rosterTeam);
+    }
   } catch (err) {
     console.error('[calendar] could not load roster for attendees', err);
   }
 
-  const teamFields = teams?.length > 1 && !event
+  const teamFields = teams?.length && !event
     ? [{
         key: 'team_id',
         label: 'Team',
         type: 'select',
-        options: teams.map((t) => [t.id, t.name]),
+        options: [['', 'Entire org'], ...teams.map((t) => [t.id, t.name])],
       }]
     : [];
 
@@ -371,9 +376,9 @@ export async function addEvent(teamId, date, reload, event = null, teams = null)
     ].filter(Boolean),
     values: event
       ? { ...event, maps: formatMaps(event.maps), attendees: event.attendee_ids || [] }
-      : { type: 'meeting', date, team_id: teamId },
+      : { type: 'meeting', date, team_id: teamId || '' },
     onSubmit: async (values) => {
-      const id = event?.team_id || values.team_id || teamId;
+      const id = event ? (event.team_id || '') : (values.team_id ?? teamId ?? '');
       const type = values.type || 'training';
       const opponent = values.opponent || '';
       const title =

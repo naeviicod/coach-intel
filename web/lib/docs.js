@@ -28,6 +28,35 @@ export async function saveDoc({ kind, teamId = '', id, payload }) {
   return row.payload;
 }
 
+export async function saveStrat({ teamId, existing, strat }) {
+  const now = new Date().toISOString();
+  const id = strat.strategy_id || existing?.strategy_id || existing?.id || newId('strat');
+  const versions = [...(existing?.versions || [])];
+  const nextVersion = (versions[versions.length - 1]?.version || 0) + 1;
+  versions.push({
+    version: nextVersion,
+    label: strat.versionLabel || `Saved ${now}`,
+    player_positions: strat.player_positions || [],
+    drawings: strat.drawings || [],
+    notes: strat.notes || '',
+    piece_scale: strat.piece_scale,
+    created_at: now,
+  });
+  return saveDoc({
+    kind: 'strat',
+    teamId,
+    id,
+    payload: {
+      ...existing,
+      ...strat,
+      strategy_id: id,
+      team_id: teamId,
+      versions,
+      created_at: existing?.created_at || now,
+    },
+  });
+}
+
 export async function deleteDoc({ kind, teamId = '', id }) {
   const supabase = createBrowserSupabase();
   const { error } = await supabase
@@ -83,4 +112,26 @@ export async function updateMyProfile({ displayName, title }) {
   if (error) throw error;
   if (data && data.ok === false) throw new Error(data.error || 'Could not save profile.');
   return data;
+}
+
+const PHOTO_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+export async function uploadMyPhoto(file) {
+  const supabase = createBrowserSupabase();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
+  if (sessionError || !sessionData?.user?.id) throw new Error('Sign in first.');
+  const ext = PHOTO_TYPES[file?.type] || String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+  const safeExt = ext === 'jpeg' ? 'jpg' : ext;
+  if (!['png', 'jpg', 'webp'].includes(safeExt)) throw new Error('Choose a PNG, JPG, or WebP image.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Keep photos under 5 MB.');
+  const key = `org/profiles/${sessionData.user.id}.${safeExt}`;
+  const { error: upError } = await supabase.storage.from('org-assets').upload(key, file, {
+    contentType: file.type || `image/${safeExt}`,
+    upsert: true,
+  });
+  if (upError) throw upError;
+  const { data, error } = await supabase.rpc('update_my_photo', { new_photo: key });
+  if (error) throw error;
+  if (data && data.ok === false) throw new Error(data.error || 'Could not save photo.');
+  return key;
 }

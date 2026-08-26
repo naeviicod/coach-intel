@@ -97,6 +97,11 @@ function teamSub(teamId, sub) {
   return path.join(teamsDir(), safeSegment(teamId, 'team id'), 'data', sub);
 }
 
+function scheduleDir(teamId) {
+  if (!teamId) return path.join(dataRoot(), 'org', 'schedule');
+  return teamSub(teamId, 'schedule');
+}
+
 function clampInt(value, fallback = 0) {
   const n = Number.parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
@@ -156,19 +161,19 @@ function normalizeAttendees(ids) {
 }
 
 async function getEvents(teamId) {
-  const rows = await listJson(teamSub(teamId, 'schedule'), 'event_id');
+  const rows = await listJson(scheduleDir(teamId), 'event_id');
   return rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time || '').localeCompare(b.time || '')));
 }
 
 async function saveEvent(teamId, event) {
-  const dir = teamSub(teamId, 'schedule');
+  const dir = scheduleDir(teamId);
   const now = nowIso();
   const id = safeSegment(event.event_id || makeId('event', event.title), 'event id');
   const existing = event.event_id ? await readJson(path.join(dir, `${id}.json`)) : null;
   const type = EVENT_TYPES.includes(event.type) ? event.type : 'training';
   const record = {
     event_id: id,
-    team_id: teamId,
+    team_id: teamId || '',
     type,
     title: str(event.title || existing?.title || 'Training', 160),
     date: str(event.date || existing?.date || todayIso(), 10),
@@ -186,7 +191,7 @@ async function saveEvent(teamId, event) {
 }
 
 async function deleteEvent(teamId, eventId) {
-  await fs.rm(path.join(teamSub(teamId, 'schedule'), `${safeSegment(eventId, 'event id')}.json`), { force: true });
+  await fs.rm(path.join(scheduleDir(teamId), `${safeSegment(eventId, 'event id')}.json`), { force: true });
 }
 
 // ---------- Scrims (Scrim Hub) ----------

@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { deleteDoc, newId, saveDoc } from '../lib/docs';
-import { mapLayoutSrc } from '../lib/maps';
+import { resolveRuleset } from '../lib/ruleset';
 import { TeamMark } from '../lib/marks';
-import { mapNames, modeNames, resolveRuleset } from '../lib/ruleset';
 import { EmptyState, PageHeader } from './page-header';
-import { pickTeam, Err } from './workspace';
+import { StratBoard } from './strat-board';
+import { pickTeam } from './workspace';
 
-const STATUSES = ['DRAFT', 'IN PRACTICE', 'APPROVED', 'MATCH READY'];
 const MODES = [
   { key: 'hardpoint', label: 'Hardpoint', short: 'HP', mode: 'Hardpoint' },
   { key: 'search-destroy', label: 'Search & Destroy', short: 'S&D', mode: 'Search & Destroy' },
@@ -20,25 +18,15 @@ function isArchived(strat) {
   return String(strat.status || '').toUpperCase() === 'ARCHIVED';
 }
 
-export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
+export function PlaybooksView({ teams, strats, members, rulesetDocs, teamId, canEdit }) {
   const router = useRouter();
   const search = useSearchParams();
   const team = pickTeam(teams, teamId);
   const ruleset = resolveRuleset(rulesetDocs);
-  const maps = mapNames(ruleset);
-  const modes = modeNames(ruleset);
   const teamStrats = strats.filter((s) => s.team_id === team?.id);
   const [modeKey, setModeKey] = useState('');
   const [mapFilter, setMapFilter] = useState('');
   const [editing, setEditing] = useState(null);
-  const [error, setError] = useState('');
-  const [form, setForm] = useState({
-    strategy_name: '',
-    map: maps[0] || '',
-    mode: modes[0] || '',
-    status: 'DRAFT',
-    notes: '',
-  });
 
   const modeFilter = MODES.find((m) => m.key === modeKey) || null;
   const shown = useMemo(
@@ -75,51 +63,11 @@ export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
     router.push(`/playbooks?${next.toString()}`);
   }
 
-  function startNew() {
-    setEditing({});
-    setForm({
-      strategy_name: '',
-      map: maps[0] || '',
-      mode: modes[0] || '',
-      status: 'DRAFT',
-      notes: '',
-    });
-  }
-
-  async function save(e) {
-    e.preventDefault();
-    setError('');
-    try {
-      const id = editing?.strategy_id || editing?.id || newId('strat');
-      await saveDoc({
-        kind: 'strat',
-        teamId: team.id,
-        id,
-        payload: {
-          ...editing,
-          strategy_id: id,
-          strategy_name: form.strategy_name,
-          map: form.map,
-          mode: form.mode,
-          status: form.status,
-          notes: form.notes,
-          team_id: team.id,
-          player_positions: editing?.player_positions || [],
-          drawings: editing?.drawings || [],
-        },
-      });
-      window.location.reload();
-    } catch (err) {
-      setError(err.message || 'Could not save strat.');
-    }
-  }
-
   function modeCount(mode) {
     return teamStrats.filter((s) => !mode || s.mode === mode).filter((s) => !isArchived(s)).length;
   }
 
-  const layoutSrc = mapLayoutSrc(form.map, form.mode);
-  const selected = editing && (editing.strategy_id || editing.id);
+  const selectedId = editing && (editing.strategy_id || editing.id);
 
   return (
     <div className="playbooks">
@@ -155,7 +103,7 @@ export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
             <div className="field-hint">{`${teamStrats.filter((s) => !isArchived(s)).length} strat${teamStrats.filter((s) => !isArchived(s)).length === 1 ? '' : 's'}`}</div>
           </div>
           {canEdit ? (
-            <button type="button" className="btn primary sm edit-only" onClick={startNew}>
+            <button type="button" className="btn primary sm edit-only" onClick={() => setEditing({})}>
               + New
             </button>
           ) : null}
@@ -192,9 +140,9 @@ export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
               {modeFilter || mapFilter ? 'No strats match these filters.' : 'No strats yet. Draw the first one.'}
             </div>
           ) : (
-            shown.map((strat) => {
-              const id = strat.strategy_id || strat.id;
-              const active = Boolean(selected && id === selected);
+            shown.map((row) => {
+              const id = row.strategy_id || row.id;
+              const active = Boolean(selectedId && id === selectedId);
               return (
                 <div
                   key={id}
@@ -202,34 +150,25 @@ export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
                   role="button"
                   tabIndex={0}
                   aria-current={active ? 'page' : undefined}
-                  onClick={() => {
-                    setEditing(strat);
-                    setForm({
-                      strategy_name: strat.strategy_name || '',
-                      map: strat.map || maps[0] || '',
-                      mode: strat.mode || modes[0] || '',
-                      status: strat.status || 'DRAFT',
-                      notes: strat.notes || '',
-                    });
-                  }}
+                  onClick={() => setEditing(row)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setEditing(strat);
+                      setEditing(row);
                     }
                   }}
                 >
                   <div className="crow-main">
-                    <div className="crow-title">{strat.strategy_name || 'Untitled strat'}</div>
+                    <div className="crow-title">{row.strategy_name || 'Untitled strat'}</div>
                     <div className="crow-sub">
-                      <span>{strat.map || 'No map'}</span>
+                      <span>{row.map || 'No map'}</span>
                       <span>·</span>
-                      <span>{strat.mode || 'No mode'}</span>
-                      {strat.objective_key ? <span>·</span> : null}
-                      {strat.objective_key ? <span>{strat.objective_key}</span> : null}
+                      <span>{row.mode || 'No mode'}</span>
+                      {row.objective_key ? <span>·</span> : null}
+                      {row.objective_key ? <span>{row.objective_key}</span> : null}
                     </div>
                   </div>
-                  <span className="pill">{strat.status || 'DRAFT'}</span>
+                  <span className="pill">{row.status || 'DRAFT'}</span>
                 </div>
               );
             })
@@ -238,82 +177,26 @@ export function PlaybooksView({ teams, strats, rulesetDocs, teamId, canEdit }) {
       </aside>
       <div className="playbooks-stage">
         {editing ? (
-          <form id="strat-form" className="playbooks-empty" onSubmit={save} style={{ alignItems: 'stretch', textAlign: 'left', gap: 14, maxWidth: 720, margin: '0 auto' }}>
-            <div className="playbooks-empty-kicker">{editing.strategy_id || editing.id ? 'Edit strat' : 'New strat'}</div>
-            <div className="inline-fields">
-              <label className="field">
-                <span>Name</span>
-                <input value={form.strategy_name} onChange={(e) => setForm({ ...form, strategy_name: e.target.value })} required />
-              </label>
-              <label className="field">
-                <span>Map</span>
-                <select value={form.map} onChange={(e) => setForm({ ...form, map: e.target.value })}>
-                  {maps.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Mode</span>
-                <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
-                  {modes.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Status</span>
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="field">
-              <span>Callouts / notes</span>
-              <textarea rows={6} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </label>
-            {layoutSrc ? (
-              <div className="board-bg has-map strat-map-preview">
-                <img className="board-map" src={layoutSrc} alt={`${form.map} ${form.mode}`} />
-              </div>
-            ) : null}
-            <Err error={error} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn" onClick={() => setEditing(null)}>
-                Cancel
-              </button>
-              <button type="submit" className="btn primary">
-                Save
-              </button>
-              {canEdit && (editing.strategy_id || editing.id) ? (
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={async () => {
-                    await deleteDoc({ kind: 'strat', teamId: team.id, id: editing.strategy_id || editing.id });
-                    window.location.reload();
-                  }}
-                >
-                  Delete
-                </button>
-              ) : null}
-            </div>
-          </form>
+          <StratBoard
+            key={editing.strategy_id || editing.id || 'new'}
+            team={team}
+            members={members}
+            strat={editing.strategy_id || editing.id ? editing : null}
+            ruleset={ruleset}
+            canEdit={canEdit}
+            onClose={() => setEditing(null)}
+            onSaved={(saved) => {
+              setEditing(saved);
+              router.refresh();
+            }}
+          />
         ) : (
           <div className="playbooks-empty">
             <div className="playbooks-empty-kicker">{team.name}</div>
             <div className="playbooks-empty-title">Strats & Playbooks</div>
             <div className="playbooks-empty-copy">Pick a strat from the left, or start a new one on a blueprint.</div>
             {canEdit ? (
-              <button type="button" className="btn primary edit-only" onClick={startNew}>
+              <button type="button" className="btn primary edit-only" onClick={() => setEditing({})}>
                 + New Strat
               </button>
             ) : null}

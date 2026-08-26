@@ -168,7 +168,11 @@ async function calendarEventSaved({ isNew, event, team, members, actor }) {
 async function saveEventAndAnnounce(store, teamId, event) {
   const isNew = !event.event_id;
   const saved = await store.saveEvent(teamId, event);
-  const [team, members] = await Promise.all([store.getTeam(teamId), store.getMembers(teamId).catch(() => [])]);
+  const orgWide = !teamId;
+  const [team, members] = await Promise.all([
+    orgWide ? { id: '', name: 'Org' } : store.getTeam(teamId),
+    orgWide ? [] : store.getMembers(teamId).catch(() => []),
+  ]);
   await calendarEventSaved({ isNew, event: saved, team, members, actor: 'Coach' });
   return saved;
 }

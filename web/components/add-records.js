@@ -50,15 +50,15 @@ export function AddPlayer({ teams, canEdit, teamId }) {
       await saveMember({ ...form, team_id: teamId || form.team_id, id: newId('mem') });
       window.location.reload();
     } catch (err) {
-      setError(err.message || 'Could not add player.');
+      setError(err.message || 'Could not add member.');
     }
   }
   return (
     <>
-      <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Add Player</button>
+      <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Add Member</button>
       {open ? (
         <div style={{ flexBasis: '100%' }}>
-          <FormCard title="Add player" onClose={() => setOpen(false)} actions={<button type="submit" form={formId} className="btn primary">Save</button>}>
+          <FormCard title="Add member" onClose={() => setOpen(false)} actions={<button type="submit" form={formId} className="btn primary">Save</button>}>
             <form id={formId} onSubmit={save} className="inline-fields">
               <Field label="Gamertag"><input value={form.gamertag} onChange={(e) => setForm({ ...form, gamertag: e.target.value })} required /></Field>
               {teamId ? null : (
@@ -188,8 +188,8 @@ export function AddEvent({ teams, canEdit }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ team_id: teams[0]?.id || '', title: '', type: 'meeting', date: today, time: '' });
-  if (!canEdit || !teams.length) return null;
+  const [form, setForm] = useState({ team_id: '', title: '', type: 'meeting', date: today, time: '' });
+  if (!canEdit) return null;
   async function save(e) {
     e.preventDefault();
     setError('');
@@ -197,9 +197,9 @@ export function AddEvent({ teams, canEdit }) {
       const id = newId('event');
       await saveDoc({
         kind: 'event',
-        teamId: form.team_id,
+        teamId: form.team_id || '',
         id,
-        payload: { event_id: id, team_id: form.team_id, title: form.title, type: form.type, date: form.date, time: form.time || null, notes: '' },
+        payload: { event_id: id, team_id: form.team_id || '', title: form.title, type: form.type, date: form.date, time: form.time || null, notes: '' },
       });
       window.location.reload();
     } catch (err) {
@@ -220,10 +220,11 @@ export function AddEvent({ teams, canEdit }) {
             </Field>
             <Field label="Team">
               <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })}>
+                <option value="">Entire org</option>
                 {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </Field>
-            <Field label="Date"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
+            <Field label="Date"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required /></Field>
             <Field label="Time"><input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} /></Field>
           </form>
           <Err error={error} />

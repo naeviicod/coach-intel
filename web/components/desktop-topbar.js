@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { roleLabel } from '../lib/access';
 import { initials, isNaevii, markSrc } from '../lib/marks';
 import { Icon } from './icon';
+import { RefreshButton } from './refresh-button';
 
 function Face({ photo, name }) {
   const src = markSrc(photo);
@@ -75,6 +76,7 @@ export function DesktopTopbar({ userLabel, role, title, avatarUrl, org, teams, m
         ) : null}
       </div>
       <div className="topbar-spacer" />
+      <RefreshButton />
       <div className="status-pill online">
         <span className="status-dot" />
         Online · Synced

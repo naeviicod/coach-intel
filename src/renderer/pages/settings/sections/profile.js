@@ -1,5 +1,4 @@
 import { el, faceMark } from '../../../utils.js';
-import { roleLabel } from '../../../lib/access.js';
 import { BACKGROUND_OPTIONS, DEFAULT_BACKGROUND, applyBackground, backgroundUrl, nextBackground } from '../../../lib/background.js';
 import { TITLE_SUGGESTIONS, chipIdentity, isNaevii } from '../../../lib/profile.js';
 import { getPref, setPref } from '../../../prefs.js';
@@ -12,21 +11,22 @@ export async function render(panel, ctx) {
   const org = await window.cci.getOrg();
   const chip = chipIdentity(org, ctx.access);
 
-  panel.append(ctx.canEdit ? profileCard(org, chip, ctx) : readOnlyProfileCard(chip, ctx));
+  panel.append(profileCard(org, chip, ctx));
   panel.append(backgroundCard());
   const session = await sessionCard();
   if (session) panel.append(session);
 }
 
 function profileCard(org, chip, ctx) {
-  const defaultTitle = org.profileTitle
+  const local = Boolean(ctx.access?.local);
+  const defaultTitle = chip.title
     || (isNaevii(chip.name) || isNaevii(ctx.access?.me?.discord_username) ? 'Developer' : '')
-    || (ctx.access?.local ? 'Local' : '');
+    || (local ? 'Local' : '');
 
   const nameInput = el('input', {
     type: 'text',
     id: 'org-profile-name',
-    value: org.profileName || ctx.access?.me?.discord_username || org.coachName || '',
+    value: chip.name === 'Coach' ? '' : chip.name,
     placeholder: 'Your name',
   });
   const titleInput = el('input', {
@@ -46,13 +46,17 @@ function profileCard(org, chip, ctx) {
     const profileName = String(nameInput.value || '').trim();
     const profileTitle = String(titleInput.value || '').trim();
     try {
-      await window.cci.saveOrg({
-        ...org,
-        coachName: profileName || org.coachName || 'Coach',
-        profileName,
-        profileTitle,
-        ...extra,
-      });
+      if (local) {
+        await window.cci.saveOrg({
+          ...org,
+          coachName: profileName || org.coachName || 'Coach',
+          profileName,
+          profileTitle,
+          ...extra,
+        });
+      } else {
+        await window.cci.updateMyProfile({ displayName: profileName, title: profileTitle });
+      }
       await ctx.refreshShell();
       ctx.reload();
       toast('Saved.');
@@ -65,24 +69,40 @@ function profileCard(org, chip, ctx) {
   return el('div', { class: 'card section' }, [
     el('div', { class: 'section-title' }, 'Your Profile'),
     el('div', { class: 'field-hint', style: 'margin-bottom:14px;max-width:620px;line-height:1.5;' },
-      'This is the person signed in on this Mac — name, title, and photo in the top-right chip.'),
+      local
+        ? 'This is the person signed in on this Mac — name, title, and photo in the top-right chip.'
+        : 'Your name, title, and photo. Teammates see this on Players, Team Hub, and the calendar — same as plans and meetings.'),
     el('div', { class: 'profile-photo-row' }, [
-      faceMark({ photo: org.profilePhoto, avatarUrl: ctx.access?.me?.avatar_url, name: chip.name, size: 52 }),
+      faceMark({ photo: chip.photo, avatarUrl: chip.avatarUrl, name: chip.name, size: 52 }),
       el('div', { style: 'flex:1;' }, [
         el('div', { class: 'settings-row-title' }, 'Profile photo'),
-        el('div', { class: 'field-hint' }, 'Square PNG or JPG. Falls back to your Discord avatar when signed in.'),
+        el('div', { class: 'field-hint' }, local
+          ? 'Square PNG or JPG. Stays on this Mac until you sign in.'
+          : 'Square PNG or JPG. The whole org sees it. Falls back to Discord if you skip this.'),
       ]),
       el('button', {
         class: 'btn',
         onclick: async () => {
           const src = await window.cci.pickImage();
           if (!src) return;
-          const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-          const rel = await window.cci.copyImage(src, `org/profile-photo.${ext}`);
-          if (!rel) return;
-          await save({ profilePhoto: rel });
+          try {
+            if (local) {
+              const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+              const rel = await window.cci.copyImage(src, `org/profile-photo.${ext}`);
+              if (!rel) return;
+              await save({ profilePhoto: rel });
+              return;
+            }
+            await window.cci.setMyPhoto(src);
+            await ctx.refreshShell();
+            ctx.reload();
+            toast('Saved.');
+          } catch (err) {
+            console.error('[settings] photo upload failed', err);
+            toast(err?.message || 'Could not save photo.', 'error');
+          }
         },
-      }, org.profilePhoto ? 'Change Photo' : 'Upload Photo'),
+      }, chip.photo ? 'Change Photo' : 'Upload Photo'),
     ]),
     el('div', { class: 'inline-fields' }, [
       el('div', { class: 'field' }, [el('label', { for: 'org-profile-name' }, 'Your Name'), nameInput]),
@@ -90,22 +110,6 @@ function profileCard(org, chip, ctx) {
     ]),
     el('div', { class: 'settings-actions' }, [
       el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Profile'),
-    ]),
-  ]);
-}
-
-// Players and analysts cannot write the org record, so showing them editable
-// fields would only produce a permission error on save.
-function readOnlyProfileCard(chip, ctx) {
-  return el('div', { class: 'card section' }, [
-    el('div', { class: 'section-title' }, 'Your Profile'),
-    el('div', { class: 'profile-photo-row' }, [
-      faceMark({ photo: chip.photo, avatarUrl: chip.avatarUrl, name: chip.name, size: 52 }),
-      el('div', { style: 'flex:1;' }, [
-        el('div', { class: 'settings-row-title' }, chip.name),
-        el('div', { class: 'field-hint' }, 'Your name and photo come from Discord. Ask an org admin to change your role.'),
-      ]),
-      el('span', { class: 'role-badge' }, roleLabel(ctx.access?.role)),
     ]),
   ]);
 }

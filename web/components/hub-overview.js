@@ -20,7 +20,11 @@ export function HubOverview({ team, matches, notes, strats, ruleset, canEdit, ct
 
   return (
     <>
-      <div className="hub-head" style={{ justifyContent: 'flex-end' }}>{ctxToggle}</div>
+      {ctxToggle ? (
+        <div className="hub-head" style={{ justifyContent: 'flex-end' }}>
+          <div className="page-header-actions">{ctxToggle}</div>
+        </div>
+      ) : null}
       <div className="kpi-row">
         <Link href={`/playbooks?team=${encodeURIComponent(team.id)}`} className="kpi">
           <div className="kpi-label">Strats</div>

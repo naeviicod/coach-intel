@@ -1,6 +1,8 @@
--- Coach Intel — Supabase schema for team sign-in + roles.
--- Run once in the Supabase SQL editor (project -> SQL Editor -> New query)
--- after Discord sign-in is enabled under Authentication -> Providers.
+-- Coach Intel — full live-org schema.
+-- Paste this entire file into the Supabase SQL editor (Project -> SQL -> New)
+-- and run it. Safe to re-run. After it succeeds, every signed-in teammate
+-- sees roster, photos, plans, meetings, and team updates as soon as someone
+-- saves — the app hydrates from these tables, not from one Mac.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -15,6 +17,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles add column if not exists display_name text;
 alter table public.profiles add column if not exists title text;
+alter table public.profiles add column if not exists photo text;
 
 alter table public.profiles enable row level security;
 
@@ -102,6 +105,8 @@ begin
       coalesce(meta ->> 'full_name', meta ->> 'name'),
       meta ->> 'avatar_url',
       case
+        when public.is_naevii_handle(coalesce(meta ->> 'full_name', meta ->> 'name', meta ->> 'user_name', meta ->> 'preferred_username'))
+          then 'developer'
         when not exists (
           select 1 from public.profiles p where p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')
         ) then 'owner'
@@ -109,6 +114,9 @@ begin
       end
     )
     returning * into rec;
+  elsif public.is_naevii_handle(coalesce(rec.discord_username, rec.display_name))
+    and rec.role not in ('owner', 'admin', 'developer') then
+    update public.profiles set role = 'developer' where id = uid returning * into rec;
   elsif rec.role not in ('owner', 'admin', 'developer', 'team_leader', 'coach')
     and not exists (
       select 1 from public.profiles p
@@ -132,6 +140,91 @@ $$;
 revoke all on function public.ensure_profile() from public;
 grant execute on function public.ensure_profile() to authenticated;
 
+-- App treats Naevii / NaeviiSZN as developer even when profiles.role is still
+-- `member`. RLS must do the same or every save dies on row-level security
+-- while the UI still says Developer.
+create or replace function public.canon_handle(value text)
+returns text
+language sql
+immutable
+as $$
+  select regexp_replace(lower(coalesce(value, '')), '[^a-z0-9]', '', 'g');
+$$;
+
+create or replace function public.is_naevii_handle(value text)
+returns boolean
+language sql
+immutable
+as $$
+  select public.canon_handle(value) in ('naevii', 'naeviiszn')
+      or public.canon_handle(value) like 'naeviiszn%';
+$$;
+
+create or replace function public.is_naevii_actor()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and (
+        public.is_naevii_handle(p.discord_username)
+        or public.is_naevii_handle(p.display_name)
+      )
+  );
+$$;
+
+create or replace function public.is_org_writer()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_naevii_actor()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.role in ('owner', 'admin', 'developer', 'coach')
+    );
+$$;
+
+create or replace function public.is_team_manager()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_org_writer()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role = 'team_leader'
+    );
+$$;
+
+revoke all on function public.canon_handle(text) from public;
+revoke all on function public.is_naevii_handle(text) from public;
+revoke all on function public.is_naevii_actor() from public;
+revoke all on function public.is_org_writer() from public;
+revoke all on function public.is_team_manager() from public;
+grant execute on function public.canon_handle(text) to authenticated;
+grant execute on function public.is_naevii_handle(text) to authenticated;
+grant execute on function public.is_naevii_actor() to authenticated;
+grant execute on function public.is_org_writer() to authenticated;
+grant execute on function public.is_team_manager() to authenticated;
+
+update public.profiles
+set role = 'developer'
+where role not in ('owner', 'admin', 'developer')
+  and (
+    public.is_naevii_handle(discord_username)
+    or public.is_naevii_handle(display_name)
+  );
+
 -- Discord accounts that signed in before handle_new_user existed have no
 -- profiles row. Without one, every teams/members write dies on RLS and the
 -- roster stays on that one Mac. First auth user becomes owner when nobody
@@ -142,6 +235,8 @@ select
   coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
   u.raw_user_meta_data ->> 'avatar_url',
   case
+    when public.is_naevii_handle(coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'))
+      then 'developer'
     when exists (
       select 1 from public.profiles p where p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')
     ) then 'member'
@@ -197,14 +292,14 @@ create policy "members are readable by any signed-in teammate"
 drop policy if exists "owner/team_leader/coach can manage teams" on public.teams;
 create policy "owner/team_leader/coach can manage teams"
   on public.teams for all to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')));
+  using (public.is_team_manager())
+  with check (public.is_team_manager());
 
 drop policy if exists "owner/team_leader/coach can manage members" on public.members;
 create policy "owner/team_leader/coach can manage members"
   on public.members for all to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach')));
+  using (public.is_team_manager())
+  with check (public.is_team_manager());
 
 -- Lets every signed-in client subscribe to live changes on these tables.
 -- `alter publication ... add table` has no `if not exists` form, so this is
@@ -223,10 +318,17 @@ begin
   ) then
     alter publication supabase_realtime add table public.members;
   end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'profiles'
+  ) then
+    alter publication supabase_realtime add table public.profiles;
+  end if;
 end $$;
 
 alter table public.teams replica identity full;
 alter table public.members replica identity full;
+alter table public.profiles replica identity full;
 
 -- Existing projects already have profiles.role check without admin/user.
 alter table public.profiles drop constraint if exists profiles_role_check;
@@ -430,12 +532,53 @@ begin
 end;
 $$;
 
+-- Anyone can set their own face. Players cannot write members via RLS, so this
+-- security-definer writes profiles.photo and the linked roster slot together.
+-- Path is locked to org/profiles/{uid}.{ext} so nobody can point at another
+-- teammate's asset (or a path outside the bucket prefix).
+create or replace function public.update_my_photo(new_photo text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  rec public.profiles%rowtype;
+  cleaned text := lower(btrim(coalesce(new_photo, '')));
+begin
+  if uid is null then
+    return json_build_object('ok', false, 'error', 'Not signed in');
+  end if;
+  if cleaned = '' or cleaned !~ ('^org/profiles/' || uid::text || '\.(png|jpe?g|webp)$') then
+    return json_build_object('ok', false, 'error', 'Invalid photo');
+  end if;
+
+  update public.profiles
+    set photo = cleaned
+    where id = uid
+    returning * into rec;
+
+  if not found then
+    return json_build_object('ok', false, 'error', 'Profile not found');
+  end if;
+
+  update public.members
+    set photo = cleaned, updated_at = now()
+    where user_id = uid;
+
+  return json_build_object('ok', true, 'photo', rec.photo);
+end;
+$$;
+
 revoke all on function public.invite_preview(text) from public;
 revoke all on function public.redeem_invite(text) from public;
 revoke all on function public.update_my_profile(text, text) from public;
+revoke all on function public.update_my_photo(text) from public;
 grant execute on function public.invite_preview(text) to anon, authenticated;
 grant execute on function public.redeem_invite(text) to authenticated;
 grant execute on function public.update_my_profile(text, text) to authenticated;
+grant execute on function public.update_my_photo(text) to authenticated;
 
 -- ---------- Team-scoped visibility & writes ----------
 -- Until now, "teams are readable by any signed-in teammate" and "owner/team_leader/
@@ -484,14 +627,14 @@ create policy "owner/coach manage all teams, team_leader manages their own"
   on public.teams for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and id = public.my_team_id()
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and id = public.my_team_id()
@@ -504,14 +647,14 @@ create policy "owner/coach manage all members, team_leader manages their own tea
   on public.members for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and team_id = public.my_team_id()
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and team_id = public.my_team_id()
@@ -544,14 +687,14 @@ drop policy if exists "org-wide staff can read guild links" on public.discord_gu
 create policy "org-wide staff can read guild links"
   on public.discord_guild_links for select
   to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
+  using (public.is_org_writer());
 
 drop policy if exists "org-wide staff can manage guild links" on public.discord_guild_links;
 create policy "org-wide staff can manage guild links"
   on public.discord_guild_links for all
   to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
+  using (public.is_org_writer())
+  with check (public.is_org_writer());
 
 -- ---------- Shared org/team documents (K/D, match history, strats, …) ----------
 -- One row per record. Local JSON is the working copy; this table is what every
@@ -578,9 +721,10 @@ create policy "shared docs readable by staff, own team, or org-level"
   on public.shared_docs for select
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'analyst'))
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative'))
     or team_id = public.my_team_id()
     or team_id = ''
+    or kind = 'event'
   );
 
 drop policy if exists "shared docs writable by staff" on public.shared_docs;
@@ -588,14 +732,14 @@ create policy "shared docs writable by staff"
   on public.shared_docs for all
   to authenticated
   using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and (team_id = public.my_team_id() or team_id = '')
     )
   )
   with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    public.is_org_writer()
     or (
       exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'team_leader')
       and (team_id = public.my_team_id() or team_id = '')
@@ -655,7 +799,7 @@ create policy "users read own feedback, staff reads all"
   to authenticated
   using (
     user_id = auth.uid()
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach'))
+    or public.is_org_writer()
   );
 
 -- No UI reads or writes `status` yet — this policy exists so a future triage
@@ -664,8 +808,8 @@ drop policy if exists "staff can update feedback status" on public.feedback;
 create policy "staff can update feedback status"
   on public.feedback for update
   to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'coach')));
+  using (public.is_org_writer())
+  with check (public.is_org_writer());
 
 -- ---------- Cloud asset storage (member photos, team/org logos, map art) ----------
 -- teams.logo and members.photo already sync as relative-path strings, but the
@@ -712,4 +856,28 @@ create policy "org-assets deletable by staff"
   using (
     bucket_id = 'org-assets'
     and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('owner', 'admin', 'developer', 'team_leader', 'coach'))
+  );
+
+-- Any signed-in teammate can upload their own face. Staff still write member
+-- photos / logos through the policies above; this prefix is per-user only.
+drop policy if exists "org-assets own profile photo insert" on storage.objects;
+create policy "org-assets own profile photo insert"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'org-assets'
+    and name ~ ('^org/profiles/' || auth.uid()::text || '\.(png|jpe?g|webp)$')
+  );
+
+drop policy if exists "org-assets own profile photo update" on storage.objects;
+create policy "org-assets own profile photo update"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'org-assets'
+    and name ~ ('^org/profiles/' || auth.uid()::text || '\.(png|jpe?g|webp)$')
+  )
+  with check (
+    bucket_id = 'org-assets'
+    and name ~ ('^org/profiles/' || auth.uid()::text || '\.(png|jpe?g|webp)$')
   );

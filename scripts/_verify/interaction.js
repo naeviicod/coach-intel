@@ -74,6 +74,9 @@ function registerIpc() {
   const map = {
     'cci:getOrg': () => dataStore.getOrg(),
     'cci:saveOrg': (e, org) => dataStore.saveOrg(org),
+    'cci:syncNow': () => ({ ok: true }),
+    'cci:updateMyProfile': () => ({ ok: true }),
+    'cci:setMyPhoto': () => null,
     'cci:getTeams': () => dataStore.getTeams(),
     'cci:getTeam': (e, id) => dataStore.getTeam(id),
     'cci:saveTeam': (e, team) => dataStore.saveTeam(team),
@@ -500,9 +503,9 @@ async function runCrud(win, teamId) {
   }
 
   await goto(win, '#/players');
-  await clickText(win, '+ Add Player');
+  await clickText(win, '+ Add Member');
   await sleep(250);
-  if (!(await hasModal(win))) fail('Add Player modal did not open');
+  if (!(await hasModal(win))) fail('Add Member modal did not open');
   await clickText(win, 'Save');
   await sleep(200);
   if (await hasModal(win)) ok('empty player gamertag does not save');
