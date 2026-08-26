@@ -348,6 +348,19 @@ async function runShell(win) {
     'document.getElementById("sidebar").classList.contains("collapsed")'
   );
   if (beforeCollapse === afterCollapse) problems.push('collapse button did not toggle the global navigation');
+  const collapseChev = await win.webContents.executeJavaScript(`(() => {
+    const btn = document.querySelector('#sidebar.collapsed .sb-collapse');
+    const glyph = btn?.querySelector('.chev svg') || btn?.querySelector('.chev');
+    if (!btn || !glyph) return { ok: false, reason: 'missing' };
+    const r = glyph.getBoundingClientRect();
+    const cs = getComputedStyle(glyph);
+    return {
+      ok: r.width >= 8 && r.height >= 8 && cs.display !== 'none' && cs.visibility !== 'hidden',
+      width: r.width,
+      display: cs.display,
+    };
+  })()`);
+  if (!collapseChev?.ok) problems.push(`collapse chevron is not visible when nav is collapsed (${JSON.stringify(collapseChev)})`);
   await shot(win, '12-nav-collapsed');
   await win.webContents.executeJavaScript('document.querySelector("#sidebar .sb-collapse")?.click()');
   await new Promise((resolve) => setTimeout(resolve, 400));
@@ -419,6 +432,12 @@ async function run(win) {
     await goto(win, `#/settings${suffix}`);
     await waitFor(win, `${contentText}.includes("${needles[0]}")`, `Settings${suffix || ' (default)'}`);
     await expectText(win, needles, `Settings${suffix || ' (default)'}`);
+    if (!suffix) {
+      const titleTag = await win.webContents.executeJavaScript(
+        'document.getElementById("org-profile-title")?.tagName || ""'
+      );
+      if (titleTag !== 'SELECT') problems.push(`Title should be a select, got ${titleTag || 'missing'}`);
+    }
     await shot(win, shotName);
   }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { aggregate, fmtObj, objStatsForModes, statsForMember } from '../lib/stats';
-import { PlayerAvatar, RoleBadge } from '../lib/marks';
+import { PlayerAvatar, RoleBadge, showsCompetitiveStats } from '../lib/marks';
 import { EmptyState, PageHeader } from './page-header';
 
 export function StatisticsView({ teams, members, matches, embedded }) {
@@ -31,7 +31,7 @@ export function StatisticsView({ teams, members, matches, embedded }) {
     const filteredRows = mode ? r.rows.filter((x) => x.match.mode === mode) : r.rows;
     return { ...r, scopedTotals: aggregate(filteredRows) };
   });
-  const withMatches = scoped.filter((r) => r.scopedTotals.matches > 0).sort((a, b) => b.scopedTotals.kd - a.scopedTotals.kd);
+  const withMatches = scoped.filter((r) => r.scopedTotals.matches > 0 && showsCompetitiveStats(r.member)).sort((a, b) => b.scopedTotals.kd - a.scopedTotals.kd);
   const strongest = withMatches[0];
   const weakest = withMatches[withMatches.length - 1];
   const objStats = objStatsForModes(mode ? [mode] : modes);

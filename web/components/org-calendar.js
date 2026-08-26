@@ -1,9 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { newId, saveDoc } from '../lib/docs';
 import { MONTHS, WEEKDAYS, bucketByDate, chipClass, monthMatrix, shiftMonth, todayIso } from '../lib/calendar';
 import { fmtDate } from '../lib/marks';
 import { Icon } from './icon';
+import { PageHeader } from './page-header';
+import { Err, Field, FormCard } from './workspace';
 
 const LEGEND = [
   ['match', 'Match'],
@@ -14,10 +17,33 @@ const LEGEND = [
   ['task', 'Task'],
 ];
 
-export function OrgCalendar({ items, teams }) {
+const EVENT_TYPE_OPTIONS = [
+  ['league-match', 'League match'],
+  ['scrim', 'Scrim'],
+  ['vod-review', 'VOD review'],
+  ['meeting', 'Meeting'],
+  ['training', 'Training'],
+];
+
+function emptyForm(date, teamId) {
+  return {
+    team_id: teamId || '',
+    title: '',
+    type: 'meeting',
+    opponent: '',
+    maps: '',
+    date: date || todayIso(),
+    time: '',
+    notes: '',
+  };
+}
+
+export function OrgCalendar({ items, teams, canEdit }) {
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [filterId, setFilterId] = useState('');
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState('');
   const weeks = useMemo(() => monthMatrix(cursor.year, cursor.month), [cursor]);
   const scoped = useMemo(
     () => (filterId ? items.filter((item) => !item.teamId || item.teamId === filterId || item.team_id === filterId) : items),
@@ -34,8 +60,109 @@ export function OrgCalendar({ items, teams }) {
     [scoped, today]
   );
 
+  function openAdd(date) {
+    if (!canEdit) return;
+    setError('');
+    setDraft(emptyForm(date, filterId));
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      const id = newId('event');
+      const type = draft.type || 'meeting';
+      const title =
+        draft.title.trim() ||
+        (type === 'league-match' ? `vs ${draft.opponent || 'TBD'}` : 'Event');
+      await saveDoc({
+        kind: 'event',
+        teamId: draft.team_id || '',
+        id,
+        payload: {
+          event_id: id,
+          team_id: draft.team_id || '',
+          title,
+          type,
+          opponent: draft.opponent || '',
+          maps: String(draft.maps || '').split(',').map((m) => m.trim()).filter(Boolean),
+          date: draft.date,
+          time: draft.time || null,
+          notes: draft.notes || '',
+        },
+      });
+      window.location.reload();
+    } catch (err) {
+      setError(err.message || 'Could not add event.');
+    }
+  }
+
+  const actions = (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      {teams?.length > 1 ? (
+        <select aria-label="Team" value={filterId} onChange={(e) => setFilterId(e.target.value)}>
+          <option value="">All teams</option>
+          {teams.map((team) => (
+            <option key={team.id} value={team.id}>{team.name}</option>
+          ))}
+        </select>
+      ) : null}
+      {canEdit ? (
+        <button type="button" className="btn primary" onClick={() => openAdd(today)}>
+          <span className="icon" style={{ display: 'inline-flex', verticalAlign: '-2px', marginRight: 6 }}>
+            <Icon name="plus" size={13} />
+          </span>
+          Add Event
+        </button>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
+      <PageHeader
+        title="Calendar"
+        subtitle="Org overview — matches, meetings, reviews and tasks for every team and staff seat"
+        actions={actions}
+      />
+      {draft ? (
+        <FormCard title="Add Event" onClose={() => setDraft(null)} actions={<button type="submit" form="add-event" className="btn primary">Save</button>}>
+          <form id="add-event" onSubmit={save} className="inline-fields">
+            {teams?.length ? (
+              <Field label="Team">
+                <select value={draft.team_id} onChange={(e) => setDraft({ ...draft, team_id: e.target.value })}>
+                  <option value="">Entire org</option>
+                  {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+                </select>
+              </Field>
+            ) : null}
+            <Field label="Title">
+              <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="VOD review, design sync, training block…" />
+            </Field>
+            <Field label="Type">
+              <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
+                {EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </Field>
+            <Field label="Opponent">
+              <input value={draft.opponent} onChange={(e) => setDraft({ ...draft, opponent: e.target.value })} placeholder="League matches and scrims" />
+            </Field>
+            <Field label="Maps">
+              <input value={draft.maps} onChange={(e) => setDraft({ ...draft, maps: e.target.value })} placeholder="Den, Raid, Scar" />
+            </Field>
+            <Field label="Date">
+              <input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} required />
+            </Field>
+            <Field label="Time">
+              <input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} />
+            </Field>
+            <Field label="Notes">
+              <input value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Optional details" />
+            </Field>
+          </form>
+          <Err error={error} />
+        </FormCard>
+      ) : null}
       <div className="cal-legend">
         {LEGEND.map(([cls, label]) => (
           <span key={cls} className="cal-legend-item">
@@ -44,32 +171,13 @@ export function OrgCalendar({ items, teams }) {
           </span>
         ))}
       </div>
-      {teams?.length > 1 ? (
-        <div style={{ marginBottom: 12 }}>
-          <select
-            aria-label="Team"
-            value={filterId}
-            onChange={(e) => setFilterId(e.target.value)}
-          >
-            <option value="">All teams</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>{team.name}</option>
-            ))}
-          </select>
-        </div>
-      ) : null}
       <div className="cal-shell">
         <div className="cal-toolbar">
           <div className="cal-month-label">
             {MONTHS[cursor.month]} {cursor.year}
           </div>
           <div className="cal-nav">
-            <button
-              type="button"
-              className="btn cal-nav-btn"
-              aria-label="Previous month"
-              onClick={() => setCursor(shiftMonth(cursor.year, cursor.month, -1))}
-            >
+            <button type="button" className="btn cal-nav-btn" aria-label="Previous month" onClick={() => setCursor(shiftMonth(cursor.year, cursor.month, -1))}>
               <Icon name="chevronLeft" size={14} />
             </button>
             <button
@@ -82,12 +190,7 @@ export function OrgCalendar({ items, teams }) {
             >
               Today
             </button>
-            <button
-              type="button"
-              className="btn cal-nav-btn"
-              aria-label="Next month"
-              onClick={() => setCursor(shiftMonth(cursor.year, cursor.month, 1))}
-            >
+            <button type="button" className="btn cal-nav-btn" aria-label="Next month" onClick={() => setCursor(shiftMonth(cursor.year, cursor.month, 1))}>
               <Icon name="chevronRight" size={14} />
             </button>
           </div>
@@ -100,9 +203,11 @@ export function OrgCalendar({ items, teams }) {
             week.map((cell) => {
               const dayItems = byDay[cell.date] || [];
               return (
-                <div
+                <button
                   key={`${wi}-${cell.date}`}
+                  type="button"
                   className={`cal-day${cell.inMonth ? '' : ' muted'}${cell.date === today ? ' today' : ''}`}
+                  onClick={() => openAdd(cell.date)}
                 >
                   <div className="cal-num">{cell.day}</div>
                   {dayItems.slice(0, 3).map((item, i) => (
@@ -111,7 +216,7 @@ export function OrgCalendar({ items, teams }) {
                     </div>
                   ))}
                   {dayItems.length > 3 ? <div className="cal-more">+{dayItems.length - 3} more</div> : null}
-                </div>
+                </button>
               );
             })
           )}

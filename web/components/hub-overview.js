@@ -86,7 +86,7 @@ function ScoreboardCard({ teamId, count, canEdit }) {
         </Link>
       </div>
       <div className="field-hint" style={{ padding: '8px 0' }}>
-        Drop a scoreboard screenshot here. OCR still runs on the desktop app.
+        Drop a post-game board. File it into the BO5 map and player stats land on Statistics.
       </div>
       {canEdit ? (
         <label className="btn sm" style={{ cursor: 'pointer', marginBottom: 8 }}>

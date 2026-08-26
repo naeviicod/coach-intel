@@ -194,67 +194,7 @@ export function AddTask({ teams, canEdit }) {
   );
 }
 
-export function AddMatch({ teams, canEdit, maps = [], modes = [] }) {
-  const [open, setOpen] = useState(false);
-  const [error, setError] = useState('');
-  const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ team_id: teams[0]?.id || '', opponent: '', date: today, map: '', mode: '', result: 'Win', score: '' });
-  if (!canEdit || !teams.length) return null;
-  async function save(e) {
-    e.preventDefault();
-    setError('');
-    try {
-      const id = newId('match');
-      await saveDoc({
-        kind: 'match',
-        teamId: form.team_id,
-        id,
-        payload: { match_id: id, team_id: form.team_id, opponent: form.opponent, date: form.date, map: form.map, mode: form.mode, result: form.result, score: form.score, players: [] },
-      });
-      window.location.reload();
-    } catch (err) {
-      setError(err.message || 'Could not log match.');
-    }
-  }
-  return (
-    <>
-      <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Log Match</button>
-      {open ? (
-        <FormCard title="Log match" onClose={() => setOpen(false)} actions={<button type="submit" form="add-match" className="btn primary">Save</button>}>
-          <form id="add-match" onSubmit={save} className="inline-fields">
-            <Field label="Team">
-              <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })}>
-                {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Opponent"><input value={form.opponent} onChange={(e) => setForm({ ...form, opponent: e.target.value })} required /></Field>
-            <Field label="Date"><input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
-            <Field label="Map">
-              <select value={form.map} onChange={(e) => setForm({ ...form, map: e.target.value })}>
-                <option value="">—</option>
-                {maps.map((m) => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
-            <Field label="Mode">
-              <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
-                <option value="">—</option>
-                {modes.map((m) => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
-            <Field label="Result">
-              <select value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })}>
-                <option>Win</option>
-                <option>Loss</option>
-              </select>
-            </Field>
-            <Field label="Score"><input value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} placeholder="250-180" /></Field>
-          </form>
-          <Err error={error} />
-        </FormCard>
-      ) : null}
-    </>
-  );
-}
+export { AddMatch } from './add-match';
 
 export function AddEvent({ teams, canEdit }) {
   const [open, setOpen] = useState(false);

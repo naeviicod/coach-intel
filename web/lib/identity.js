@@ -24,6 +24,12 @@ export const TITLE_SUGGESTIONS = [
   'Developer',
 ];
 
+export function titleChoices(current) {
+  const value = String(current || '').trim();
+  if (value && !TITLE_SUGGESTIONS.includes(value)) return [value, ...TITLE_SUGGESTIONS];
+  return TITLE_SUGGESTIONS;
+}
+
 export function linkedMember(members, userId) {
   if (!userId) return null;
   return (members || []).find((m) => m.user_id === userId) || null;

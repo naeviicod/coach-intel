@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { newId, saveMember } from '../lib/docs';
 import { aggregate, statsForMember } from '../lib/stats';
-import { memberStaffTitle } from '../lib/marks';
+import { memberStaffTitle, memberDiscordVerified, showsCompetitiveStats, VerifiedMark } from '../lib/marks';
 import { EmptyState, PageHeader } from './page-header';
 import { Err, Field, FormCard } from './workspace';
 
@@ -19,7 +19,7 @@ export function DatabaseView({ teams, members, matches, canEdit }) {
         const team = teams.find((t) => t.id === member.team_id);
         const totals = aggregate(statsForMember(matches.filter((m) => m.team_id === member.team_id), member.id));
         const orgRole = memberStaffTitle(member) || (member.slot === 'staff' ? 'Staff' : 'Player');
-        return { team, member, totals, orgRole };
+        return { team, member, totals, orgRole, competitive: showsCompetitiveStats(member) };
       }),
     [teams, members, matches]
   );
@@ -44,11 +44,22 @@ export function DatabaseView({ teams, members, matches, canEdit }) {
         title="Member Database"
         subtitle="Everyone in the organization — players, staff, and creatives — and their org role"
         actions={canEdit && teams.length ? (
-          <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Add Staff</button>
+          <div className="add-row" style={{ marginBottom: 0 }}>
+            <button type="button" className="btn primary" onClick={() => setOpen(true)}>+ Add Staff</button>
+          </div>
         ) : null}
       />
       {open ? (
-        <FormCard title="Add staff" onClose={() => setOpen(false)} actions={<button type="submit" form="add-staff" className="btn primary">Save</button>}>
+        <FormCard
+          title="Add staff"
+          onClose={() => setOpen(false)}
+          actions={
+            <>
+              <button type="button" className="btn subtle" onClick={() => setOpen(false)}>Cancel</button>
+              <button type="submit" form="add-staff" className="btn primary">Save</button>
+            </>
+          }
+        >
           <form id="add-staff" onSubmit={addStaff} className="inline-fields">
             <Field label="Gamertag"><input value={form.gamertag} onChange={(e) => setForm({ ...form, gamertag: e.target.value })} required /></Field>
             <Field label="Team">
@@ -87,13 +98,18 @@ export function DatabaseView({ teams, members, matches, canEdit }) {
                 <tbody>
                   {filtered.map((r) => (
                     <tr key={r.member.id}>
-                      <td>{r.member.gamertag}{r.member.user_id ? ' ✓' : ''}</td>
+                      <td>
+                        <div className="gamertag">
+                          {r.member.gamertag}
+                          {memberDiscordVerified(r.member) ? <VerifiedMark /> : null}
+                        </div>
+                      </td>
                       <td>{r.team?.name || '—'}</td>
                       <td>{r.orgRole}</td>
                       <td>{r.member.role || '—'}</td>
-                      <td>{r.totals.matches}</td>
-                      <td>{r.totals.kd}</td>
-                      <td>{r.totals.winRate}%</td>
+                      <td>{r.competitive ? r.totals.matches : '—'}</td>
+                      <td>{r.competitive ? r.totals.kd : '—'}</td>
+                      <td>{r.competitive ? `${r.totals.winRate}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

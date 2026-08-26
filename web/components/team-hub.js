@@ -90,11 +90,6 @@ export function TeamHub({
               </Link>
             );
           })}
-          <Link href={`/playbooks?team=${encodeURIComponent(team.id)}`} className="rail-link">
-            <Icon name="strats" size={14} />
-            <span>Strats & Playbooks</span>
-            <span className="count">{strats.length}</span>
-          </Link>
         </nav>
       </header>
       <div className="hub-body">

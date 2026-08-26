@@ -32,6 +32,15 @@ export function isPlayingMember(member) {
   return !isStaffMember(member) && !isFreeAgent(member);
 }
 
+export function showsCompetitiveStats(member) {
+  if (!member) return false;
+  if (isNaevii(member.gamertag) || isNaevii(member.name)) return true;
+  const title = String(member.title || '').toLowerCase();
+  if (/\borg\s*owner\b/.test(title) || title === 'owner') return true;
+  if (isStaffMember(member) || isFreeAgent(member)) return false;
+  return isPlayingMember(member);
+}
+
 export function isBench(member) {
   return isPlayingMember(member) && member?.slot === 'bench';
 }

@@ -3,6 +3,7 @@ import { pageHeader, emptyState, openForm, confirmModal, toast } from './plannin
 import { openModal, modalActions } from '../components/modal.js';
 import { collectMatchLogRows, rulesetFilterOptions } from '../lib/matchLog.js';
 import { canAccessPage } from '../lib/access.js';
+import { openLogSeries } from './logSeries.js';
 
 const RESULTS = ['Win', 'Loss'];
 
@@ -14,11 +15,19 @@ function parseScore(score) {
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
   const teamScoped = teams.some((t) => t.id === ctx.param);
+  const ruleset = teams.length ? await window.cci.getCdlRuleset() : null;
+
+  function reload() {
+    ctx.navigate('matches', ctx.param || undefined);
+  }
 
   container.append(
     pageHeader(
       'Match Log',
-      'Maps and modes from league matches and scrims, as teams put them in'
+      'Log a Best of 5, then drop scoreboards so player stats fill Statistics.',
+      ctx.canEdit && teams.length
+        ? el('button', { class: 'btn primary edit-only', onclick: () => openLogSeries({ teams, ruleset, onSaved: reload }) }, '+ Log Match')
+        : null
     )
   );
 
@@ -27,7 +36,6 @@ export async function render(container, ctx) {
     return;
   }
 
-  const ruleset = await window.cci.getCdlRuleset();
   const matchesByTeam = {};
   const eventsByTeam = {};
   const scrimsByTeam = {};
@@ -60,10 +68,6 @@ export async function render(container, ctx) {
 
   const tableWrap = el('div', { class: 'card' });
   container.append(tableWrap);
-
-  function reload() {
-    ctx.navigate('matches', ctx.param || undefined);
-  }
 
   function draw() {
     const teamVal = filterBar.querySelector('#team-filter').value;
@@ -189,8 +193,6 @@ function deleteMatch(m, reload) {
   });
 }
 
-// ---------- Log / edit a match ----------
-
 function matchFormFields(ruleset, { includeTeam, teams } = {}) {
   const modeNames = ruleset?.modes || ['Hardpoint', 'Search & Destroy', 'Overload'];
   const mapNames = (ruleset?.maps || []).filter((m) => m.active !== false).map((m) => m.name);
@@ -214,13 +216,6 @@ function matchFormFields(ruleset, { includeTeam, teams } = {}) {
   );
   return fields;
 }
-
-// ---------- Advanced (mode-specific team) stats ----------
-//
-// Team-level round/hill counters behind hold %, break %, rotation %,
-// opening-duel/first-blood/post-plant/retake %, and Overload scoring/stop %.
-// Entirely optional — a coach fills in whatever they have from VOD review,
-// and only fields that are actually filled in ever produce a percentage.
 
 function advancedStatsFields(mode) {
   if (mode === 'Hardpoint') {
@@ -339,8 +334,6 @@ function editMatch(match, team, reload) {
     });
   });
 }
-
-// ---------- Match detail (player stats, edit, delete) ----------
 
 function matchDetail(match, team, reload) {
   const body = el('div', {});

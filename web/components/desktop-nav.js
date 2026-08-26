@@ -139,10 +139,10 @@ export function DesktopNav({ role, teams }) {
           aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
           onClick={() => persistCollapsed(!collapsed)}
         >
-          <span className="chev">
+          <span className="chev" aria-hidden="true">
             <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} size={14} />
           </span>
-          <span>Collapse</span>
+          <span className="sb-collapse-label">{collapsed ? 'Expand' : 'Collapse'}</span>
         </button>
       </div>
     </nav>

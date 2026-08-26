@@ -31,6 +31,12 @@ export const TITLE_SUGGESTIONS = [
   'Free Agent',
 ];
 
+export function titleChoices(current) {
+  const value = String(current || '').trim();
+  if (value && !TITLE_SUGGESTIONS.includes(value)) return [value, ...TITLE_SUGGESTIONS];
+  return TITLE_SUGGESTIONS;
+}
+
 const STAFF_TITLE_RE = /\b(org\s*owner|owner|admin|general\s*manager|\bgm\b|team\s*manager|head\s*coach|coach|team\s*leader|analyst|artist|graphic\s*designer|designer|content(\s*creator)?|social(\s*media)?|video\s*editor|super\s*admin|developer)\b/i;
 
 export function isOrgStaffTitle(title) {
@@ -66,8 +72,14 @@ export function normalizeHandles(raw) {
   return out;
 }
 
+export function memberIsNaevii(member) {
+  return isNaevii(member?.gamertag) || isNaevii(member?.name);
+}
+
 export function memberDiscordVerified(member) {
-  return Boolean(member?.user_id || member?.linked);
+  if (!member) return false;
+  if (member.user_id || member.linked) return true;
+  return memberIsNaevii(member);
 }
 
 export function chipIdentity(org, access) {

@@ -1,6 +1,6 @@
 import { el, roleBadge, statsForMember, aggregate, verifiedMark } from '../utils.js';
 import { memberStaffTitle, memberDiscordVerified } from '../lib/profile.js';
-import { isStaffMember } from '../lib/roster.js';
+import { isStaffMember, showsCompetitiveStats } from '../lib/roster.js';
 import { openMemberModal } from '../lib/teamManage.js';
 import { toast } from '../components/modal.js';
 
@@ -108,10 +108,10 @@ export async function render(container, ctx) {
                   el('td', {}, r.team.name),
                   el('td', {}, el('span', { class: `role-badge org ${roleClassSafe(r.orgRole)}` }, r.orgRole)),
                   el('td', {}, isStaffMember(r.member) ? el('span', { class: 'field-hint' }, '—') : roleBadge(r.member.role)),
-                  el('td', {}, r.totals.matches),
-                  el('td', {}, r.totals.matches ? r.totals.kd : '—'),
-                  el('td', {}, r.totals.matches ? Math.round(r.totals.damage / r.totals.matches) : '—'),
-                  el('td', {}, r.totals.matches ? `${r.totals.winRate}%` : '—'),
+                  el('td', {}, showsCompetitiveStats(r.member) ? r.totals.matches : '—'),
+                  el('td', {}, showsCompetitiveStats(r.member) && r.totals.matches ? r.totals.kd : '—'),
+                  el('td', {}, showsCompetitiveStats(r.member) && r.totals.matches ? Math.round(r.totals.damage / r.totals.matches) : '—'),
+                  el('td', {}, showsCompetitiveStats(r.member) && r.totals.matches ? `${r.totals.winRate}%` : '—'),
                 ]
               )
             )

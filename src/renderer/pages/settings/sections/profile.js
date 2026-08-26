@@ -1,6 +1,6 @@
 import { el, faceMark } from '../../../utils.js';
 import { BACKGROUND_OPTIONS, DEFAULT_BACKGROUND, applyBackground, backgroundUrl, nextBackground } from '../../../lib/background.js';
-import { TITLE_SUGGESTIONS, chipIdentity, isNaevii } from '../../../lib/profile.js';
+import { chipIdentity, isNaevii, titleChoices } from '../../../lib/profile.js';
 import { getPref, setPref } from '../../../prefs.js';
 import { toast } from '../../../components/modal.js';
 
@@ -29,18 +29,15 @@ function profileCard(org, chip, ctx) {
     value: chip.name === 'Coach' ? '' : chip.name,
     placeholder: 'Your name',
   });
-  const titleInput = el('input', {
-    type: 'text',
-    id: 'org-profile-title',
-    value: defaultTitle,
-    list: 'org-title-suggestions',
-    placeholder: 'Head Coach',
-  });
-  const titleList = el(
-    'datalist',
-    { id: 'org-title-suggestions' },
-    TITLE_SUGGESTIONS.map((title) => el('option', { value: title }))
+  const titleInput = el(
+    'select',
+    { id: 'org-profile-title', 'aria-label': 'Title' },
+    [
+      el('option', { value: '' }, 'Select title'),
+      ...titleChoices(defaultTitle).map((title) => el('option', { value: title }, title)),
+    ]
   );
+  titleInput.value = defaultTitle || '';
 
   const save = async (extra = {}) => {
     const profileName = String(nameInput.value || '').trim();
@@ -106,7 +103,7 @@ function profileCard(org, chip, ctx) {
     ]),
     el('div', { class: 'inline-fields' }, [
       el('div', { class: 'field' }, [el('label', { for: 'org-profile-name' }, 'Your Name'), nameInput]),
-      el('div', { class: 'field' }, [el('label', { for: 'org-profile-title' }, 'Title'), titleInput, titleList]),
+      el('div', { class: 'field' }, [el('label', { for: 'org-profile-title' }, 'Title'), titleInput]),
     ]),
     el('div', { class: 'settings-actions' }, [
       el('button', { type: 'button', class: 'btn primary', onclick: () => save() }, 'Save Profile'),

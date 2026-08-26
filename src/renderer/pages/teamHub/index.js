@@ -225,20 +225,6 @@ function renderRail(rail, hub, counts) {
       )
     );
   }
-  nav.append(
-    el(
-      'button',
-      {
-        type: 'button',
-        class: 'rail-link',
-        onclick: () => hub.openPlaybooks(),
-      },
-      [
-        el('span', { class: 'icon', html: icon('strats', 14) }),
-        el('span', {}, 'Strats & Playbooks'),
-      ]
-    )
-  );
   rail.append(nav);
 }
 

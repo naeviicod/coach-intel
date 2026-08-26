@@ -21,7 +21,9 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
       <Pit />
       {invite?.accent ? <LookSync accent={invite.accent} /> : null}
       <main className="onboarding-screen signin-screen gate-in">
-        <div className="signin-identity">
+        <div className="signin-brief">
+          <div className="signin-kicker">Secure channel</div>
+          <div className="signin-identity">
           <div className="signin-lockup">
             <img className="signin-mark" src="/assets/splash-logo.png" alt="Coach Intel" />
             <img className="signin-wordmark" src="/assets/splash-wordmark.png" alt="" aria-hidden="true" />
@@ -46,6 +48,8 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
           </div>
         ) : null}
         <DiscordSignIn nextPath={nextPath} />
+          <div className="signin-foot">Opens Discord. You land in the app.</div>
+        </div>
       </main>
     </div>
   );

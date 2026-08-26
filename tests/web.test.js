@@ -94,8 +94,9 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.doesNotMatch(gate, /BrandLockup/);
   assert.doesNotMatch(gate, /SplashLockup/);
   assert.doesNotMatch(gate, /inviteCopy/);
-  assert.match(css, /pitFrostLift 650ms/);
-  assert.match(css, /pitVeilLift 650ms/);
+  assert.match(css, /#b6f542 11%/);
+  assert.doesNotMatch(css, /intel-wave/);
+  assert.doesNotMatch(css, /pitFrostLift/);
   assert.match(sql, /invitee_email/);
   assert.match(sql, /org_name/);
   assert.match(sql, /play_role/);
@@ -226,7 +227,28 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('lib/accent.js'), /export function applyAccent/);
   assert.match(read('lib/background.js'), /export function applyBackground/);
   assert.doesNotMatch(read('app/desktop-web.css'), /--accent:\s*#b6f542/);
+  assert.match(read('components/settings-shell.js'), /settings-nav/);
+  assert.match(read('lib/settings-access.js'), /game-rules/);
+  assert.match(read('components/settings-view.js'), /BackgroundCard/);
+  assert.doesNotMatch(read('components/team-hub.js'), /<span>Strats & Playbooks<\/span>/);
+  assert.match(read('components/org-calendar.js'), /Add Event/);
+  assert.match(read('components/org-calendar.js'), /page-header/);
+  assert.match(read('app/(shell)/calendar/page.js'), /OrgCalendar/);
+  assert.doesNotMatch(read('app/(shell)/calendar/page.js'), /AddEvent/);
+  assert.match(read('components/desktop-shell.js'), /id="atmosphere"/);
+  assert.doesNotMatch(read('components/desktop-shell.js'), /IntelHud/);
+  assert.match(read('app/desktop-web.css'), /background: transparent !important/);
   assert.match(read('components/desktop-nav.js'), /sb-link/);
+  assert.match(read('components/desktop-nav.js'), /sb-collapse-label/);
+  assert.match(read('app/desktop-ui.css'), /#sidebar\.collapsed \.sb-collapse-label/);
+  assert.doesNotMatch(read('app/desktop-ui.css'), /sb-collapse span:not\(\.chev\)/);
+  assert.match(settings, /id="web-profile-title"/);
+  assert.match(settings, /<select/);
+  assert.doesNotMatch(settings, /datalist/);
+  assert.match(read('lib/identity.js'), /export function titleChoices/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/settings/sections/profile.js'), 'utf8'), /titleChoices/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/renderer/pages/settings/sections/profile.js'), 'utf8'), /datalist/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /#sidebar\.collapsed \.sb-collapse-label/);
   assert.match(read('app/(shell)/layout.js'), /desktop-ui\.css/);
   assert.match(read('app/(shell)/layout.js'), /sessionIdentity/);
   assert.match(read('lib/data.js'), /display_name/);
@@ -241,6 +263,16 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.doesNotMatch(read('app/(shell)/playbooks/page.js'), /SectionPage/);
   assert.doesNotMatch(read('app/(shell)/intel-feed/page.js'), /SectionPage/);
   assert.doesNotMatch(read('app/(shell)/maps-modes/page.js'), /SectionPage/);
+  assert.match(read('components/add-match.js'), /Best of 5/);
+  assert.match(read('lib/series.js'), /Search & Destroy/);
+  assert.match(read('components/needs-review-view.js'), /File stats/);
+  assert.match(read('components/scoreboard-read.js'), /Save into stats/);
+  assert.match(read('components/database-view.js'), /showsCompetitiveStats/);
+  assert.match(read('components/database-view.js'), /VerifiedMark/);
+  assert.match(read('lib/marks.js'), /memberIsNaevii/);
+  assert.match(read('lib/series.js'), /showsCompetitiveStats/);
+  assert.match(read('app/desktop-web.css'), /padding: 7px 14px/);
+  assert.match(read('app/desktop-ui.css'), /#b6f542 11%/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

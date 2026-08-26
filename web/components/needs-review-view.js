@@ -1,42 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserSupabase } from '../lib/supabase/browser';
+import { filedPaths } from '../lib/series';
+import { listScoreboardInbox, uploadScoreboards } from '../lib/scoreboards';
 import { EmptyState, PageHeader } from './page-header';
+import { ScoreboardRead } from './scoreboard-read';
 import { pickTeam, TeamPicker } from './workspace';
 
-export function NeedsReviewView({ teams, teamId, canEdit }) {
+export function NeedsReviewView({ teams, teamId, members = [], matches = [], maps = [], modes = [], canEdit }) {
   const team = pickTeam(teams, teamId);
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [reading, setReading] = useState(null);
 
   useEffect(() => {
     if (!team) return;
     let cancelled = false;
     (async () => {
-      const supabase = createBrowserSupabase();
-      const { data, error: err } = await supabase.storage.from('org-assets').list(`scoreboards/${team.id}`, { limit: 100 });
-      if (cancelled) return;
-      if (err) setItems([]);
-      else setItems((data || []).filter((f) => f.name && !f.name.startsWith('.')));
+      const listed = await listScoreboardInbox(team.id);
+      if (!cancelled) setItems(listed);
     })();
     return () => { cancelled = true; };
   }, [team]);
 
+  const done = filedPaths(matches);
+  const waiting = items.filter((item) => !done.has(item.path));
+
   async function onFiles(files) {
-    if (!team || !canEdit) return;
+    if (!team || !canEdit || !files?.length) return;
     setBusy(true);
     setError('');
-    const supabase = createBrowserSupabase();
-    const date = new Date().toISOString().slice(0, 10);
     try {
-      for (const file of files) {
-        const path = `scoreboards/${team.id}/${date}/${file.name}`;
-        const { error: err } = await supabase.storage.from('org-assets').upload(path, file, { upsert: true });
-        if (err) throw err;
-      }
-      window.location.reload();
+      const uploaded = await uploadScoreboards(team.id, files);
+      setItems((cur) => [...uploaded, ...cur]);
+      setReading(uploaded[0] || null);
     } catch (err) {
       setError(err.message || 'Could not upload.');
     } finally {
@@ -57,17 +55,28 @@ export function NeedsReviewView({ teams, teamId, canEdit }) {
     <>
       <PageHeader
         title="Scoreboard Inbox"
-        subtitle="Drop scoreboard screenshots here. Coach Intel files them by team and date."
+        subtitle="Drop a post-game board. Coach Intel files it into that map of the BO5 and writes player stats."
         actions={<TeamPicker teams={teams} teamId={team.id} />}
       />
+      {reading ? (
+        <ScoreboardRead
+          item={reading}
+          team={team}
+          members={members}
+          matches={matches}
+          maps={maps}
+          modes={modes}
+          onClose={() => setReading(null)}
+        />
+      ) : null}
       <div className="card sb-drop-card">
         <div className="card-head">
           <h2>Scoreboard inbox</h2>
           <div className="card-meta">{team.name}</div>
         </div>
         {canEdit ? (
-          <label className="field-hint" style={{ display: 'block', padding: '18px', border: '1px dashed var(--border)', borderRadius: 12, textAlign: 'center', cursor: 'pointer' }}>
-            {busy ? 'Uploading…' : 'Drop or choose a post-game scoreboard — Hardpoint, Search, or Control.'}
+          <label className="sb-drop-zone">
+            {busy ? 'Uploading…' : 'Drop or choose a post-game scoreboard — Hardpoint, Search, or Overload.'}
             <input
               type="file"
               accept="image/*"
@@ -84,17 +93,20 @@ export function NeedsReviewView({ teams, teamId, canEdit }) {
       <div className="card" style={{ marginTop: 14 }}>
         <div className="card-head">
           <h2>Waiting to be read</h2>
-          <div className="card-meta">{items.length} file{items.length === 1 ? '' : 's'} · {team.name}</div>
+          <div className="card-meta">{waiting.length} file{waiting.length === 1 ? '' : 's'} · {team.name}</div>
         </div>
-        {items.length === 0 ? (
-          <div className="field-hint" style={{ padding: '8px 0 4px' }}>Nothing in this team’s inbox yet.</div>
+        {waiting.length === 0 ? (
+          <div className="field-hint" style={{ padding: '8px 0 4px' }}>Nothing in this team’s inbox yet. Drop a board above and it opens the stats form.</div>
         ) : (
-          items.map((item) => (
-            <div key={item.name} className="crow">
+          waiting.map((item) => (
+            <div key={item.path} className="crow">
               <div className="crow-main">
                 <div className="crow-title">{item.name}</div>
-                <div className="crow-sub">{item.updated_at ? String(item.updated_at).slice(0, 10) : 'Undated'}</div>
+                <div className="crow-sub">{item.date || 'Undated'}</div>
               </div>
+              {canEdit ? (
+                <button type="button" className="btn primary sm" onClick={() => setReading(item)}>File stats</button>
+              ) : null}
             </div>
           ))
         )}

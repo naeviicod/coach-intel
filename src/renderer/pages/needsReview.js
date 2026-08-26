@@ -1,6 +1,7 @@
 import { el } from '../utils.js';
 import { resolveActiveTeam } from '../prefs.js';
 import { scoreboardDrop, scoreboardGrid, fmtDateFolder } from '../components/scoreboardDrop.js';
+import { openFileScoreboard } from './fileScoreboard.js';
 
 export async function render(container, ctx) {
   const teams = await window.cci.getTeams();
@@ -19,7 +20,7 @@ async function draw(container, ctx, teams, state, reload) {
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Scoreboard Inbox'),
-        el('div', { class: 'page-subtitle' }, 'Drop scoreboard screenshots here. Coach Intel files them by team and date, then reads the stats.'),
+        el('div', { class: 'page-subtitle' }, 'Drop scoreboard screenshots here. File each board into a BO5 map so player stats land on Statistics.'),
       ]),
     ])
   );
@@ -59,14 +60,14 @@ async function draw(container, ctx, teams, state, reload) {
         el('div', { class: 'card-meta' }, `${items.length} file${items.length === 1 ? '' : 's'} · ${teamName}`),
       ]),
       items.length
-        ? datedInbox(items, reload)
+        ? datedInbox(items, reload, teams.find((t) => t.id === state.teamId))
         : el('div', { class: 'field-hint', style: 'padding:8px 0 4px;' },
           'Nothing in this team’s inbox yet. Drop a post-game scoreboard above — Hardpoint, Search, or Control.'),
     ])
   );
 }
 
-function datedInbox(items, reload) {
+function datedInbox(items, reload, team) {
   const groups = new Map();
   for (const item of items) {
     const key = item.date || 'undated';
@@ -79,6 +80,7 @@ function datedInbox(items, reload) {
       el('div', { class: 'sb-date-group' }, [
         el('div', { class: 'sb-date-label' }, date === 'undated' ? 'Undated' : fmtDateFolder(date)),
         scoreboardGrid(rows, {
+          onOpen: (item) => openFileScoreboard({ item, team, onSaved: reload }),
           onRemove: async (item) => {
             await window.cci.deleteScoreboard(item.teamId, item.key || item.filename, item.bucket);
             await reload();

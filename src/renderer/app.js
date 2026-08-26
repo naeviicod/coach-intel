@@ -791,6 +791,12 @@ async function boot() {
 async function enterApp() {
   const showFn = await prepareApp({ fast: true });
   showFn();
+  const app = document.getElementById('app');
+  const gated = document.querySelector('.signin-screen, .onboarding-screen');
+  if (!gated) {
+    app.classList.add('shell');
+    app.classList.add('ready');
+  }
 }
 
 function renderOnboarding() {
@@ -819,7 +825,7 @@ function renderSignIn() {
   content.className = 'flush';
   content.style.padding = '0';
   content.innerHTML = '';
-  signIn.render(content, { onComplete: () => window.location.reload() });
+  signIn.render(content, { onComplete: () => enterApp() });
 }
 
 // ---------- Global navigation ----------
@@ -964,7 +970,7 @@ function renderSidebar() {
     },
     [
       el('span', { class: 'chev', html: icon(navCollapsed ? 'chevronRight' : 'chevronLeft', 14) }),
-      el('span', {}, 'Collapse'),
+      el('span', { class: 'sb-collapse-label' }, navCollapsed ? 'Expand' : 'Collapse'),
     ]
   );
   attachTooltip(collapseBtn, 'Expand navigation');
@@ -1004,6 +1010,8 @@ function setNavCollapsed(collapsed, { persist = true } = {}) {
     collapseBtn.setAttribute('aria-expanded', String(!collapsed));
     collapseBtn.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
     collapseBtn.querySelector('.chev').innerHTML = icon(collapsed ? 'chevronRight' : 'chevronLeft', 14);
+    const label = collapseBtn.querySelector('.sb-collapse-label');
+    if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
   }
   if (persist) setPref('navCollapsed', collapsed);
   window.cci?.setTrafficLights?.(collapsed);

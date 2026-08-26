@@ -58,6 +58,8 @@ function draw(container, state) {
   container.innerHTML = '';
 
   const screen = el('div', { class: 'onboarding-screen signin-screen' }, [
+    el('div', { class: 'signin-brief' }, [
+    el('div', { class: 'signin-kicker' }, 'Secure channel'),
     el('div', { class: 'signin-identity' }, [
       el('div', { class: 'signin-lockup' }, [
         el('img', { class: 'signin-mark', src: asset('splash-logo.png'), alt: 'Coach Intel' }),
@@ -101,6 +103,8 @@ function draw(container, state) {
       },
       state.status === 'working' ? 'Waiting on Discord…' : 'Sign in with Discord'
     ),
+    el('div', { class: 'signin-foot' }, 'Opens Discord. You land in the app.'),
+    ]),
   ]);
   if (splashDismissed()) screen.classList.add('gate-in');
   container.append(screen);

@@ -23,7 +23,8 @@ test('splash uses the supplied branded background and identity assets', () => {
   }
 
   const html = fs.readFileSync(index, 'utf8');
-  assert.match(html, /splash-background\.png/);
+  assert.match(html, /id="atmosphere"/);
+  assert.match(html, /splash-atmosphere arena/);
   assert.match(html, /splash-logo\.png/);
   assert.match(html, /splash-wordmark\.png/);
   assert.match(html, /splash-slogan\.png/);
@@ -51,13 +52,10 @@ test('splash keeps the separate brand assets in the supplied horizontal lockup',
 test('the splash logo has a staged GPU-only entrance that is visible before handoff', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
 
-  for (const name of ['splashVeilLift', 'splashFrostLift', 'splashMarkIn', 'splashCopyIn', 'splashSloganIn']) {
+  for (const name of ['splashMarkIn', 'splashCopyIn', 'splashSloganIn']) {
     assert.match(styles, new RegExp(`@keyframes ${name}`), `${name} must exist`);
   }
-  assert.match(styles, /\.splash-veil \{[\s\S]{0,280}opacity:\s*0\.72/);
-  assert.match(styles, /\.splash-veil \{[\s\S]{0,320}animation:\s*splashVeilLift 650ms/);
-  assert.match(styles, /\.splash-frost \{[\s\S]{0,500}filter:\s*blur\(48px\) brightness\(0\.28\)/);
-  assert.match(styles, /\.splash-frost \{[\s\S]{0,700}splashFrostLift 650ms/);
+  assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,400}opacity:\s*0/);
   assert.match(styles, /\.splash-logo-mark-frame \{[\s\S]{0,450}animation:\s*splashMarkIn 1600ms var\(--ease-out\) 650ms/);
   assert.match(styles, /\.splash-lockup-copy \{[\s\S]{0,400}opacity:\s*0/);
@@ -105,6 +103,9 @@ test('the finished screen fades in as one stable surface after the dissolve', ()
   assert.doesNotMatch(styles, /\.signin-screen \{[\s\S]{0,300}transition:/);
   assert.doesNotMatch(styles, /\.signin-discord \{[\s\S]{0,300}transition:/);
   assert.match(app, /function revealApp\(\)/);
+  assert.match(app, /function enterApp\(\)/);
+  assert.match(app, /onComplete: \(\) => enterApp\(\)/);
+  assert.doesNotMatch(app, /signIn\.render\(content, \{ onComplete: \(\) => window\.location\.reload\(\) \}\)/);
   assert.match(app, /requestAnimationFrame\(\(\) => app\.classList\.remove\('booting'\)\)/);
   assert.match(app, /splash\.classList\.add\('dissolving'\)/);
   assert.match(app, /signalSplashDone\(\);\s*revealApp\(\);/);
@@ -116,6 +117,7 @@ test('the sign-in destination retains a compact version of the splash identity',
   const signIn = fs.readFileSync(path.join(renderer, 'pages', 'signIn.js'), 'utf8');
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
 
+  assert.match(signIn, /class: 'signin-brief'/);
   assert.match(signIn, /class: 'signin-lockup'/);
   assert.match(signIn, /class: 'signin-wordmark'/);
   assert.match(signIn, /asset\('splash-wordmark\.png'\)/);
@@ -126,21 +128,18 @@ test('the sign-in destination retains a compact version of the splash identity',
   assert.match(styles, /\.signin-slogan-frame \{[\s\S]{0,260}aspect-ratio:\s*17 \/ 1/);
 });
 
-test('the splash background visibly moves during the seven-second splash window', () => {
+test('splash sits on the app pit with no pulse HUD', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const html = fs.readFileSync(index, 'utf8');
 
-  assert.match(html, /class="splash-glow"/);
-  assert.match(html, /class="splash-veil"/);
-  assert.match(html, /class="splash-frost"/);
-  assert.doesNotMatch(html, /splash-sweep/);
-  for (const name of ['splashDrift', 'splashBreath', 'splashVeilLift', 'splashFrostLift']) {
-    assert.match(styles, new RegExp(`@keyframes ${name}`), `${name} must exist`);
-  }
-  assert.match(styles, /splashDrift 16s/);
-  assert.doesNotMatch(styles, /@keyframes splashDrift[\s\S]{0,180}translate3d/, 'the pit must not slide sideways');
-  assert.match(styles, /splashBreath 3\.6s/);
-  assert.match(styles, /splashFrostLift 650ms/);
+  assert.match(html, /class="splash-atmosphere arena"/);
+  assert.doesNotMatch(html, /intel-hud/);
+  assert.doesNotMatch(html, /intel-wave/);
+  assert.doesNotMatch(html, /splash-flow/);
+  assert.doesNotMatch(html, /arena-scan/);
+  assert.doesNotMatch(html, /splash-glow/);
+  assert.doesNotMatch(html, /class="splash-background"/);
+  assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /#splash\.dissolving/);
 });
 

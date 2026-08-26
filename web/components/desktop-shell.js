@@ -1,4 +1,4 @@
-import { accentCssText, accentVars } from '../lib/accent';
+import { accentCssText } from '../lib/accent';
 import { ContentMain } from './content-main';
 import { DesktopNav } from './desktop-nav';
 import { DesktopTopbar } from './desktop-topbar';
@@ -15,15 +15,12 @@ const RULESET = {
 };
 
 export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, members, children }) {
-  const look = accentVars(org?.accent);
   const rulesetParts = [RULESET.game, `Season ${RULESET.season}`, `v${RULESET.version}`];
   return (
     <>
       <style
         dangerouslySetInnerHTML={{
-          __html: `html:has(#app.shell){${accentCssText(org?.accent)}}${
-            look.tinted ? 'html:has(#app.shell) #atmosphere.art-bg .arena-art-tint{opacity:1}' : ''
-          }`,
+          __html: `html:has(#app.shell){${accentCssText(org?.accent)}}`,
         }}
       />
       <LookSync accent={org?.accent} background={org?.background} />
@@ -32,12 +29,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
         <span className="arena-field arena-field-soft" />
         <span className="arena-field" />
         <span className="arena-hex" />
-        <span className="arena-scan" />
         <span className="arena-grain" />
-        <span className="splash-flow splash-flow-a" />
-        <span className="splash-flow splash-flow-b" />
-        <span className="splash-flow splash-flow-c" />
-        <span className="splash-flow splash-flow-d" />
         <span className="arena-art">
           <img className="arena-art-img" alt="" draggable="false" />
           <span className="arena-art-tint" aria-hidden="true" />

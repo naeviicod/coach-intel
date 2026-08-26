@@ -6,7 +6,8 @@ export function PublicGateway({ error, nextPath = '/dashboard', invite = null })
   return (
     <div className="gate">
       <Pit />
-      <main className="stage">
+      <main className="stage signin-brief">
+        <div className="signin-kicker">Secure channel</div>
         <SplashLockup />
         {invite ? (
           <p className="invite-note">
@@ -18,6 +19,7 @@ export function PublicGateway({ error, nextPath = '/dashboard', invite = null })
         <div className="actions">
           <DiscordSignIn nextPath={nextPath} />
         </div>
+        <div className="signin-foot">Opens Discord. You land in the app.</div>
       </main>
     </div>
   );

@@ -1,14 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ACCENT_PRESETS, applyAccent, DEFAULT_ACCENT, normalizeHex } from '../lib/accent';
+import { applyBackground, BACKGROUND_OPTIONS, backgroundUrl, DEFAULT_BACKGROUND, nextBackground } from '../lib/background';
 import { saveDoc, updateMyProfile, uploadMyPhoto } from '../lib/docs';
-import { TITLE_SUGGESTIONS } from '../lib/identity';
+import { titleChoices } from '../lib/identity';
 import { initials, markSrc } from '../lib/marks';
 import { CopyJoinAlias } from './copy-join-alias';
-import { Icon } from './icon';
-import { PageHeader } from './page-header';
 import { Err, Field } from './workspace';
 
 function Face({ photo, name, size = 52 }) {
@@ -70,12 +69,7 @@ function ProfileCard({ identity, profile }) {
       <div className="profile-photo-row">
         <Face photo={photo} name={name} />
         <div style={{ flex: 1 }}>
-          <div className="settings-row-title">
-            Profile photo
-            <span className="verified-mark" title="Confirmed · signed in with Discord" style={{ marginLeft: 6 }}>
-              <Icon name="check" size={9} />
-            </span>
-          </div>
+          <div className="settings-row-title">Profile photo</div>
           <div className="field-hint">Square PNG or JPG. The whole org sees it. Linked as {discord}.</div>
         </div>
         <label className="btn">
@@ -88,12 +82,19 @@ function ProfileCard({ identity, profile }) {
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
         </Field>
         <Field label="Title">
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} list="web-title-suggestions" placeholder="Player" />
-          <datalist id="web-title-suggestions">
-            {TITLE_SUGGESTIONS.map((item) => (
-              <option key={item} value={item} />
+          <select
+            id="web-profile-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Title"
+          >
+            <option value="">Select title</option>
+            {titleChoices(title).map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
             ))}
-          </datalist>
+          </select>
         </Field>
       </div>
       <div className="settings-actions">
@@ -105,7 +106,7 @@ function ProfileCard({ identity, profile }) {
   );
 }
 
-export function SettingsView({ org, canEdit, isOrgAdmin, identity, profile }) {
+export function OrganizationCard({ org, isOrgAdmin }) {
   const [name, setName] = useState(org?.name || '');
   const [tag, setTag] = useState(org?.tag || '');
   const [accent, setAccent] = useState(normalizeHex(org?.accent) || DEFAULT_ACCENT);
@@ -132,8 +133,6 @@ export function SettingsView({ org, canEdit, isOrgAdmin, identity, profile }) {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Your profile, org identity, and invite links" />
-      <ProfileCard identity={identity} profile={profile} />
       {isOrgAdmin ? (
       <form onSubmit={save} className="card section">
           <div className="section-title">Identity</div>
@@ -184,18 +183,83 @@ export function SettingsView({ org, canEdit, isOrgAdmin, identity, profile }) {
           <p className="field-hint">Per-player binds are copied from a team roster. Discord on that link becomes their profile.</p>
         </div>
       ) : null}
-        <div className="card section">
-          <div className="section-title">Account</div>
-          <div className="list-item-row">
-            <div>
-              <div className="settings-row-title">Signed in with Discord</div>
-              <div className="field-hint">Sign out of Coach Intel on this browser. This is the only place to sign out.</div>
-            </div>
-            <form action="/auth/sign-out" method="post">
-              <button type="submit" className="btn subtle danger">Sign out</button>
-            </form>
-          </div>
-        </div>
     </>
+  );
+}
+
+export function AccountCard() {
+  return (
+    <div className="card section">
+      <div className="section-title">Account</div>
+      <div className="list-item-row">
+        <div>
+          <div className="settings-row-title">Signed in with Discord</div>
+          <div className="field-hint">Sign out of Coach Intel on this browser. This is the only place to sign out.</div>
+        </div>
+        <form action="/auth/sign-out" method="post">
+          <button type="submit" className="btn subtle danger">Sign out</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function BackgroundCard() {
+  const [current, setCurrent] = useState(DEFAULT_BACKGROUND);
+
+  useEffect(() => {
+    try {
+      setCurrent(window.localStorage.getItem('ci-background') || DEFAULT_BACKGROUND);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function pick(id) {
+    const resolved = applyBackground(id);
+    try {
+      window.localStorage.setItem('ci-background', resolved);
+    } catch {
+      /* ignore */
+    }
+    setCurrent(resolved);
+  }
+
+  return (
+    <div className="card section">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 2 }}>
+        <div className="section-title" style={{ marginBottom: 0 }}>Background</div>
+        <button type="button" className="btn subtle sm" onClick={() => pick(nextBackground(current))}>
+          Next background
+        </button>
+      </div>
+      <p className="field-hint" style={{ marginBottom: 12, maxWidth: 620, lineHeight: 1.5 }}>
+        Stays in this browser. Highlight color retints the art as you change it.
+      </p>
+      <div className="bg-picker" role="group" aria-label="Background">
+        {BACKGROUND_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            className={`bg-option${opt.id === current ? ' active' : ''}`}
+            data-id={opt.id}
+            aria-pressed={opt.id === current ? 'true' : 'false'}
+            onClick={() => pick(opt.id)}
+          >
+            <span className="bg-option-frame">
+              {opt.src ? (
+                <span className="bg-option-art" style={{ backgroundImage: `url("${backgroundUrl(opt.src)}")` }} />
+              ) : (
+                <span className="bg-option-art bg-option-pit" />
+              )}
+            </span>
+            <span className="bg-option-meta">
+              <div className="bg-option-name">{opt.name}</div>
+              <div className="bg-option-hint">{opt.hint}</div>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -165,9 +165,17 @@ export function fmtStamp(value) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export function memberDiscordVerified(member) {
-  return Boolean(member?.user_id || member?.linked);
+export function memberIsNaevii(member) {
+  return isNaevii(member?.gamertag) || isNaevii(member?.name);
 }
+
+export function memberDiscordVerified(member) {
+  if (!member) return false;
+  if (member.user_id || member.linked) return true;
+  return memberIsNaevii(member);
+}
+
+export { showsCompetitiveStats } from './series';
 
 export function VerifiedMark() {
   return (
