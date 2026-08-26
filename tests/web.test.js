@@ -135,6 +135,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(data, /shared_docs/);
   assert.match(dash, /OrgDashboard/);
   assert.match(dash, /loadWorkspace/);
+  assert.doesNotMatch(dash, /\{\.\.\.data\}/);
   assert.match(hubPage, /TeamHub/);
   assert.match(hub, /hub-rail/);
   assert.match(hub, /Overview/);
