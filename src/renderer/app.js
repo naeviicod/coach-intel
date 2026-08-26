@@ -506,12 +506,8 @@ function signalSplashDone() {
   document.dispatchEvent(new CustomEvent('cci:splash-done'));
 }
 
-function settleAtmosphere() {
-  document.getElementById('atmosphere')?.classList.add('settled');
-}
-
 // Destination sits behind the splash during boot. Reveal starts with the
-// fade so the finished screen is already there under an opacity dissolve.
+// dissolve so the lockup recedes onto the finished screen.
 function revealApp() {
   const app = document.getElementById('app');
   if (!app || app.dataset.splashRevealed === '1') return;
@@ -523,7 +519,6 @@ function finishSplash(splash) {
   if (!splash) {
     applySavedLook();
     signalSplashDone();
-    settleAtmosphere();
     revealApp();
     return;
   }
@@ -534,7 +529,6 @@ function finishSplash(splash) {
     splash.classList.add('hide');
     splash.style.display = 'none';
     signalSplashDone();
-    settleAtmosphere();
   };
   applySavedLook();
   if (prefersReducedMotion()) {

@@ -1,4 +1,6 @@
 import './globals.css';
+import './desktop-ui.css';
+import './desktop-web.css';
 
 export const metadata = {
   title: 'Coach Intel',

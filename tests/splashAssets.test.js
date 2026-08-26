@@ -77,9 +77,10 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   assert.match(styles, /#splash\.dissolving \{[\s\S]{0,140}opacity:\s*0/);
   assert.match(styles, /#splash \{[\s\S]{0,360}transition:\s*opacity var\(--dur-splash\) var\(--ease-out\)/);
   assert.match(styles, /@keyframes splashBarSweep/);
-  assert.doesNotMatch(styles, /@keyframes splashStageOut/);
-  assert.doesNotMatch(styles, /transform:\s*scale\(0\.64\)/);
-  assert.doesNotMatch(styles, /#splash\.dissolving \.splash-stage/);
+  assert.match(styles, /@keyframes splashStageOut/);
+  assert.match(styles, /@keyframes splashPieceOut/);
+  assert.match(styles, /#splash\.dissolving \.splash-stage/);
+  assert.match(styles, /transform:\s*scale\(0\.64\)/);
   assert.doesNotMatch(styles, /#splash\.handoff/);
   assert.doesNotMatch(styles, /#splash\.landed/);
   assert.doesNotMatch(styles, /splashLockupExit/);
@@ -106,8 +107,8 @@ test('the finished screen fades in under the dissolving splash', () => {
   assert.doesNotMatch(styles, /#app\.booting \{[\s\S]{0,260}transform:/);
   assert.match(styles, /#app \{[\s\S]{0,220}opacity var\(--dur-app-reveal\)/);
   assert.match(styles, /--dur-app-reveal:\s*420ms/);
-  assert.doesNotMatch(styles, /@keyframes signinSettle/);
-  assert.doesNotMatch(styles, /#splash\.dissolving:not\(\.hide\) ~ #app \.signin-brief/);
+  assert.match(styles, /@keyframes signinSettle/);
+  assert.match(styles, /#splash\.dissolving:not\(\.hide\) ~ #app \.signin-brief/);
   assert.doesNotMatch(styles, /\.signin-screen \{[\s\S]{0,300}transition:/);
   assert.doesNotMatch(styles, /\.signin-discord \{[\s\S]{0,300}transition:/);
   assert.match(app, /function revealApp\(\)/);
@@ -116,8 +117,7 @@ test('the finished screen fades in under the dissolving splash', () => {
   assert.doesNotMatch(app, /signIn\.render\(content, \{ onComplete: \(\) => window\.location\.reload\(\) \}\)/);
   assert.match(app, /requestAnimationFrame\(\(\) => app\.classList\.remove\('booting'\)\)/);
   assert.match(app, /splash\.classList\.add\('dissolving'\);\s*revealApp\(\)/);
-  assert.match(app, /signalSplashDone\(\);/);
-  assert.match(app, /settleAtmosphere\(\);\s*revealApp\(\)/);
+  assert.match(app, /signalSplashDone\(\);\s*revealApp\(\);/);
   assert.doesNotMatch(app, /playSignInHandoff/);
   assert.doesNotMatch(app, /HAND_OFF_MS/);
 });
@@ -161,16 +161,14 @@ test('wallpaper art follows a non-lime accent instead of staying gold', () => {
   assert.match(styles, /html\.accent-tinted #atmosphere\.art-bg \.arena-art-tint \{ opacity: 0\.58; \}/);
 });
 
-test('the pit stays frosted until the splash is gone', () => {
+test('the splash sits on the visible arena pit', () => {
   const html = fs.readFileSync(index, 'utf8');
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
-  const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
-  assert.match(html, /class="arena-frost"/);
-  assert.match(styles, /\.arena-frost \{[\s\S]{0,280}backdrop-filter:\s*blur\(36px\)/);
-  assert.match(styles, /#atmosphere:not\(\.settled\) \.arena-art/);
-  assert.match(styles, /filter:\s*blur\(32px\)/);
-  assert.match(app, /function settleAtmosphere\(\)/);
-  assert.match(app, /classList\.add\('settled'\)/);
+  assert.match(html, /id="atmosphere"/);
+  assert.match(html, /splash-atmosphere arena/);
+  assert.doesNotMatch(html, /arena-frost/);
+  assert.match(styles, /#atmosphere\.arena \{[\s\S]{0,280}radial-gradient/);
+  assert.doesNotMatch(styles, /#atmosphere:not\(\.settled\) \.arena-art/);
 });
 
 test('the sidebar brand is the wordmark only', () => {

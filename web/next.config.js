@@ -13,6 +13,16 @@ const nextConfig = {
     };
     return config;
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-cache, no-store, max-age=0, must-revalidate' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

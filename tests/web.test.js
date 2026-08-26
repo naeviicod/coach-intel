@@ -32,6 +32,8 @@ test('the public site is a product gateway, not an Open App splash', () => {
   assert.doesNotMatch(page, /coachintel:\/\//);
   assert.match(gateway, /signin-lockup/);
   assert.match(gateway, /signin-mark/);
+  assert.match(read('components/pit.js'), /id="atmosphere"/);
+  assert.match(read('app/layout.js'), /desktop-ui\.css/);
   assert.doesNotMatch(gateway, /Opens Discord\. You land in the app/);
   assert.doesNotMatch(read('components/invite-gate.js'), /Opens Discord\. You land in the app/);
   assert.doesNotMatch(gateway, /SplashLockup/);

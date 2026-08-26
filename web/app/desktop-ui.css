@@ -360,27 +360,6 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   background: #9aa09a;
 }
 #atmosphere.art-bg .arena-art { opacity: 1; }
-.arena-frost {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  pointer-events: none;
-  background: color-mix(in srgb, #080a0c 42%, transparent);
-  backdrop-filter: blur(36px) brightness(0.58);
-  -webkit-backdrop-filter: blur(36px) brightness(0.58);
-  opacity: 1;
-  transition: opacity 480ms var(--ease-out);
-}
-#atmosphere:not(.settled) .arena-art,
-#atmosphere:not(.settled) .arena-field,
-#atmosphere:not(.settled) .arena-field-soft,
-#atmosphere:not(.settled) .arena-hex {
-  filter: blur(32px);
-}
-#atmosphere.settled .arena-frost {
-  opacity: 0;
-  visibility: hidden;
-}
 /* Honeycomb and flow layers fade out under the art rather than cutting, so the
    splash hands over in one motion. */
 #atmosphere .arena-field,
@@ -774,6 +753,14 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   opacity: 0;
   pointer-events: none;
 }
+#splash.dissolving .splash-stage {
+  animation: splashStageOut var(--dur-splash) var(--ease-out) forwards;
+  will-change: transform;
+}
+#splash.dissolving .splash-slogan-frame,
+#splash.dissolving .splash-meta {
+  animation: splashPieceOut 200ms var(--ease-out) forwards;
+}
 #splash.hide {
   opacity: 0;
   visibility: hidden;
@@ -812,6 +799,18 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 @keyframes splashBarSweep {
   from { transform: translateX(-140%); }
   to { transform: translateX(420%); }
+}
+@keyframes splashStageOut {
+  from { transform: scale(1); }
+  to { transform: scale(0.64); }
+}
+@keyframes splashPieceOut {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, 6px, 0); }
+}
+@keyframes signinSettle {
+  from { transform: translate3d(0, 8px, 0) scale(0.97); }
+  to { transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes splashFlowA {
   from { transform: rotate(-16deg) translate3d(0, 0, 0) scale(1); }
@@ -3150,14 +3149,17 @@ tr.clickable-row:hover td { background: #ffffff06; }
 .onboarding-brand-wrap { text-align: center; }
 .onboarding-brand { width: min(547px, 53vw); height: auto; display: block; margin: 0 auto; background: transparent; }
 
-/* Sign-in shares the persistent atmosphere. Its destination is revealed by the
-   app shell above, so no child gets a second, delayed entrance clock. */
+/* Sign-in shares the persistent atmosphere. During the splash dissolve the
+   card sits under the receding lockup. */
 .signin-screen {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   background: transparent;
+}
+#splash.dissolving:not(.hide) ~ #app .signin-brief {
+  animation: signinSettle var(--dur-splash) var(--ease-out) both;
 }
 .signin-brief {
   position: relative;
