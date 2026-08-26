@@ -20,6 +20,7 @@ export const TITLE_SUGGESTIONS = [
   'Content Creator',
   'Social Media',
   'Video Editor',
+  'Super Admin',
   'Developer',
 ];
 
@@ -44,7 +45,7 @@ export function sessionIdentity({ user, profile, members = [], org = null }) {
     String(profile?.display_name || me?.gamertag || me?.name || staffChip || discord || '').trim() || 'Signed in';
   let title = String(profile?.title || me?.title || (!me ? org?.profileTitle : '') || '').trim();
   if (!title) {
-    if (isNaevii(name) || isNaevii(discord)) title = 'Developer';
+    if (isNaevii(name) || isNaevii(discord)) title = 'Super Admin';
     else title = roleLabel(profile?.role);
   }
   return {

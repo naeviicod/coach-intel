@@ -11,7 +11,7 @@ const keysFor = async (access) => {
 };
 
 test('org admins see every section', async () => {
-  for (const role of ['owner', 'admin', 'developer']) {
+  for (const role of ['super_admin', 'owner', 'admin', 'developer']) {
     const { SETTINGS_SECTIONS } = await import(libUrl);
     assert.deepEqual(await keysFor({ role }), SETTINGS_SECTIONS.map((s) => s.key), role);
   }

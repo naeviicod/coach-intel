@@ -10,8 +10,8 @@ export const ACCESS_ROLES = [
   { value: 'analyst', label: 'Analyst', hint: 'Analytics only, across the org.' },
   { value: 'creative', label: 'Creative', hint: 'Team Hub + member directory, their team. For artists, designers, and content.' },
   { value: 'admin', label: 'Admin', hint: 'Sees everything across the org.' },
-  { value: 'developer', label: 'Developer', hint: 'Builds/maintains Coach Intel. Full access, same as Admin.' },
-  { value: 'owner', label: 'Org owner', hint: 'Full control. Sees every team and every page.' },
+  { value: 'developer', label: 'Developer', hint: 'Builds Coach Intel. Same pages as Admin — below Org owner.' },
+  { value: 'owner', label: 'Org owner', hint: 'Every org right. Cannot remove or demote Super Admin.' },
 ];
 
 export function suggestedAccessRole(member) {
@@ -51,20 +51,40 @@ export function inviteUrl(token, gamertag) {
 }
 
 export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
-  const body = el('div', {}, [
+  const suggested = suggestedAccessRole(member);
+  const body = el('div', { class: 'invite-sheet' }, [
     el('h3', {}, `Invite ${member.gamertag}`),
-    el('div', { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
-      'Creates a one-time website link with their gamertag on it (coach.championshipseries.eu/join/…). They open it in a browser, sign in with Discord, and land in the web app — no desktop install required.'),
-    el('div', { class: 'field-hint', id: 'invite-status' }, 'Loading…'),
+    el('p', { class: 'field-hint invite-sheet-lead' },
+      'Website join link with their gamertag on it. They sign in with Discord in a browser — no desktop install. Org owner gets every org right except Super Admin.'),
+    el('div', { class: 'invite-status', id: 'invite-status' }, 'Loading…'),
     el('div', { class: 'field' }, [
-      el('label', { for: 'invite-role' }, 'Access in Coach Intel'),
+      el('label', {}, 'Access in Coach Intel'),
+      el(
+        'div',
+        { class: 'invite-role-grid', id: 'invite-role-grid' },
+        ACCESS_ROLES.map((role) =>
+          el('button', {
+            type: 'button',
+            class: `invite-role-card${role.value === suggested ? ' active' : ''}${role.value === 'owner' ? ' owner' : ''}`,
+            'data-role': role.value,
+            onclick: (e) => {
+              body.querySelectorAll('.invite-role-card').forEach((card) => card.classList.remove('active'));
+              e.currentTarget.classList.add('active');
+              roleSelect.value = role.value;
+            },
+          }, [
+            el('strong', {}, role.label),
+            el('span', {}, role.hint),
+          ])
+        )
+      ),
       el(
         'select',
-        { id: 'invite-role' },
+        { id: 'invite-role', class: 'invite-role-select' },
         ACCESS_ROLES.map((role) =>
           el('option', {
             value: role.value,
-            selected: role.value === suggestedAccessRole(member) ? 'selected' : null,
+            selected: role.value === suggested ? 'selected' : null,
           }, `${role.label} — ${role.hint}`)
         )
       ),
@@ -85,7 +105,7 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
       el('div', { class: 'field-hint' }, 'Send it in Discord. It looks like coach.championshipseries.eu/join/bracke/… — they open it in a browser, no desktop app.'),
     ]),
   ]);
-  const overlay = openModal(body, { width: '520px' });
+  const overlay = openModal(body, { width: '560px' });
 
   const statusEl = body.querySelector('#invite-status');
   const linkField = body.querySelector('#invite-link-field');
@@ -106,6 +126,9 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
       linkField.style.display = '';
       linkInput.value = invite.url;
       roleSelect.value = invite.access_role;
+      body.querySelectorAll('.invite-role-card').forEach((card) => {
+        card.classList.toggle('active', card.getAttribute('data-role') === invite.access_role);
+      });
     } else {
       statusEl.textContent = 'Not invited yet.';
     }

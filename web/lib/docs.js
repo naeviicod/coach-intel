@@ -1,4 +1,5 @@
 import { createBrowserSupabase } from './supabase/browser';
+import { isProtectedPerson } from './access';
 
 export function newId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -105,6 +106,8 @@ export async function saveMember(member) {
 
 export async function deleteMember({ team_id, id }) {
   const supabase = createBrowserSupabase();
+  const { data: existing } = await supabase.from('members').select('gamertag, name, title').eq('team_id', team_id).eq('id', id).maybeSingle();
+  if (isProtectedPerson(existing)) throw new Error('Super Admin cannot be removed from the roster.');
   const { error } = await supabase.from('members').delete().eq('team_id', team_id).eq('id', id);
   if (error) throw error;
 }

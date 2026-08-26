@@ -1,5 +1,5 @@
 import { el, statsByKey, fmtDate } from '../utils.js';
-import { resolveMapImage } from '../lib/maps.js';
+import { resolveMapImage, resolveMapLayout } from '../lib/maps.js';
 import { openMapModal } from './cdlRulesetSettings.js';
 
 export async function render(container, ctx) {
@@ -112,27 +112,41 @@ function rulesetStrip(ruleset) {
 }
 
 function mapCard(map, stat) {
-  const cover = el('div', { class: 'map-thumb cover' });
+  const cover = el('div', { class: 'map-thumb cover map-card-cover' });
   resolveMapImage(map.name).then((src) => {
     if (!src) return;
     const img = el('img', { src, alt: map.name });
     img.onerror = () => cover.remove();
     cover.append(img);
   });
-  return el('div', { class: 'card' }, [
+  const arts = el('div', { class: 'map-mode-arts' });
+  (map.modes || []).forEach((mode) => {
+    const tile = el('div', { class: 'map-mode-art' }, [el('span', {}, modeAbbrev(mode))]);
+    resolveMapLayout(map.name, mode).then(({ src }) => {
+      if (!src) return;
+      const img = el('img', { src, alt: `${map.name} ${mode}` });
+      img.onerror = () => tile.remove();
+      tile.prepend(img);
+    });
+    arts.append(tile);
+  });
+  return el('div', { class: 'card map-card' }, [
     cover,
-    el('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;' }, [
-      el('div', { style: 'font-weight:700;font-size:13.5px;' }, map.name),
-      stat ? el('span', { class: `pill ${stat.winRate >= 50 ? 'win' : 'loss'}` }, `${stat.winRate}%`) : null,
+    el('div', { class: 'map-card-body' }, [
+      el('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;' }, [
+        el('div', { style: 'font-weight:700;font-size:13.5px;' }, map.name),
+        stat ? el('span', { class: `pill ${stat.winRate >= 50 ? 'win' : 'loss'}` }, `${stat.winRate}%`) : null,
+      ]),
+      el(
+        'div',
+        { style: 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;' },
+        map.modes.map((m) => el('span', { class: 'role-badge' }, modeAbbrev(m)))
+      ),
+      stat
+        ? el('div', { class: 'field-hint' }, `${stat.wins}-${stat.losses} over ${stat.total} matches`)
+        : el('div', { class: 'field-hint' }, 'No matches logged for this map yet.'),
+      map.modes?.length ? arts : null,
     ]),
-    el(
-      'div',
-      { style: 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;' },
-      map.modes.map((m) => el('span', { class: 'role-badge' }, modeAbbrev(m)))
-    ),
-    stat
-      ? el('div', { class: 'field-hint' }, `${stat.wins}-${stat.losses} over ${stat.total} matches`)
-      : el('div', { class: 'field-hint' }, 'No matches logged for this map yet.'),
   ]);
 }
 

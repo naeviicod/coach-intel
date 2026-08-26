@@ -154,6 +154,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /alter publication supabase_realtime add table public.profiles/);
   assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /is_org_writer/);
   assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /free_agent/);
+  assert.match(fs.readFileSync(path.join(root, 'scripts', 'supabase', 'schema.sql'), 'utf8'), /protect_super_admin_member/);
   assert.match(settings, /Sign out/);
   assert.match(settings, /Your Profile/);
   assert.match(settings, /updateMyProfile/);
@@ -184,7 +185,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(settings, /list-item-row/);
   assert.match(read('components/copy-join-alias.js'), /className="btn sm"/);
   assert.doesNotMatch(read('components/copy-join-alias.js'), /text-link/);
-  assert.match(read('components/maps-modes-view.js'), /mapCoverSrc/);
+  assert.match(read('components/maps-modes-view.js'), /mapModeArts/);
   assert.match(read('components/maps-modes-view.js'), /map-thumb cover/);
   assert.match(read('components/playbooks-view.js'), /StratBoard/);
   assert.match(read('components/strat-board.js'), /mapLayoutSrc/);
@@ -287,4 +288,6 @@ test('map covers and layouts resolve to public assets that exist', async () => {
   assert.equal(mapLayoutSrc('Den', 'Search & Destroy'), '/assets/maps/den-snd.png');
   assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus.jpg')));
   assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus-hp.webp')));
+  assert.ok(fs.existsSync(path.join(root, 'data/maps/colossus.jpg')));
+  assert.ok(fs.existsSync(path.join(root, 'data/maps/den-hp.png')));
 });

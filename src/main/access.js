@@ -1,7 +1,7 @@
-const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
-const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
-const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
+const STAFF_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'team_leader', 'coach']);
+const ALL_TEAMS_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
+const ORG_EDIT_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'coach']);
+const TRANSFER_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer']);
 
 function isNaevii(value) {
   const s = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -18,12 +18,20 @@ function resolveAccessRole(me, { names = [] } = {}) {
     me?.title,
     ...(Array.isArray(names) ? names : []),
   ];
-  if (fields.some(isNaevii)) {
-    const existing = String(me?.role || '').toLowerCase().trim();
-    if (existing === 'owner' || existing === 'admin' || existing === 'developer') return existing;
-    return 'developer';
-  }
+  if (fields.some(isNaevii)) return 'super_admin';
   return me?.role || 'member';
+}
+
+function isProtectedPerson(person) {
+  if (!person) return false;
+  return [person.discord_username, person.display_name, person.gamertag, person.name, person.title]
+    .some(isNaevii);
+}
+
+function assertNotProtectedPerson(person, action) {
+  if (isProtectedPerson(person)) {
+    throw new Error(action || 'Super Admin cannot be removed or demoted.');
+  }
 }
 
 function isStaff(role) {
@@ -148,6 +156,9 @@ async function assertCanTransfer(supabase) {
 
 module.exports = {
   isStaff,
+  isNaevii,
+  isProtectedPerson,
+  assertNotProtectedPerson,
   canEdit,
   seesAllTeams,
   canEditTeam,

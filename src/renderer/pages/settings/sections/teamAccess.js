@@ -1,5 +1,5 @@
 import { el, initials } from '../../../utils.js';
-import { ASSIGNABLE_ROLES, ROLE_LABELS, canEdit, resolveAccessRole } from '../../../lib/access.js';
+import { ASSIGNABLE_ROLES, ROLE_LABELS, canEdit, isProtectedPerson, resolveAccessRole } from '../../../lib/access.js';
 
 export async function render(panel, ctx) {
   const authState = await window.cci.auth.getState();
@@ -33,7 +33,7 @@ export async function render(panel, ctx) {
     el(
       'div',
       { class: 'field-hint', style: 'margin-bottom:10px;' },
-      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite from Players — the link is coach.championshipseries.eu/join/… and opens the website. Team leaders see everything and may only add, edit, or remove players on their own team. Only org owners, admins, and developers can transfer players between teams.'
+      'Everyone who has signed in to Coach Intel with Discord, and their access. Invite from Players — the link is coach.championshipseries.eu/join/… and opens the website. Org owner has every org right except Super Admin: they cannot remove or demote Super Admin. Team leaders see everything and may only add, edit, or remove players on their own team.'
     ),
   ]);
 
@@ -41,8 +41,9 @@ export async function render(panel, ctx) {
 
   for (const person of profiles) {
     const isSelf = person.id === me?.id;
+    const locked = isProtectedPerson(person);
     const roleControl =
-      canEditRoles && !isSelf
+      canEditRoles && !isSelf && !locked
         ? el(
             'select',
             {
@@ -59,7 +60,7 @@ export async function render(panel, ctx) {
               }, ROLE_LABELS[r] || r)
             )
           )
-        : el('span', { class: 'role-badge' }, ROLE_LABELS[person.role] || person.role);
+        : el('span', { class: 'role-badge' }, locked ? 'Super Admin' : (ROLE_LABELS[person.role] || person.role));
 
     card.append(
       el('div', { class: 'list-item-row' }, [
@@ -67,7 +68,7 @@ export async function render(panel, ctx) {
           el('div', { class: 'avatar', style: 'width:32px;height:32px;' }, initials(person.discord_username || '?')),
           el('div', {}, [
             el('div', { class: 'settings-row-title' }, person.discord_username || 'Unknown Discord user'),
-            isSelf ? el('div', { class: 'field-hint' }, 'You') : null,
+            isSelf ? el('div', { class: 'field-hint' }, 'You') : locked ? el('div', { class: 'field-hint' }, 'Cannot be removed or demoted') : null,
           ]),
         ]),
         roleControl,

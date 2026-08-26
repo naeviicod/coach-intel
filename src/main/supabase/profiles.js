@@ -3,6 +3,8 @@
 // enforces who can read the roster or change a role — this module just calls the
 // table through the signed-in user's own session.
 
+const { isProtectedPerson } = require('../access');
+
 function createProfilesService({ client }) {
   function requireClient() {
     if (!client) throw new Error('Supabase is not configured yet — see src/main/supabase/config.js');
@@ -76,6 +78,8 @@ function createProfilesService({ client }) {
 
   async function updateRole(userId, role) {
     const c = requireClient();
+    const { data: row } = await c.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (isProtectedPerson(row)) throw new Error('Super Admin access cannot be changed.');
     let next = role;
     if (next === 'player') next = 'user';
     const { error } = await c.from('profiles').update({ role: next }).eq('id', userId);

@@ -6,8 +6,8 @@
 // wallpaper. Sections are gated per scope instead, and the catalog lives here
 // (free of DOM and section modules) so the rule is testable on its own.
 
-const ORG_ADMIN_ROLES = new Set(['owner', 'admin', 'developer']);
-const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
+const ORG_ADMIN_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer']);
+const STAFF_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'team_leader', 'coach']);
 
 // `everyone` — yours or harmless. `staff` — runs a team day to day.
 // `org-admin` — changes what every teammate sees, or destroys data.

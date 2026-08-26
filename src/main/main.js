@@ -15,7 +15,7 @@ const notificationStore = require('./notificationStore');
 const supabase = require('./supabase');
 const { syncLocalRosterToRemote, sharedWriteHint, mergeMemberLists } = require('./rosterSync');
 const cloudSync = require('./cloudSync');
-const { assertCanEdit, assertCanEditTeam, assertCanTransfer, assertCanManageOrg, scopeTeams, resolveAccessRole } = require('./access');
+const { assertCanEdit, assertCanEditTeam, assertCanTransfer, assertCanManageOrg, assertNotProtectedPerson, scopeTeams, resolveAccessRole } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
@@ -640,6 +640,9 @@ ipcMain.handle('cci:saveMember', requireEditTeam(async (e, teamId, member) => {
 }));
 ipcMain.handle('cci:deleteMember', requireEditTeam(async (e, teamId, memberId) => {
   const { session } = await supabase.get().getState();
+  const existing = await dataStore.getMember(teamId, memberId).catch(() => null)
+    || (session ? await supabase.get().getMember(teamId, memberId).catch(() => null) : null);
+  assertNotProtectedPerson(existing, 'Super Admin cannot be removed from the roster.');
   try {
     await supabase.get().deleteMember(teamId, memberId);
   } catch (err) {

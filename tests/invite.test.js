@@ -267,13 +267,13 @@ test('players keep Main dashboard and Intel Feed; tools stay with org admins', a
   assert.equal(canAccessPage('owner', 'maps-modes'), true);
 });
 
-test('signing in as Naevii or NaeviiSZN is full developer access', async () => {
+test('signing in as Naevii or NaeviiSZN is Super Admin access', async () => {
   const { accessFromProfile, canEditTeam, canTransferMembers } = await import(libUrl('access.js'));
   const access = accessFromProfile({ role: 'user', discord_username: 'Naevii' }, { teamIds: [] });
-  assert.equal(access.role, 'developer');
+  assert.equal(access.role, 'super_admin');
   assert.equal(access.canEdit, true);
   assert.equal(canEditTeam(access.role, 'rome', { teamIds: [] }), true);
   assert.equal(canTransferMembers(access.role), true);
   const fromSlot = accessFromProfile({ role: 'member' }, { linkedNames: ['NaeviiSZN'] });
-  assert.equal(fromSlot.role, 'developer');
+  assert.equal(fromSlot.role, 'super_admin');
 });

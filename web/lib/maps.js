@@ -62,3 +62,14 @@ export function mapLayoutSrc(name, mode) {
   if (key && LAYOUTS[`${id}-${key}`]) return publicSrc(LAYOUTS[`${id}-${key}`]);
   return mapCoverSrc(name);
 }
+
+export function mapModeArts(name, modes = []) {
+  const cover = mapCoverSrc(name);
+  return (modes || [])
+    .map((mode) => {
+      const src = mapLayoutSrc(name, mode);
+      if (!src) return null;
+      return { mode, src, distinct: src !== cover };
+    })
+    .filter(Boolean);
+}

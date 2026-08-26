@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { newId, saveDoc, saveMember, saveTeam, deleteMember, slugify } from '../lib/docs';
+import { isProtectedPerson } from '../lib/access';
 import { Err, Field, FormCard } from './workspace';
 
 export function AddTeam({ canEdit }) {
@@ -139,6 +140,7 @@ export function EditMember({ member, canEdit }) {
 export function RemoveMember({ member, canEdit }) {
   const [busy, setBusy] = useState(false);
   if (!canEdit || !member?.id) return null;
+  if (isProtectedPerson(member)) return null;
   async function remove() {
     if (!window.confirm(`Remove ${member.gamertag || 'this player'} from the team?`)) return;
     setBusy(true);

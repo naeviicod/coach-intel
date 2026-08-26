@@ -140,14 +140,17 @@ test('every role that plans still reaches the team hub planner', () => {
   }
 });
 
-test('Naevii / NaeviiSZN get developer rights even when profiles.role is user', async () => {
-  const { resolveAccessRole, assertCanEdit, assertCanEditTeam, assertCanTransfer, canEditTeam, canTransferMembers } = require('../src/main/access');
-  assert.equal(resolveAccessRole({ role: 'user', discord_username: 'Naevii' }), 'developer');
-  assert.equal(resolveAccessRole({ role: 'user', display_name: 'NaeviiSZN' }), 'developer');
-  assert.equal(resolveAccessRole({ role: 'user' }, { names: ['NaeviiSZN'] }), 'developer');
+test('Naevii / NaeviiSZN is Super Admin even when profiles.role is user', async () => {
+  const { resolveAccessRole, assertCanEdit, assertCanEditTeam, assertCanTransfer, canEditTeam, canTransferMembers, isProtectedPerson, canManageOrg } = require('../src/main/access');
+  assert.equal(resolveAccessRole({ role: 'user', discord_username: 'Naevii' }), 'super_admin');
+  assert.equal(resolveAccessRole({ role: 'user', display_name: 'NaeviiSZN' }), 'super_admin');
+  assert.equal(resolveAccessRole({ role: 'user' }, { names: ['NaeviiSZN'] }), 'super_admin');
   assert.equal(resolveAccessRole({ role: 'user', discord_username: 'Shotzzy' }), 'user');
-  assert.equal(canEditTeam('developer', 'other', { teamIds: [] }), true);
-  assert.equal(canTransferMembers('developer'), true);
+  assert.equal(canEditTeam('super_admin', 'other', { teamIds: [] }), true);
+  assert.equal(canTransferMembers('super_admin'), true);
+  assert.equal(canManageOrg('super_admin'), true);
+  assert.equal(isProtectedPerson({ gamertag: 'NaeviiSZN' }), true);
+  assert.equal(isProtectedPerson({ gamertag: 'Shotzzy' }), false);
 
   const naevii = {
     get: () => ({
@@ -168,7 +171,7 @@ test('Naevii / NaeviiSZN get developer rights even when profiles.role is user', 
     { role: 'user', discord_username: 'Naevii' },
     { teamIds: ['rome'], linkedNames: ['NaeviiSZN'] },
   );
-  assert.equal(access.role, 'developer');
+  assert.equal(access.role, 'super_admin');
   assert.equal(access.canEdit, true);
   assert.equal(canEdit(access.role), true);
 });
@@ -179,7 +182,7 @@ test('coaches cannot wipe the org', () => {
   assert.equal(canManageOrg('coach'), false);
   assert.equal(canManageOrg('owner'), true);
   assert.equal(canManageOrg('admin'), true);
-  assert.equal(canManageOrg('developer'), true);
+  assert.equal(canManageOrg('super_admin'), true);
   assert.equal(canManageOrg('user'), false);
 });
 

@@ -3,7 +3,7 @@ export const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
 export const INVITE_ROLES = new Set([
   'owner', 'admin', 'developer', 'user', 'team_leader', 'coach', 'analyst', 'creative', 'free_agent',
 ]);
-export const STAFF_INVITE_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
+export const STAFF_INVITE_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'team_leader', 'coach']);
 
 export function inviteeSlug(gamertag) {
   const slug = String(gamertag || '')
@@ -31,6 +31,7 @@ export function accessRoleLabel(role) {
   return (
     {
       owner: 'Org owner',
+      super_admin: 'Super Admin',
       admin: 'Admin',
       developer: 'Developer',
       team_leader: 'Team leader',

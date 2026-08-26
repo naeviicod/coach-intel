@@ -20,7 +20,7 @@ export async function render(panel, ctx) {
 function profileCard(org, chip, ctx) {
   const local = Boolean(ctx.access?.local);
   const defaultTitle = chip.title
-    || (isNaevii(chip.name) || isNaevii(ctx.access?.me?.discord_username) ? 'Developer' : '')
+    || (isNaevii(chip.name) || isNaevii(ctx.access?.me?.discord_username) ? 'Super Admin' : '')
     || (local ? 'Local' : '');
 
   const nameInput = el('input', {

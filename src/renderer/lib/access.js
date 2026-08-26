@@ -3,12 +3,12 @@
 
 import { isNaevii } from './profile.js';
 
-const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
+const STAFF_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'team_leader', 'coach']);
 const PLAYER_ROLES = new Set(['member', 'user', 'player', 'free_agent']);
 const CREATIVE_ROLES = new Set(['creative']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
-const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
-const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
+const ALL_TEAMS_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative', 'free_agent']);
+const ORG_EDIT_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer', 'coach']);
+const TRANSFER_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer']);
 
 const ANALYTICS_PAGES = new Set([
   'teams',
@@ -35,10 +35,11 @@ const TEAM_PAGES = new Set([
 const ALWAYS_PAGES = new Set(['settings']);
 const STAFF_ONLY_PAGES = new Set(['calendar', 'tasks']);
 const ORG_TOOL_PAGES = new Set(['maps-modes', 'scouting', 'integrations']);
-const ORG_TOOL_ROLES = new Set(['owner', 'admin', 'developer']);
+const ORG_TOOL_ROLES = new Set(['super_admin', 'owner', 'admin', 'developer']);
 const PLAYER_MAIN_PAGES = new Set(['dashboard', 'intel-feed']);
 
 export const ROLE_LABELS = {
+  super_admin: 'Super Admin',
   owner: 'Org owner',
   admin: 'Admin',
   developer: 'Developer',
@@ -140,12 +141,14 @@ export function resolveAccessRole(me, { names = [] } = {}) {
     me?.title,
     ...(Array.isArray(names) ? names : []),
   ];
-  if (fields.some(isNaevii)) {
-    const existing = String(me?.role || '').toLowerCase().trim();
-    if (existing === 'owner' || existing === 'admin' || existing === 'developer') return existing;
-    return 'developer';
-  }
+  if (fields.some(isNaevii)) return 'super_admin';
   return me?.role || 'member';
+}
+
+export function isProtectedPerson(person) {
+  if (!person) return false;
+  return [person.discord_username, person.display_name, person.gamertag, person.name, person.title]
+    .some(isNaevii);
 }
 
 export function accessFromProfile(me, { local = false, teamIds = [], linkedNames = [] } = {}) {

@@ -57,7 +57,7 @@ export function defaultSlot(members) {
 export function memberOrgGroup(member) {
   const title = String(member?.title || '').toLowerCase();
   if (isFreeAgent(member) || /free\s*agent|\bf\/?a\b/.test(title)) return 'fa';
-  if (/\b(org\s*owner|admin|general\s*manager|\bgm\b|developer)\b/.test(title)) return 'admins';
+  if (/\b(org\s*owner|admin|general\s*manager|\bgm\b|super\s*admin|developer)\b/.test(title)) return 'admins';
   if (/\bcoach\b/.test(title)) return 'coaches';
   if (isStaffMember(member)) return 'staff';
   return 'players';

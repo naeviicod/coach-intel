@@ -26,11 +26,12 @@ export const TITLE_SUGGESTIONS = [
   'Content Creator',
   'Social Media',
   'Video Editor',
+  'Super Admin',
   'Developer',
   'Free Agent',
 ];
 
-const STAFF_TITLE_RE = /\b(org\s*owner|owner|admin|general\s*manager|\bgm\b|team\s*manager|head\s*coach|coach|team\s*leader|analyst|artist|graphic\s*designer|designer|content(\s*creator)?|social(\s*media)?|video\s*editor|developer)\b/i;
+const STAFF_TITLE_RE = /\b(org\s*owner|owner|admin|general\s*manager|\bgm\b|team\s*manager|head\s*coach|coach|team\s*leader|analyst|artist|graphic\s*designer|designer|content(\s*creator)?|social(\s*media)?|video\s*editor|super\s*admin|developer)\b/i;
 
 export function isOrgStaffTitle(title) {
   const t = String(title || '').trim();
@@ -46,7 +47,7 @@ export function isNaevii(value) {
 export function memberStaffTitle(member) {
   const explicit = String(member?.title || '').trim();
   if (explicit) return explicit;
-  if (isNaevii(member?.gamertag) || isNaevii(member?.name)) return 'Developer';
+  if (isNaevii(member?.gamertag) || isNaevii(member?.name)) return 'Super Admin';
   return '';
 }
 
@@ -81,7 +82,7 @@ export function chipIdentity(org, access) {
   ).trim() || 'Coach';
   let title = String((signedIn && me?.title) || org?.profileTitle || '').trim();
   if (!title) {
-    if (isNaevii(name) || isNaevii(me?.discord_username)) title = 'Developer';
+    if (isNaevii(name) || isNaevii(me?.discord_username)) title = 'Super Admin';
     else if (access?.local) title = 'Local';
     else title = '';
   }

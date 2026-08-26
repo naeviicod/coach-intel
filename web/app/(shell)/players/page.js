@@ -13,7 +13,7 @@ export const metadata = { title: 'Players · Coach Intel' };
 const ORG_GROUPS = {
   staff: { title: 'Staff', kicker: 'Org group', meta: 'Analysts, creatives, and org staff', icon: 'database' },
   coaches: { title: 'Coaches', kicker: 'Org group', meta: 'Coaching staff across the org', icon: 'scouting' },
-  admins: { title: 'Admins', kicker: 'Org group', meta: 'Owners, admins, and developers', icon: 'settings' },
+  admins: { title: 'Admins', kicker: 'Org group', meta: 'Org owner, Super Admin, and org admins', icon: 'settings' },
   fa: { title: 'Free Agents', kicker: 'Org group', meta: 'In the org, not on a starting lineup', icon: 'players' },
 };
 

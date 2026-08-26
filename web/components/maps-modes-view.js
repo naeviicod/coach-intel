@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { mapCoverSrc } from '../lib/maps';
+import { mapCoverSrc, mapModeArts } from '../lib/maps';
 import { statsByKey } from '../lib/stats';
 import { activeMaps, modeNames, resolveRuleset } from '../lib/ruleset';
 import { EmptyState, PageHeader } from './page-header';
@@ -55,25 +55,45 @@ export function MapsModesView({ teams, matches, rulesetDocs, teamId }) {
         {maps.map((m) => {
           const stats = mapStats.get(m.name);
           const src = mapCoverSrc(m.name);
+          const arts = mapModeArts(m.name, m.modes);
           return (
-            <div key={m.map_id || m.name} className="card">
+            <div key={m.map_id || m.name} className="card map-card">
               {src ? (
-                <div className="map-thumb cover">
+                <div className="map-thumb cover map-card-cover">
                   <img src={src} alt="" />
                 </div>
               ) : null}
-              <div className="card-head">
-                <h2>{m.name}</h2>
-                {m.competitive_pool ? <span className="pill">CDL</span> : null}
+              <div className="map-card-body">
+                <div className="card-head">
+                  <h2>{m.name}</h2>
+                  {m.competitive_pool ? <span className="pill">CDL</span> : null}
+                </div>
+                <div className="field-hint">{(m.modes || []).join(' · ')}</div>
+                <div className="kpi-value" style={{ marginTop: 10 }}>{stats ? `${stats.winRate}%` : '—'}</div>
+                <div className="kpi-meta">{stats ? `${stats.wins}-${stats.losses} over ${stats.total}` : 'No matches logged'}</div>
+                {arts.length ? (
+                  <div className="map-mode-arts">
+                    {arts.map((art) => (
+                      <div key={art.mode} className="map-mode-art">
+                        <img src={art.src} alt="" />
+                        <span>{modeAbbrev(art.mode)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {m.notes ? <p className="field-hint" style={{ marginTop: 8 }}>{m.notes}</p> : null}
               </div>
-              <div className="field-hint">{(m.modes || []).join(' · ')}</div>
-              <div className="kpi-value" style={{ marginTop: 10 }}>{stats ? `${stats.winRate}%` : '—'}</div>
-              <div className="kpi-meta">{stats ? `${stats.wins}-${stats.losses} over ${stats.total}` : 'No matches logged'}</div>
-              {m.notes ? <p className="field-hint" style={{ marginTop: 8 }}>{m.notes}</p> : null}
             </div>
           );
         })}
       </div>
     </>
   );
+}
+
+function modeAbbrev(mode) {
+  if (mode === 'Search & Destroy') return 'S&D';
+  if (mode === 'Hardpoint') return 'HP';
+  if (mode === 'Overload') return 'OVL';
+  return mode;
 }

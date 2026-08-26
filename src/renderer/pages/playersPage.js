@@ -8,7 +8,7 @@ import { toast } from '../components/modal.js';
 const ORG_GROUPS = {
   staff: { title: 'Staff', kicker: 'Org group', meta: 'Analysts, creatives, and org staff', icon: 'database' },
   coaches: { title: 'Coaches', kicker: 'Org group', meta: 'Coaching staff across the org', icon: 'scouting' },
-  admins: { title: 'Admins', kicker: 'Org group', meta: 'Owners, admins, and developers', icon: 'settings' },
+  admins: { title: 'Admins', kicker: 'Org group', meta: 'Org owner, Super Admin, and org admins', icon: 'settings' },
   fa: { title: 'Free Agents', kicker: 'Org group', meta: 'In the org, not on a starting lineup', icon: 'players' },
 };
 
@@ -271,7 +271,7 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
         onclick: () => toggleSlot(ctx, team.id, member),
       }, onBench ? 'Start' : 'Bench'),
       el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
-      canTransfer
+      canTransfer && !isNaevii(member.gamertag) && !isNaevii(member.name)
         ? el('button', {
           class: 'btn sm',
           onclick: () => openTransferModal(ctx, team, member),
@@ -281,14 +281,20 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
         class: 'btn sm',
         onclick: () => openInviteModal(ctx, team.id, member),
       }, member.linked ? 'Linked' : 'Invite'),
-      el('button', {
-        class: 'btn sm danger',
-        onclick: async () => {
-          if (!confirm(`Remove ${member.gamertag} from ${team.name}?`)) return;
-          await window.cci.deleteMember(team.id, member.id);
-          ctx.navigate('players');
-        },
-      }, 'Remove'),
+      isNaevii(member.gamertag) || isNaevii(member.name)
+        ? null
+        : el('button', {
+          class: 'btn sm danger',
+          onclick: async () => {
+            if (!confirm(`Remove ${member.gamertag} from ${team.name}?`)) return;
+            try {
+              await window.cci.deleteMember(team.id, member.id);
+              ctx.navigate('players');
+            } catch (err) {
+              toast(err?.message || 'Could not remove that person.', 'error');
+            }
+          },
+        }, 'Remove'),
     ]),
   ]);
 }

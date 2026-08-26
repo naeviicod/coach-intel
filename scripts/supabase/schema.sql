@@ -658,6 +658,47 @@ create policy "owner/coach manage all members, team_leader manages their own tea
     )
   );
 
+-- Super Admin (Naevii / NaeviiSZN) is above org owner. Owners may run the org
+-- but they cannot delete that roster slot or change that Discord access role.
+create or replace function public.protect_super_admin_member()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.is_naevii_handle(old.gamertag) or public.is_naevii_handle(old.name) then
+    raise exception 'Super Admin cannot be removed from the roster.';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists protect_super_admin_member on public.members;
+create trigger protect_super_admin_member
+  before delete on public.members
+  for each row execute function public.protect_super_admin_member();
+
+create or replace function public.protect_super_admin_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (public.is_naevii_handle(old.discord_username) or public.is_naevii_handle(old.display_name))
+     and new.role is distinct from old.role then
+    raise exception 'Super Admin access cannot be changed.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_super_admin_profile on public.profiles;
+create trigger protect_super_admin_profile
+  before update on public.profiles
+  for each row execute function public.protect_super_admin_profile();
+
 -- ---------- Discord guild -> team mapping ----------
 -- Replaces the Discord Worker's TEAM_GUILD_MAP secret (a hand-edited JSON blob)
 -- with a live table, so mapping a new Discord server to a team never requires

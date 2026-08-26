@@ -3,6 +3,8 @@
 // same roster. Same function names/shapes as dataStore.js's team/member
 // section, so the IPC handlers in main.js are a drop-in swap.
 
+const { assertNotProtectedPerson } = require('../access');
+
 function nextId(prefix) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -221,6 +223,8 @@ function createTeamsService({ client }) {
   }
 
   async function deleteMember(teamId, memberId) {
+    const existing = await getMember(teamId, memberId);
+    assertNotProtectedPerson(existing, 'Super Admin cannot be removed from the roster.');
     const c = requireClient();
     const { error } = await c.from('members').delete().eq('team_id', teamId).eq('id', memberId);
     if (error) raise(error);
@@ -228,6 +232,8 @@ function createTeamsService({ client }) {
   }
 
   async function transferMember(fromTeamId, toTeamId, memberId, { slot } = {}) {
+    const existing = await getMember(fromTeamId, memberId);
+    assertNotProtectedPerson(existing, 'Super Admin cannot be moved off the roster.');
     const c = requireClient();
     if (!fromTeamId || !toTeamId || fromTeamId === toTeamId) {
       throw new Error('Pick a different team to transfer to.');
