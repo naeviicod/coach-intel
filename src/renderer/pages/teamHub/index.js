@@ -33,7 +33,7 @@ export const SECTIONS = SECTION_DEFS.map((s) => s.key);
 let live = null;
 
 export async function render(container, ctx) {
-  const teams = await window.cci.getTeams();
+  const teams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
   if (!teams.length) {
     container.append(
       el('div', { style: 'padding:26px;' }, [
@@ -140,7 +140,7 @@ export async function update(container, ctx) {
     return render(container, ctx);
   }
 
-  const teams = await window.cci.getTeams().catch(() => live.hubCtx.teams);
+  const teams = (ctx.teams?.length ? ctx.teams : await window.cci.getTeams().catch(() => live.hubCtx.teams));
   live.hubCtx.teams = teams;
   const parts = (ctx.param || '').split('/').filter(Boolean);
   const requestedTeam = parts[0];
@@ -163,19 +163,15 @@ export async function update(container, ctx) {
   const sectionKey = SECTIONS.includes(parts[1]) ? parts[1] : 'overview';
   const def = SECTION_DEFS.find((s) => s.key === sectionKey);
   const sub = parts.slice(2);
-  const same =
-    sectionKey === live.hubCtx.section &&
-    sub.join('/') === (live.hubCtx.sub || []).join('/');
   live.hubCtx.section = sectionKey;
   live.hubCtx.sub = sub;
   live.hubCtx.param = ctx.param;
   renderRail(live.rail, live.hubCtx, live.counts);
-  await paintSection(live.workspace, def, live.hubCtx, () => render(container, ctx), { animate: !same });
+  await paintSection(live.workspace, def, live.hubCtx, () => render(container, ctx));
   await renderContextPanel(live.context, live.hubCtx);
 }
 
-async function paintSection(workspace, def, hubCtx, retry, { animate = true } = {}) {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+async function paintSection(workspace, def, hubCtx, retry) {
   const holder = el('div');
   try {
     await def.module.render(holder, hubCtx);
@@ -187,15 +183,6 @@ async function paintSection(workspace, def, hubCtx, retry, { animate = true } = 
   }
   workspace.replaceChildren(...holder.childNodes);
   workspace.style.opacity = '';
-  if (!animate || reduceMotion || !workspace.animate) return;
-  const anim = workspace.animate(
-    [{ opacity: 0 }, { opacity: 1 }],
-    { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' }
-  );
-  anim.finished.then(() => {
-    try { anim.commitStyles(); anim.cancel(); } catch { /* ignore */ }
-    workspace.style.opacity = '';
-  }).catch(() => { workspace.style.opacity = ''; });
 }
 
 // ---------- Rail ----------

@@ -18,7 +18,7 @@ function groupMeta(members) {
 }
 
 export async function render(container, ctx) {
-  const teams = await window.cci.getTeams();
+  const teams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
   const group = String(ctx.param || '');
   const manageFor = (teamId) => (ctx.canEditTeam ? ctx.canEditTeam(teamId) : ctx.canEdit);
 
@@ -161,7 +161,7 @@ function rosterCard(team, members, matches, ctx, teams) {
         el('div', { class: 'team-identity-name' }, `${team.name} Roster`),
         el('div', { class: 'team-meta' }, lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)),
       ]),
-      el('div', { class: 'edit-only', style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
+      el('div', { class: 'edit-only roster-header-actions' }, [
         el('button', {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: defaultSlot(members) }),
@@ -230,12 +230,17 @@ function appendGroup(card, title, members, team, matches, ctx, { empty, manage, 
   for (const member of members) card.append(memberRow(member, team, matches, ctx, { manage, canTransfer }));
 }
 
+function actionSlot(child) {
+  return el('span', { class: 'row-action-slot' }, child ? [child] : []);
+}
+
 function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
   const totals = aggregate(statsForMember(matches, member.id));
   const onBench = member.slot === 'bench';
   const staff = isStaffMember(member);
   const orgRole = memberStaffTitle(member);
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
+  const protectedPerson = isNaevii(member.gamertag) || isNaevii(member.name);
   return el('div', { class: 'roster-row' }, [
     manage
       ? el('input', {
@@ -261,27 +266,31 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
         return sub ? el('div', { class: 'member-name' }, sub) : null;
       })(),
     ]),
-    ...titles.map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
-    staff ? null : roleBadge(member.role),
-    staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : onBench ? el('span', { class: 'pill' }, 'Bench') : null,
-    el('div', { class: 'crow-meta', style: 'width:70px;text-align:right;' }, totals.matches ? `${totals.kd} K/D` : '—'),
+    el('div', { class: 'roster-tags' }, [
+      ...titles.map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
+      staff ? null : roleBadge(member.role),
+      staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : onBench ? el('span', { class: 'pill' }, 'Bench') : null,
+    ]),
+    el('span', { class: 'roster-pipe', 'aria-hidden': 'true' }, '|'),
+    el('div', { class: 'crow-meta roster-kd' }, totals.matches ? `${totals.kd} K/D` : '—'),
+    el('span', { class: 'roster-pipe', 'aria-hidden': 'true' }, '|'),
     el('div', { class: 'row-actions edit-only' }, [
-      staff || isFreeAgent(member) ? null : el('button', {
+      actionSlot(staff || isFreeAgent(member) ? null : el('button', {
         class: 'btn sm',
         onclick: () => toggleSlot(ctx, team.id, member),
-      }, onBench ? 'Start' : 'Bench'),
-      el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit'),
-      canTransfer
+      }, onBench ? 'Start' : 'Bench')),
+      actionSlot(el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit')),
+      actionSlot(canTransfer
         ? el('button', {
           class: 'btn sm',
           onclick: () => openTransferModal(ctx, team, member),
         }, 'Transfer')
-        : null,
-      el('button', {
+        : null),
+      actionSlot(el('button', {
         class: 'btn sm',
         onclick: () => openInviteModal(ctx, team.id, member),
-      }, member.linked ? 'Linked' : 'Invite'),
-      isNaevii(member.gamertag) || isNaevii(member.name)
+      }, member.linked ? 'Linked' : 'Invite')),
+      actionSlot(protectedPerson
         ? null
         : el('button', {
           class: 'btn sm danger',
@@ -294,7 +303,7 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
               toast(err?.message || 'Could not remove that person.', 'error');
             }
           },
-        }, 'Remove'),
+        }, 'Remove')),
     ]),
   ]);
 }

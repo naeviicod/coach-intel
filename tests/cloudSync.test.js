@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mergeRecords } = require('../src/main/cloudSync');
+const { mergeRecords, hasLocalRecords } = require('../src/main/cloudSync');
 
 test('a newer remote match replaces this machine’s copy', () => {
   const local = [{ match_id: 'm1', updated_at: '2026-01-01T00:00:00.000Z', players: [{ kd: 1 }] }];
@@ -35,4 +35,10 @@ test('this Mac keeps a match it edited after the remote delete', () => {
   const merged = mergeRecords(local, remote, 'match_id');
   assert.equal(merged.toDelete.length, 0);
   assert.equal(merged.toPush[0].match_id, 'm4');
+});
+
+test('hydrate can skip the network when this Mac already has records', () => {
+  assert.equal(hasLocalRecords([{ match_id: 'm1' }]), true);
+  assert.equal(hasLocalRecords([]), false);
+  assert.equal(hasLocalRecords(null), false);
 });

@@ -611,27 +611,10 @@ async function completeSplashBar(animOrPromise) {
   bar.style.transform = 'scaleX(1)';
 }
 
-const PAGE_EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
-
 function stopFades(node) {
   if (!node) return;
   try { node.getAnimations?.().forEach((anim) => anim.cancel()); } catch { /* ignore */ }
   node.style.opacity = '';
-}
-
-function fadeEl(node, from, to, ms) {
-  if (!node) return Promise.resolve();
-  if (!node.animate || ms <= 0) {
-    node.style.opacity = String(to);
-    return Promise.resolve();
-  }
-  const anim = node.animate(
-    [{ opacity: from }, { opacity: to }],
-    { duration: ms, easing: PAGE_EASE, fill: 'forwards' }
-  );
-  return anim.finished.then(() => {
-    try { anim.commitStyles(); anim.cancel(); } catch { /* ignore */ }
-  }).catch(() => {});
 }
 
 async function raceTimeout(promise, ms, fallback) {
@@ -1328,7 +1311,6 @@ function renderStatusBar() {
 // sequence number: a superseded render keeps writing into a detached node and
 // cannot repaint or blank the page the user is now on.
 let renderSeq = 0;
-let swapGen = 0;
 let lastPage = null;
 
 function pageCtx() {
@@ -1336,6 +1318,7 @@ function pageCtx() {
     navigate,
     param: state.route.param,
     org: state.org,
+    teams: state.teams,
     access: state.access,
     canEdit: Boolean(state.access?.canEdit),
     canEditTeam: (teamId) => canEditTeam(state.access?.role, teamId, state.access),
@@ -1368,42 +1351,15 @@ function mountPage(content, incoming, { flush, studio }) {
   content.classList.remove('is-swapping');
 }
 
-function swapPages(content, outgoing, incoming, { flush, studio, animate }) {
+function swapPages(content, outgoing, incoming, { flush, studio }) {
   if (!incoming.childNodes.length) {
     stopFades(content);
     return;
   }
 
-  const gen = ++swapGen;
   stopFades(content);
-
-  if (!outgoing || !animate) {
-    if (outgoing) outgoing.remove();
-    mountPage(content, incoming, { flush, studio });
-    return;
-  }
-
-  content.classList.add('is-swapping');
-  const run = async () => {
-    try {
-      await fadeEl(content, 1, 0, 150);
-      if (gen !== swapGen) return;
-      outgoing.remove();
-      stopFades(content);
-      content.style.opacity = '0';
-      mountPage(content, incoming, { flush, studio });
-      await fadeEl(content, 0, 1, 180);
-    } finally {
-      if (gen === swapGen) stopFades(content);
-    }
-  };
-
-  run().catch((err) => {
-    console.error('[renderer] page swap failed', err);
-    if (gen !== swapGen) return;
-    if (outgoing?.isConnected) outgoing.remove();
-    mountPage(content, incoming, { flush, studio });
-  });
+  if (outgoing) outgoing.remove();
+  mountPage(content, incoming, { flush, studio });
 }
 
 async function renderContent() {
@@ -1462,7 +1418,6 @@ async function renderContent() {
   swapPages(content, outgoing, incoming, {
     flush: !!page.flush,
     studio: !!page.studio,
-    animate: Boolean(outgoing && booted && !prefersReducedMotion()),
   });
 }
 

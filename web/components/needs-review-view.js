@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { filedPaths } from '../lib/series';
-import { listScoreboardInbox, uploadScoreboards } from '../lib/scoreboards';
+import { deleteScoreboard, listScoreboardInbox, uploadScoreboards } from '../lib/scoreboards';
 import { EmptyState, PageHeader } from './page-header';
 import { ScoreboardRead } from './scoreboard-read';
 import { pickTeam, TeamPicker } from './workspace';
@@ -67,6 +67,7 @@ export function NeedsReviewView({ teams, teamId, members = [], matches = [], map
           maps={maps}
           modes={modes}
           onClose={() => setReading(null)}
+          onRemoved={(item) => setItems((cur) => cur.filter((row) => row.path !== item.path))}
         />
       ) : null}
       <div className="card sb-drop-card">
@@ -105,7 +106,24 @@ export function NeedsReviewView({ teams, teamId, members = [], matches = [], map
                 <div className="crow-sub">{item.date || 'Undated'}</div>
               </div>
               {canEdit ? (
-                <button type="button" className="btn primary sm" onClick={() => setReading(item)}>File stats</button>
+                <div className="crow-actions">
+                  <button type="button" className="btn primary sm" onClick={() => setReading(item)}>File stats</button>
+                  <button
+                    type="button"
+                    className="btn subtle sm"
+                    onClick={async () => {
+                      try {
+                        await deleteScoreboard(item.path);
+                        setItems((cur) => cur.filter((row) => row.path !== item.path));
+                        setReading((open) => (open?.path === item.path ? null : open));
+                      } catch (err) {
+                        setError(err.message || 'Could not remove that scoreboard.');
+                      }
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               ) : null}
             </div>
           ))

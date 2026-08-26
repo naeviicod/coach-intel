@@ -182,12 +182,15 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/add-records.js'), /Entire org/);
   assert.match(settings, /accent-swatch/);
   assert.match(read('components/roster-slot-button.js'), /nextLineupSlot|slot === 'bench'/);
-  assert.match(read('app/(shell)/players/page.js'), /RosterSlotButton/);
+  assert.match(read('app/(shell)/players/page.js'), /row-action-slot/);
+  assert.match(read('app/(shell)/players/page.js'), /roster-tags/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /function actionSlot/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /grid-template-columns:\s*repeat\(5, 5\.15rem\)/);
   assert.match(read('app/(shell)/players/page.js'), /canManageTeam/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-grid/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-mark/);
   assert.match(read('app/(shell)/players/page.js'), /Free Agents/);
-  assert.match(read('app/(shell)/players/page.js'), /rosterOnly:\s*true/);
+  assert.match(read('app/(shell)/players/page.js'), /rosterOnly:\s*!group\.startsWith\('team-'\)/);
   assert.doesNotMatch(read('app/(shell)/players/page.js'), /title\.slice\(0,\s*2\)/);
   assert.match(read('lib/workspace.js'), /loadRosterCore/);
   assert.match(read('lib/workspace.js'), /rosterOnly/);
@@ -272,8 +275,9 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/layout.js'), /desktop-ui\.css/);
   assert.match(read('app/(shell)/layout.js'), /sessionIdentity/);
   assert.match(read('lib/data.js'), /display_name/);
-  assert.match(read('lib/data.js'), /listDocs\(supabase, 'strat'\)/);
-  assert.match(read('lib/data.js'), /listDocs\(supabase, 'scrim'\)/);
+  assert.match(read('lib/data.js'), /select\('id, kind, team_id, payload, updated_at'\)/);
+  assert.match(read('lib/data.js'), /byKind\('strat'\)/);
+  assert.match(read('lib/data.js'), /byKind\('scrim'\)/);
   assert.match(read('components/playbooks-view.js'), /playbooks-rail/);
   assert.match(read('lib/docs.js'), /saveStrat/);
   assert.match(read('lib/marks.js'), /\/api\/assets\//);
@@ -287,6 +291,12 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('lib/series.js'), /Search & Destroy/);
   assert.match(read('components/needs-review-view.js'), /File stats/);
   assert.match(read('components/scoreboard-read.js'), /Save into stats/);
+  assert.match(read('components/scoreboard-read.js'), /Remove scoreboard/);
+  assert.match(read('components/scoreboard-read.js'), /readScoreboardText/);
+  assert.doesNotMatch(read('components/scoreboard-read.js'), /onClose=\{onClose\}/);
+  assert.match(read('app/(shell)/players/page.js'), /roster-pipe/);
+  assert.match(read('app/(shell)/players/page.js'), /roster-header-actions/);
+  assert.match(read('components/roster-transfer.js'), /compact/);
   assert.match(read('components/database-view.js'), /showsCompetitiveStats/);
   assert.match(read('components/database-view.js'), /VerifiedMark/);
   assert.match(read('lib/marks.js'), /memberIsNaevii/);
@@ -303,6 +313,15 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/desktop-web.css'), /#app\.shell \.btn\.refresh-btn/);
   assert.match(read('app/desktop-web.css'), /height: 24px/);
   assert.match(read('app/desktop-ui.css'), /var\(--accent\) 11%/);
+});
+
+test('in-app pages can cache; only the public gate stays no-store', () => {
+  const config = read('next.config.js');
+  assert.match(config, /source: '\/'/);
+  assert.match(config, /source: '\/sign-in'/);
+  assert.doesNotMatch(config, /source: '\/:path\*'/);
+  assert.match(read('lib/data.js'), /select\('id, kind, team_id, payload, updated_at'\)/);
+  assert.doesNotMatch(read('lib/data.js'), /listDocs\(supabase, 'event'\)/);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

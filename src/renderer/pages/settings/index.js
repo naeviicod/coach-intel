@@ -131,14 +131,4 @@ async function paintPanel(def, ctx, { animate = true } = {}) {
   }
   panel.replaceChildren(...holder.childNodes);
   panel.scrollTop = 0;
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!animate || reduceMotion || !panel.animate) return;
-  const anim = panel.animate(
-    [{ opacity: 0 }, { opacity: 1 }],
-    { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' }
-  );
-  anim.finished.then(() => {
-    try { anim.commitStyles(); anim.cancel(); } catch { /* ignore */ }
-    panel.style.opacity = '';
-  }).catch(() => { panel.style.opacity = ''; });
 }

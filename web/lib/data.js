@@ -87,6 +87,15 @@ export async function getOrg(supabase) {
   return data?.payload && typeof data.payload === 'object' ? data.payload : null;
 }
 
+function mapDocRow(row) {
+  return {
+    ...(row.payload && typeof row.payload === 'object' ? row.payload : {}),
+    id: row.payload?.strategy_id || row.payload?.id || row.id,
+    team_id: row.team_id,
+    updated_at: row.payload?.updated_at || row.updated_at,
+  };
+}
+
 export async function listDocs(supabase, kind) {
   const { data, error } = await supabase
     .from('shared_docs')
@@ -94,12 +103,7 @@ export async function listDocs(supabase, kind) {
     .eq('kind', kind)
     .is('deleted_at', null);
   if (error) throw error;
-  return (data || []).map((row) => ({
-    ...(row.payload && typeof row.payload === 'object' ? row.payload : {}),
-    id: row.payload?.strategy_id || row.payload?.id || row.id,
-    team_id: row.team_id,
-    updated_at: row.payload?.updated_at || row.updated_at,
-  }));
+  return (data || []).map(mapDocRow);
 }
 
 export async function listGuildLinks(supabase) {
@@ -109,33 +113,31 @@ export async function listGuildLinks(supabase) {
 }
 
 export async function loadDocBundles(supabase) {
-  const [events, tasks, matches, notes, strats, scrims, vods, vetoes, opponents, rankingsDocs, rulesetDocs] =
-    await Promise.all([
-      listDocs(supabase, 'event').catch(() => []),
-      listDocs(supabase, 'task').catch(() => []),
-      listDocs(supabase, 'match').catch(() => []),
-      listDocs(supabase, 'note').catch(() => []),
-      listDocs(supabase, 'strat').catch(() => []),
-      listDocs(supabase, 'scrim').catch(() => []),
-      listDocs(supabase, 'vod').catch(() => []),
-      listDocs(supabase, 'veto').catch(() => []),
-      listDocs(supabase, 'opponent').catch(() => []),
-      listDocs(supabase, 'rankings').catch(() => []),
-      listDocs(supabase, 'ruleset').catch(() => []),
-    ]);
+  const { data, error } = await supabase
+    .from('shared_docs')
+    .select('id, kind, team_id, payload, updated_at')
+    .is('deleted_at', null);
+  let source = data || [];
+  if (error) {
+    const kinds = ['event', 'task', 'match', 'note', 'strat', 'scrim', 'vod', 'veto', 'opponent', 'rankings', 'ruleset'];
+    const fallback = await Promise.all(kinds.map((kind) => listDocs(supabase, kind).catch(() => [])));
+    source = kinds.flatMap((kind, i) => fallback[i].map((row) => ({ ...row, kind })));
+  }
+  const byKind = (kind) => source.filter((row) => row.kind === kind).map((row) => (row.payload ? mapDocRow(row) : row));
+  const rankingsDocs = byKind('rankings');
   const rankings = rankingsDocs.find((d) => d.id === 'current') || rankingsDocs[0] || { region: '', teams: [] };
   return {
-    events,
-    tasks,
-    matches,
-    notes,
-    strats,
-    scrims,
-    vods,
-    vetoes,
-    opponents,
+    events: byKind('event'),
+    tasks: byKind('task'),
+    matches: byKind('match'),
+    notes: byKind('note'),
+    strats: byKind('strat'),
+    scrims: byKind('scrim'),
+    vods: byKind('vod'),
+    vetoes: byKind('veto'),
+    opponents: byKind('opponent'),
     rankings,
-    rulesetDocs,
+    rulesetDocs: byKind('ruleset'),
   };
 }
 

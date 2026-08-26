@@ -29,8 +29,11 @@ export async function render(container, ctx) {
   // ----- Your form -----
   if (teams.length) {
     const formWrap = el('div', { class: 'grid cols-3', style: 'margin-bottom:22px;' });
-    for (const team of teams) {
-      const matches = await window.cci.getMatches(team.id);
+    const packs = await Promise.all(teams.map(async (team) => ({
+      team,
+      matches: await window.cci.getMatches(team.id),
+    })));
+    for (const { team, matches } of packs) {
       const form = formFromMatches(matches, 10);
       formWrap.append(
         el('div', { class: 'card' }, [

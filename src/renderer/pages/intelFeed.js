@@ -136,16 +136,21 @@ export async function render(container, ctx) {
     ])
   );
 
-  const allTeams = await window.cci.getTeams();
+  const allTeams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
   const teamScoped = allTeams.find((t) => t.id === ctx.param);
   const teams = teamScoped ? [teamScoped] : allTeams;
+  const packs = await Promise.all(
+    teams.map(async (team) => {
+      const [members, matches, scrims] = await Promise.all([
+        window.cci.getMembers(team.id),
+        window.cci.getMatches(team.id),
+        window.cci.getScrims(team.id),
+      ]);
+      return { team, members, matches, scrims };
+    })
+  );
   let allSignals = [];
-  for (const team of teams) {
-    const [members, matches, scrims] = await Promise.all([
-      window.cci.getMembers(team.id),
-      window.cci.getMatches(team.id),
-      window.cci.getScrims(team.id),
-    ]);
+  for (const { team, members, matches, scrims } of packs) {
     const signals = [...buildSignals(members, matches), ...buildScrimSignals(scrims)].map((s) => ({ ...s, team }));
     allSignals = allSignals.concat(signals);
   }

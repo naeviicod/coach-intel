@@ -43,6 +43,24 @@ test('pasted scoreboard lines attach kills to the playing roster', async () => {
   assert.equal(players.find((p) => p.member_id === 'b').damage, 2100);
 });
 
+test('board names match roster aliases and drop players who were not on the file', async () => {
+  const series = await import(webUrl('series.js'));
+  const members = [
+    { id: 'cirdec', gamertag: 'Cirdec', slot: 'starter' },
+    { id: 'nae', gamertag: 'NaeviiSZN', slot: 'starter' },
+    { id: 'knuf', gamertag: 'KnuffelBeertje', slot: 'bench' },
+  ];
+  const hp = series.applyScoreboardToRoster('Cirdec444 21/19 0:56\nNaeviiSZN 27/23 1:49', members, { matchedOnly: true });
+  assert.equal(hp.length, 2);
+  assert.equal(hp.find((p) => p.member_id === 'cirdec').kills, 21);
+  assert.equal(hp.find((p) => p.member_id === 'cirdec').hill_time, 56);
+  assert.equal(hp.find((p) => p.member_id === 'nae').hill_time, 109);
+  assert.equal(hp.some((p) => p.member_id === 'knuf'), false);
+  const snd = series.parsePlayerLine('vxlt 8/6 3-2');
+  assert.equal(snd.rounds_won, 3);
+  assert.equal(snd.rounds_lost, 2);
+});
+
 test('Naevii and org owners keep competitive stats; staff do not', async () => {
   const { showsCompetitiveStats } = await import(webUrl('series.js'));
   assert.equal(showsCompetitiveStats({ gamertag: 'NaeviiSZN', slot: 'starter', title: 'Developer' }), true);

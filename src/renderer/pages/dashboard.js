@@ -13,7 +13,10 @@ export async function render(container, ctx) {
 }
 
 async function draw(container, ctx, reload) {
-  const [org, teams] = await Promise.all([window.cci.getOrg(), window.cci.getTeams()]);
+  const [org, teams] = await Promise.all([
+    ctx.org ? Promise.resolve(ctx.org) : window.cci.getOrg(),
+    ctx.teams?.length ? Promise.resolve(ctx.teams) : window.cci.getTeams(),
+  ]);
 
   container.append(
     el('div', { class: 'page-header' }, [

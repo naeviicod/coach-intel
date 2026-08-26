@@ -28,6 +28,9 @@ console.log('[main] Coach Intel starting');
 const ICON_PATH = path.join(__dirname, '..', '..', 'build', 'icon.png');
 
 let mainWindow;
+let cachedTeamScope = null;
+const memberRefreshInflight = new Set();
+let teamsRefreshInflight = false;
 // Route from a coachintel:// link that arrived before the window was ready.
 let queuedDeepLink = null;
 
@@ -112,7 +115,10 @@ function sendInviteEvent(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
 }
 
-async function teamsForSession(teams) {
+async function teamsForSession(teams, { allowCache = false } = {}) {
+  if (allowCache && cachedTeamScope) {
+    return scopeTeams(teams, cachedTeamScope);
+  }
   try {
     const state = await supabase.get().getState();
     if (!state?.session) return teams;
@@ -120,10 +126,11 @@ async function teamsForSession(teams) {
     const me = listed?.me;
     const ids = listed?.teamIds || (await supabase.get().teamIdsForUser(me?.id));
     const role = resolveAccessRole(me, { names: listed?.linkedNames });
+    cachedTeamScope = { role, teamIds: ids };
     return scopeTeams(teams, { role, teamIds: ids });
   } catch (err) {
     console.warn('[main] team scope failed', err.message);
-    return teams;
+    return cachedTeamScope ? scopeTeams(teams, cachedTeamScope) : teams;
   }
 }
 
@@ -398,6 +405,9 @@ app.whenReady().then(async () => {
     supabase.get().subscribeRealtime((table) => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cci:dataChanged', { table });
     });
+    cloudSync.setOnLocalChange((kind) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cci:dataChanged', { table: kind });
+    });
     syncLocalRosterToRemote({ supabase, dataStore }).catch((err) => {
       console.error('[main] roster sync on launch failed', err);
     });
@@ -515,6 +525,12 @@ async function cloudDelete(kind, teamId, id) {
 }
 
 ipcMain.handle('cci:getTeams', async () => {
+  const local = await dataStore.getTeams();
+  const session = await supabase.get().getState().then((s) => s?.session).catch(() => null);
+  if (local.length && (!session || cachedTeamScope)) {
+    if (session) refreshTeamsBackground();
+    return dataStore.applyLocalLogos(await teamsForSession(await teamsWithLocal([]), { allowCache: true }));
+  }
   let remote = [];
   try {
     remote = await withTimeout(supabase.get().getTeams(), 2500, 'Loading teams');
@@ -596,7 +612,73 @@ async function membersWithLocal(teamId, remote) {
   return mergeMemberLists(local, remote);
 }
 
+function rosterFingerprint(rows, keys) {
+  return (rows || [])
+    .map((row) => keys.map((key) => row?.[key] ?? '').join(':'))
+    .sort()
+    .join('|');
+}
+
+function notifyDataChanged(table) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cci:dataChanged', { table });
+}
+
+function refreshTeamsBackground() {
+  if (teamsRefreshInflight) return;
+  teamsRefreshInflight = true;
+  (async () => {
+    const before = rosterFingerprint(await dataStore.getTeams(), ['id', 'name', 'tag']);
+    let remote = [];
+    try {
+      remote = await withTimeout(supabase.get().getTeams(), 2500, 'Loading teams');
+    } catch (err) {
+      console.error('[main] getTeams refresh failed', ipcErrorMessage(err));
+      return;
+    }
+    const merged = await teamsWithLocal(remote);
+    await teamsForSession(merged);
+    const after = rosterFingerprint(merged, ['id', 'name', 'tag']);
+    if (before === after) return;
+    for (const team of merged) {
+      const local = await dataStore.getTeam(team.id);
+      if (!local || local.name !== team.name || local.tag !== team.tag) {
+        await dataStore.saveTeam(team).catch(() => null);
+      }
+    }
+    notifyDataChanged('teams');
+  })()
+    .catch((err) => console.error('[main] getTeams refresh failed', ipcErrorMessage(err)))
+    .finally(() => { teamsRefreshInflight = false; });
+}
+
+function refreshMembersBackground(teamId) {
+  if (memberRefreshInflight.has(teamId)) return;
+  memberRefreshInflight.add(teamId);
+  (async () => {
+    const local = await dataStore.getMembers(teamId);
+    const before = rosterFingerprint(local, ['id', 'gamertag', 'slot', 'role']);
+    let remote = [];
+    try {
+      remote = await withTimeout(supabase.get().getMembers(teamId), 2500, 'Loading roster');
+    } catch (err) {
+      console.error('[main] getMembers refresh failed', ipcErrorMessage(err));
+      return;
+    }
+    const merged = mergeMemberLists(local, remote);
+    if (before === rosterFingerprint(merged, ['id', 'gamertag', 'slot', 'role'])) return;
+    for (const member of merged) await dataStore.saveMember(teamId, member).catch(() => null);
+    notifyDataChanged('members');
+  })()
+    .catch((err) => console.error('[main] getMembers refresh failed', ipcErrorMessage(err)))
+    .finally(() => memberRefreshInflight.delete(teamId));
+}
+
 ipcMain.handle('cci:getMembers', async (e, teamId) => {
+  const local = await dataStore.getMembers(teamId);
+  if (local.length) {
+    refreshMembersBackground(teamId);
+    return local;
+  }
   let remote = [];
   try {
     remote = await withTimeout(supabase.get().getMembers(teamId), 2500, 'Loading roster');
@@ -1070,6 +1152,7 @@ ipcMain.handle('cci:syncNow', () => syncLocalRosterToRemote({ supabase, dataStor
 ipcMain.handle('cci:authGetState', () => supabase.get().getState());
 ipcMain.handle('cci:authSignInWithDiscord', () => safeSupabaseCall(() => supabase.get().signInWithDiscord()));
 ipcMain.handle('cci:authSignOut', async () => {
+  cachedTeamScope = null;
   await supabase.get().signOut();
   sendAuthState({ session: null, error: null });
 });

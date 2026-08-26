@@ -109,11 +109,13 @@ function group(hub, title, members, matches, empty) {
               return sub ? el('div', { class: 'crow-sub' }, sub) : null;
             })(),
           ]),
-          ...orgTitles(member)
-            .filter((t) => !/^player$/i.test(t))
-            .map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
-          isStaffMember(member) ? null : roleBadge(member.role),
-          member.slot === 'bench' ? el('span', { class: 'pill' }, 'Bench') : null,
+          el('div', { class: 'roster-tags' }, [
+            ...orgTitles(member)
+              .filter((t) => !/^player$/i.test(t))
+              .map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
+            isStaffMember(member) ? null : roleBadge(member.role),
+            member.slot === 'bench' ? el('span', { class: 'pill' }, 'Bench') : null,
+          ]),
           stats
             ? el('div', { class: 'crow-meta' }, `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}`)
             : el('div', { class: 'crow-meta' }, 'No match data'),

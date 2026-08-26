@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { saveDoc } from '../lib/docs';
 import {
   applyScoreboardToRoster,
@@ -11,7 +11,7 @@ import {
   nextUnfiledGame,
   playingRoster,
 } from '../lib/series';
-import { scoreboardAssetUrl } from '../lib/scoreboards';
+import { deleteScoreboard, readScoreboardText, scoreboardAssetUrl } from '../lib/scoreboards';
 import { Err, Field, FormCard } from './workspace';
 
 const MODE_SHORT = {
@@ -25,6 +25,20 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function clockValue(seconds) {
+  const n = Math.max(0, Number(seconds) || 0);
+  const m = Math.floor(n / 60);
+  const s = String(n % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function parseClockInput(value) {
+  const clock = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function ScoreboardRead({
   item,
   team,
@@ -33,6 +47,7 @@ export function ScoreboardRead({
   maps = [],
   modes = [],
   onClose,
+  onRemoved,
 }) {
   const roster = useMemo(() => playingRoster(members.filter((m) => m.team_id === team.id)), [members, team.id]);
   const bo5 = useMemo(() => bo5Modes(modes), [modes]);
@@ -44,6 +59,7 @@ export function ScoreboardRead({
   const seriesHead = sameDay[0] || null;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reading, setReading] = useState(true);
   const [form, setForm] = useState({
     opponent: existing?.opponent || seriesHead?.opponent || '',
     date,
@@ -52,23 +68,34 @@ export function ScoreboardRead({
     result: existing?.result || 'Win',
     score: existing?.score || '',
   });
-  const [players, setPlayers] = useState(() => {
-    if (existing?.players?.length) {
-      const byId = new Map(existing.players.map((p) => [p.member_id, p]));
-      return roster.map((m) => ({ ...emptyPlayerLine(m), ...(byId.get(m.id) || {}) }));
-    }
-    return roster.map(emptyPlayerLine);
-  });
+  const [players, setPlayers] = useState(() => roster.map(emptyPlayerLine));
   const [paste, setPaste] = useState('');
   const mode = bo5[Number(form.game) - 1] || bo5[0] || 'Hardpoint';
+  const hp = mode === 'Hardpoint';
+  const rounds = mode === 'Search & Destroy' || mode === 'Overload';
+
+  function applyBoard(text) {
+    const next = applyScoreboardToRoster(text, roster, { matchedOnly: true });
+    setPlayers(next.length ? next : roster.map(emptyPlayerLine));
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setReading(true);
+      const text = await readScoreboardText(scoreboardAssetUrl(item.path));
+      if (cancelled) return;
+      if (text) {
+        setPaste(text);
+        applyBoard(text);
+      }
+      setReading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [item.path, roster]);
 
   function patchPlayer(memberId, patch) {
     setPlayers((rows) => rows.map((row) => (row.member_id === memberId ? { ...row, ...patch } : row)));
-  }
-
-  function applyPaste() {
-    const next = applyScoreboardToRoster(paste, roster);
-    setPlayers(next);
   }
 
   async function save(e) {
@@ -85,6 +112,9 @@ export function ScoreboardRead({
         deaths: num(p.deaths),
         assists: num(p.assists),
         damage: num(p.damage),
+        hill_time: num(p.hill_time),
+        rounds_won: num(p.rounds_won),
+        rounds_lost: num(p.rounds_lost),
       }));
       await saveDoc({
         kind: 'match',
@@ -114,12 +144,25 @@ export function ScoreboardRead({
     }
   }
 
+  async function removeBoard() {
+    setError('');
+    setBusy(true);
+    try {
+      await deleteScoreboard(item.path);
+      onRemoved?.(item);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Could not remove that scoreboard.');
+      setBusy(false);
+    }
+  }
+
   return (
     <FormCard
       title={`File scoreboard · ${MODE_SHORT[mode] || mode}`}
-      onClose={onClose}
       actions={
         <>
+          <button type="button" className="btn subtle" onClick={removeBoard} disabled={busy}>Remove scoreboard</button>
           <button type="button" className="btn subtle" onClick={onClose}>Cancel</button>
           <button type="submit" form="file-scoreboard" className="btn primary" disabled={busy}>
             {busy ? 'Saving…' : 'Save into stats'}
@@ -162,11 +205,15 @@ export function ScoreboardRead({
               </select>
             </Field>
             <Field label="Points">
-              <input value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} placeholder="250-180" />
+              <input value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} placeholder={hp ? '250-180' : '6-4'} />
             </Field>
           </div>
           <div className="field-hint" style={{ margin: '8px 0' }}>
-            Mode is locked to the BO5 order: HP → SnD → OL → HP → SnD. Enter the four lines from this board.
+            {reading
+              ? 'Reading names from this board and matching them to the roster…'
+              : hp
+                ? 'Roster names are matched to this board. Hill time is the extra HP stat.'
+                : 'Roster names are matched to this board. Rounds won/lost are the extra SnD and Overload stat.'}
           </div>
           {roster.length ? (
             <table className="sb-stat-table">
@@ -175,8 +222,9 @@ export function ScoreboardRead({
                   <th>Player</th>
                   <th>K</th>
                   <th>D</th>
-                  <th>A</th>
-                  <th>DMG</th>
+                  {hp ? <th>Time</th> : null}
+                  {rounds ? <th>Rnd W</th> : null}
+                  {rounds ? <th>Rnd L</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -185,8 +233,20 @@ export function ScoreboardRead({
                     <td>{row.gamertag}</td>
                     <td><input type="number" min="0" value={row.kills} onChange={(e) => patchPlayer(row.member_id, { kills: e.target.value })} /></td>
                     <td><input type="number" min="0" value={row.deaths} onChange={(e) => patchPlayer(row.member_id, { deaths: e.target.value })} /></td>
-                    <td><input type="number" min="0" value={row.assists} onChange={(e) => patchPlayer(row.member_id, { assists: e.target.value })} /></td>
-                    <td><input type="number" min="0" value={row.damage} onChange={(e) => patchPlayer(row.member_id, { damage: e.target.value })} /></td>
+                    {hp ? (
+                      <td>
+                        <input
+                          value={clockValue(row.hill_time)}
+                          onChange={(e) => patchPlayer(row.member_id, { hill_time: parseClockInput(e.target.value) })}
+                        />
+                      </td>
+                    ) : null}
+                    {rounds ? (
+                      <td><input type="number" min="0" value={row.rounds_won} onChange={(e) => patchPlayer(row.member_id, { rounds_won: e.target.value })} /></td>
+                    ) : null}
+                    {rounds ? (
+                      <td><input type="number" min="0" value={row.rounds_lost} onChange={(e) => patchPlayer(row.member_id, { rounds_lost: e.target.value })} /></td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -194,12 +254,17 @@ export function ScoreboardRead({
           ) : (
             <div className="field-hint">Add players on the roster first so this board can attach to them.</div>
           )}
-          <Field label="Or paste the scoreboard lines (Name K D A DMG)">
-            <textarea rows={4} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="NaeviiSZN 24 8 6 2840" />
+          <Field label="Board lines (filled from the file; paste to correct)">
+            <textarea
+              rows={4}
+              value={paste}
+              onChange={(e) => {
+                setPaste(e.target.value);
+                applyBoard(e.target.value);
+              }}
+              placeholder={hp ? 'NaeviiSZN 27/23 1:49' : 'NaeviiSZN 8/6 3-2'}
+            />
           </Field>
-          {paste ? (
-            <button type="button" className="btn sm" onClick={applyPaste}>Read pasted lines</button>
-          ) : null}
           <Err error={error} />
         </form>
       </div>

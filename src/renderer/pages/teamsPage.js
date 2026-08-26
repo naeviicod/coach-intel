@@ -2,7 +2,7 @@ import { el, teamMark, teamWinRate, sparkline } from '../utils.js';
 import { openTeamModal, uploadTeamLogo } from '../lib/teamManage.js';
 
 export async function render(container, ctx) {
-  const teams = await window.cci.getTeams();
+  const teams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
 
   container.append(
     el('div', { class: 'page-header' }, [
@@ -22,11 +22,10 @@ export async function render(container, ctx) {
     return;
   }
 
-  const cards = [];
-  for (const team of teams) {
+  const cards = await Promise.all(teams.map(async (team) => {
     const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
-    cards.push(teamCard(team, members, matches, ctx));
-  }
+    return teamCard(team, members, matches, ctx);
+  }));
   container.append(el('div', { class: 'grid cols-2' }, cards));
 }
 

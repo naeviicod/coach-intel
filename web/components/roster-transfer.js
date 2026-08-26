@@ -59,21 +59,15 @@ export function TransferMember({ member, teams, canTransfer }) {
 
   if (!dests.length) {
     return (
-      <>
-        <button type="button" className="btn sm" onClick={() => go('')}>Transfer</button>
-        {error ? <span className="field-hint" style={{ color: '#ff8d8d' }}>{error}</span> : null}
-      </>
+      <button type="button" className="btn sm" onClick={() => go('')} title={error || undefined}>Transfer</button>
     );
   }
 
   if (dests.length === 1) {
     return (
-      <>
-        <button type="button" className="btn sm" disabled={busy} onClick={() => go(dests[0].id)}>
-          {busy ? 'Moving…' : 'Transfer'}
-        </button>
-        {error ? <span className="field-hint" style={{ color: '#ff8d8d' }}>{error}</span> : null}
-      </>
+      <button type="button" className="btn sm" disabled={busy} onClick={() => go(dests[0].id)} title={error || undefined}>
+        {busy ? 'Moving…' : 'Transfer'}
+      </button>
     );
   }
 
@@ -95,12 +89,11 @@ export function TransferMember({ member, teams, canTransfer }) {
           <option key={team.id} value={team.id}>{team.name}</option>
         ))}
       </select>
-      {error ? <span className="field-hint" style={{ color: '#ff8d8d' }}>{error}</span> : null}
     </>
   );
 }
 
-export function TransferBar({ teamId, teams, members }) {
+export function TransferBar({ teamId, teams, members, compact = false }) {
   const dests = destTeams(teams, teamId);
   const router = useRouter();
   const [dest, setDest] = useState(dests[0]?.id || '');
@@ -125,7 +118,7 @@ export function TransferBar({ teamId, teams, members }) {
     }
     setBusy(true);
     try {
-      await moveMembers(rows, dest, slot);
+      await moveMembers(rows, dest || dests[0].id, slot);
       router.refresh();
     } catch (err) {
       setError(err.message || 'Could not transfer those members.');
@@ -135,8 +128,8 @@ export function TransferBar({ teamId, teams, members }) {
   }
 
   return (
-    <div className="roster-transfer-bar">
-      {dests.length ? (
+    <div className={`roster-transfer-bar${compact ? ' compact' : ''}`}>
+      {compact || !dests.length ? null : (
         <>
           <label className="field-hint" htmlFor={`transfer-dest-${teamId}`}>Move to</label>
           <select
@@ -156,7 +149,7 @@ export function TransferBar({ teamId, teams, members }) {
             <option value="staff">Staff</option>
           </select>
         </>
-      ) : null}
+      )}
       <button type="button" className="btn primary" disabled={busy} onClick={transfer}>
         {busy ? 'Moving…' : 'Transfer selected'}
       </button>

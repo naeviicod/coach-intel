@@ -213,18 +213,28 @@ async function localResult(kind, teamId) {
   return KINDS[kind].list(teamId);
 }
 
-async function hydrate(kind, teamId) {
+function hasLocalRecords(local) {
+  return Array.isArray(local) && local.length > 0;
+}
+
+let onLocalChange = null;
+function setOnLocalChange(fn) {
+  onLocalChange = typeof fn === 'function' ? fn : null;
+}
+
+const hydrateJobs = new Map();
+
+async function mergeRemote(kind, teamId, local) {
   const spec = KINDS[kind];
-  if (!(await sessionReady())) return localResult(kind, teamId);
-  const local = await spec.list(teamId);
   let remote = [];
   try {
     remote = await docsApi().listDocs(kind, spec.team ? teamId : '');
   } catch (err) {
     console.warn('[cloud-sync] list failed', err?.message || err);
-    return localResult(kind, teamId);
+    return { result: await localResult(kind, teamId), localChanged: false };
   }
   const merged = mergeRecords(local, remote, spec.idKey);
+  const localChanged = merged.toApply.length + merged.toDelete.length > 0;
   for (const payload of merged.toApply) await putLocal(kind, teamId, payload);
   for (const id of merged.toDelete) {
     if (spec.remove) await spec.remove(teamId, id);
@@ -236,7 +246,36 @@ async function hydrate(kind, teamId) {
       console.warn('[cloud-sync] push failed', err?.message || err);
     }
   }
-  return localResult(kind, teamId);
+  return { result: await localResult(kind, teamId), localChanged };
+}
+
+async function hydrate(kind, teamId) {
+  const spec = KINDS[kind];
+  if (!spec) return localResult(kind, teamId);
+  if (!(await sessionReady())) return localResult(kind, teamId);
+  const local = await spec.list(teamId);
+  const key = `${kind}\0${spec.team ? teamId || '' : ''}`;
+
+  const run = () =>
+    mergeRemote(kind, teamId, local).then((out) => {
+      if (out.localChanged && onLocalChange) onLocalChange(kind);
+      return out.result;
+    });
+
+  if (hasLocalRecords(local)) {
+    if (!hydrateJobs.has(key)) {
+      const job = run().catch((err) => {
+        console.warn('[cloud-sync] background hydrate failed', err?.message || err);
+      }).finally(() => hydrateJobs.delete(key));
+      hydrateJobs.set(key, job);
+    }
+    return localResult(kind, teamId);
+  }
+
+  if (hydrateJobs.has(key)) return hydrateJobs.get(key);
+  const job = run().finally(() => hydrateJobs.delete(key));
+  hydrateJobs.set(key, job);
+  return job;
 }
 
 function objectivesModeKey(mode) {
@@ -337,4 +376,4 @@ async function syncAll() {
   return { ok: true, errors: [] };
 }
 
-module.exports = { mergeRecords, hydrate, push, remove, syncAll, KINDS };
+module.exports = { mergeRecords, hasLocalRecords, hydrate, setOnLocalChange, push, remove, syncAll, KINDS };

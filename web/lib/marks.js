@@ -1,15 +1,5 @@
 import { icon } from './icons';
 
-const INGAME = {
-  IGL: 'IGL',
-  AR: 'AR',
-  SMG: 'SMG',
-  Sniper: 'Sniper',
-  Flex: 'Flex',
-  'Main Sub': 'Main Sub',
-  'Main AR': 'Main AR',
-};
-
 export function initials(name) {
   if (!name) return '?';
   return name
@@ -36,11 +26,9 @@ export function roleClass(role) {
 
 export function RoleBadge({ role }) {
   const short = role || 'Flex';
-  const full = INGAME[short] || short;
   return (
-    <span className={`role-badge ${roleClass(short)}`} title={full}>
+    <span className={`role-badge ${roleClass(short)}`} title={short}>
       <span className="role-badge-code">{short}</span>
-      {full !== short ? <span className="role-badge-name">{full}</span> : null}
     </span>
   );
 }

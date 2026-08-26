@@ -96,6 +96,14 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
 });
 
+test('pages swap immediately instead of fading the content pane', () => {
+  const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
+  assert.doesNotMatch(app, /fadeEl\(content, 1, 0, 150\)/);
+  assert.doesNotMatch(app, /fadeEl\(content, 0, 1, 180\)/);
+  assert.match(app, /function swapPages\(/);
+  assert.match(app, /if \(outgoing\) outgoing\.remove\(\)/);
+});
+
 test('the finished screen fades in under the dissolving splash', () => {
   const html = fs.readFileSync(index, 'utf8');
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');

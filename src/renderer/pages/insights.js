@@ -15,12 +15,17 @@ export async function render(container, ctx) {
     );
   }
 
-  const allTeams = await window.cci.getTeams();
+  const allTeams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
   const teamScoped = allTeams.find((t) => t.id === ctx.param);
   const teams = teamScoped ? [teamScoped] : allTeams;
+  const packs = await Promise.all(
+    teams.map(async (team) => {
+      const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
+      return { team, members, matches };
+    })
+  );
   const rowsAll = [];
-  for (const team of teams) {
-    const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
+  for (const { team, members, matches } of packs) {
     for (const member of members) {
       const rows = statsForMember(matches, member.id);
       rowsAll.push({ team, member, rows, totals: aggregate(rows) });

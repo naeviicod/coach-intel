@@ -1855,6 +1855,70 @@ body.access-readonly .roster-manage .edit-only { display: flex !important; }
   padding: 9px 4px; border-bottom: 1px solid var(--border);
 }
 .roster-row:last-child { border-bottom: none; }
+.roster-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 11.5rem;
+  flex-shrink: 0;
+}
+.roster-kd {
+  width: 4.4rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+.roster-pipe {
+  color: var(--text-faint);
+  opacity: 0.45;
+  flex-shrink: 0;
+  font-weight: 500;
+  padding: 0 2px;
+  user-select: none;
+}
+.roster-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.roster-transfer-bar.compact {
+  margin: 0;
+}
+.roster-tags .role-badge-name { display: none; }
+.roster-row .row-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 5.15rem);
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  align-items: center;
+}
+.roster-row .row-action-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.roster-row .row-action-slot:not(:empty) + .row-action-slot:not(:empty)::before {
+  content: '|';
+  color: var(--text-faint);
+  opacity: 0.45;
+  margin-right: 6px;
+  font-weight: 500;
+}
+.roster-row .row-actions .btn,
+.roster-row .row-actions select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-left: 6px;
+  padding-right: 6px;
+}
 .roster-check {
   appearance: none;
   -webkit-appearance: none;

@@ -96,9 +96,20 @@ button.sb-section-label { cursor: pointer; }
   border-radius: 8px;
   box-shadow: none;
 }
-#app.shell .btn.sm {
-  padding: 5px 10px;
-  font-size: 11px;
+#app.shell .roster-header-actions .btn.primary,
+#app.shell .roster-header-actions .roster-transfer-bar .btn.primary {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+#app.shell .roster-row .row-actions .btn,
+#app.shell .roster-row .row-actions select {
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  box-sizing: border-box;
 }
 #app.shell .btn.refresh-btn,
 #app.shell button.btn.refresh-btn {

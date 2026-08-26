@@ -11,10 +11,16 @@ export function kd(kills, deaths) {
 export const OBJ_STATS = {
   Hardpoint: [{ key: 'hill_time', label: 'Hill Time', short: 'Hill', duration: true }],
   'Search & Destroy': [
+    { key: 'rounds_won', label: 'Rounds Won', short: 'RW' },
+    { key: 'rounds_lost', label: 'Rounds Lost', short: 'RL' },
     { key: 'plants', label: 'Plants', short: 'Plants' },
     { key: 'defuses', label: 'Defuses', short: 'Defuses' },
   ],
-  Overload: [{ key: 'drives_captured', label: 'Drives Captured', short: 'Drives' }],
+  Overload: [
+    { key: 'rounds_won', label: 'Rounds Won', short: 'RW' },
+    { key: 'rounds_lost', label: 'Rounds Lost', short: 'RL' },
+    { key: 'drives_captured', label: 'Drives Captured', short: 'Drives' },
+  ],
 };
 
 export const OBJ_KEYS = [...new Set(Object.values(OBJ_STATS).flatMap((stats) => stats.map((s) => s.key)))];

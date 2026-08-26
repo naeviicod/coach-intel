@@ -5,7 +5,7 @@ import { openMemberModal } from '../lib/teamManage.js';
 import { toast } from '../components/modal.js';
 
 export async function render(container, ctx) {
-  const teams = await window.cci.getTeams();
+  const teams = ctx.teams?.length ? ctx.teams : await window.cci.getTeams();
 
   container.append(
     el('div', { class: 'page-header' }, [
@@ -32,8 +32,13 @@ export async function render(container, ctx) {
     ])
   );
   const rows = [];
-  for (const team of teams) {
-    const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
+  const packs = await Promise.all(
+    teams.map(async (team) => {
+      const [members, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
+      return { team, members, matches };
+    })
+  );
+  for (const { team, members, matches } of packs) {
     for (const member of members) {
       const totals = aggregate(statsForMember(matches, member.id));
       const orgRole = memberStaffTitle(member) || (isStaffMember(member) ? 'Staff' : 'Player');

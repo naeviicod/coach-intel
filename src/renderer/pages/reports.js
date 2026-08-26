@@ -89,12 +89,8 @@ function parseParam(param) {
 
 async function loadAllMatches() {
   const teams = await window.cci.getTeams();
-  const all = [];
-  for (const team of teams) {
-    const matches = await window.cci.getMatches(team.id);
-    for (const m of matches) all.push(m);
-  }
-  return all;
+  const packs = await Promise.all(teams.map((team) => window.cci.getMatches(team.id)));
+  return packs.flat();
 }
 
 function renderReport(report) {

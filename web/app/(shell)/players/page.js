@@ -7,6 +7,7 @@ import { PageHeader, EmptyState } from '../../../components/page-header';
 import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified } from '../../../lib/marks';
 import { suggestedAccessRole } from '../../../lib/invite';
 import { loadWorkspace } from '../../../lib/workspace';
+import { aggregate, statsForMember } from '../../../lib/stats';
 import Link from 'next/link';
 
 export const metadata = { title: 'Members · Coach Intel' };
@@ -46,11 +47,12 @@ function GroupTile({ href, kicker, title, meta, count, team, iconName }) {
   );
 }
 
-function MemberRow({ member, teamId, teams, showInvite, canEdit, canTransfer }) {
+function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, canTransfer }) {
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
   const staff = member.slot === 'staff';
   const fa = member.slot === 'fa';
   const row = { ...member, team_id: teamId };
+  const totals = aggregate(statsForMember(matches, member.id));
   return (
     <div className="roster-row">
       <RosterCheck member={row} canTransfer={canTransfer} />
@@ -61,38 +63,47 @@ function MemberRow({ member, teamId, teams, showInvite, canEdit, canTransfer }) 
           {memberDiscordVerified(member) ? <VerifiedMark /> : null}
         </div>
         {member.name && member.name !== member.gamertag ? (
-          <div className="member-name">{member.name}</div>
+          <div className="member-name">{member.name}{staff || fa ? ` · ${staff ? 'Staff' : 'Player'}` : ''}</div>
         ) : null}
       </div>
-      {titles.map((t) => (
-        <span key={t} className={`role-badge org ${String(t).replace(/\s+/g, '-')}`}>
-          {t}
-        </span>
-      ))}
-      {staff || fa ? null : <RoleBadge role={member.role} />}
-      {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+      <div className="roster-tags">
+        {titles.map((t) => (
+          <span key={t} className={`role-badge org ${String(t).replace(/\s+/g, '-')}`}>
+            {t}
+          </span>
+        ))}
+        {staff || fa ? null : <RoleBadge role={member.role} />}
+        {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+      </div>
+      <span className="roster-pipe" aria-hidden="true">|</span>
+      <div className="crow-meta roster-kd">{totals.matches ? `${totals.kd} K/D` : '—'}</div>
       {canEdit || showInvite || canTransfer ? (
-        <div className="row-actions edit-only">
-          <RosterSlotButton member={row} canEdit={canEdit} />
-          {canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}
-          <TransferMember member={row} teams={teams} canTransfer={canTransfer} />
-          {showInvite ? (
-            <CopyInvite
-              teamId={teamId}
-              memberId={member.id}
-              gamertag={member.gamertag}
-              accessRole={suggestedAccessRole(member)}
-              linked={Boolean(member.user_id)}
-            />
-          ) : null}
-          {canEdit ? <RemoveMember member={row} canEdit={canEdit} /> : null}
-        </div>
+        <>
+          <span className="roster-pipe" aria-hidden="true">|</span>
+          <div className="row-actions edit-only">
+            <span className="row-action-slot"><RosterSlotButton member={row} canEdit={canEdit} /></span>
+            <span className="row-action-slot">{canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}</span>
+            <span className="row-action-slot"><TransferMember member={row} teams={teams} canTransfer={canTransfer} /></span>
+            <span className="row-action-slot">
+              {showInvite ? (
+                <CopyInvite
+                  teamId={teamId}
+                  memberId={member.id}
+                  gamertag={member.gamertag}
+                  accessRole={suggestedAccessRole(member)}
+                  linked={Boolean(member.user_id)}
+                />
+              ) : null}
+            </span>
+            <span className="row-action-slot">{canEdit ? <RemoveMember member={row} canEdit={canEdit} /> : null}</span>
+          </div>
+        </>
       ) : null}
     </div>
   );
 }
 
-function RosterGroup({ title, rows, teamId, teams, showInvite, canEdit, canTransfer }) {
+function RosterGroup({ title, rows, teamId, teams, matches, showInvite, canEdit, canTransfer }) {
   return (
     <>
       <div className="card-head" style={{ padding: '8px 0 6px' }}>
@@ -110,6 +121,7 @@ function RosterGroup({ title, rows, teamId, teams, showInvite, canEdit, canTrans
             member={member}
             teamId={teamId}
             teams={teams}
+            matches={matches}
             showInvite={showInvite}
             canEdit={canEdit}
             canTransfer={canTransfer}
@@ -123,7 +135,9 @@ function RosterGroup({ title, rows, teamId, teams, showInvite, canEdit, canTrans
 export default async function PlayersPage({ searchParams }) {
   const params = await searchParams;
   const group = String(params?.group || '');
-  const { teams, members, canManageTeam, canTransfer } = await loadWorkspace({ rosterOnly: true });
+  const { teams, members, matches, canManageTeam, canTransfer } = await loadWorkspace({
+    rosterOnly: !group.startsWith('team-'),
+  });
   const orgOf = (key) => members.filter((member) => memberOrgGroup(member) === key);
   const canManageAny = teams.some((team) => canManageTeam(team.id));
 
@@ -204,19 +218,19 @@ export default async function PlayersPage({ searchParams }) {
                   <div className="team-identity-name">{team.name} Roster</div>
                   <div className="team-meta">{lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)}</div>
                 </div>
-                <div className="edit-only" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="edit-only roster-header-actions">
                   <AddPlayer teams={teams} canEdit={manage} teamId={team.id} />
-                  {transfer ? <TransferBar teamId={team.id} teams={teams} members={roster} /> : null}
+                  {transfer ? <TransferBar compact teamId={team.id} teams={teams} members={roster} /> : null}
                 </div>
               </div>
               {roster.length === 0 ? (
                 <div className="field-hint">No members yet. Add a player to this roster.</div>
               ) : (
                 <>
-                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
-                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
-                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
-                  <RosterGroup title="Free Agents" rows={freeAgents} teamId={team.id} teams={teams} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  <RosterGroup title="Free Agents" rows={freeAgents} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
                 </>
               )}
             </div>

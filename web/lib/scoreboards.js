@@ -8,6 +8,35 @@ export function scoreboardAssetUrl(path) {
   return `/api/assets/${String(path || '').split('/').map(encodeURIComponent).join('/')}`;
 }
 
+export async function deleteScoreboard(path) {
+  if (!path) throw new Error('Missing scoreboard path.');
+  const supabase = createBrowserSupabase();
+  const { error } = await supabase.storage.from('org-assets').remove([path]);
+  if (error) throw error;
+}
+
+export async function readScoreboardText(imageUrl) {
+  if (!imageUrl) return '';
+  try {
+    const blob = await fetch(imageUrl).then((res) => {
+      if (!res.ok) throw new Error('Could not open that scoreboard.');
+      return res.blob();
+    });
+    if (typeof TextDetector === 'function') {
+      const bitmap = await createImageBitmap(blob);
+      const hits = await new TextDetector().detect(bitmap);
+      const text = (hits || []).map((hit) => hit.rawValue).filter(Boolean).join('\n');
+      if (text.trim()) return text;
+    }
+    const { recognize } = await import('tesseract.js');
+    const result = await recognize(blob, 'eng');
+    return String(result?.data?.text || '').trim();
+  } catch {
+    // Fall through to paste if the board cannot be read.
+  }
+  return '';
+}
+
 export async function listScoreboardInbox(teamId) {
   if (!teamId) return [];
   const supabase = createBrowserSupabase();

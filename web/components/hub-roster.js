@@ -73,11 +73,13 @@ function Group({ title, rows, matches, empty }) {
                 </div>
                 {member.name && member.name !== member.gamertag ? <div className="crow-sub">{member.name}</div> : null}
               </div>
-              {titles.map((t) => (
-                <span key={t} className={`role-badge org ${String(t).replace(/\s+/g, '-')}`}>{t}</span>
-              ))}
-              {staff ? null : <RoleBadge role={member.role} />}
-              {member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+              <div className="roster-tags">
+                {titles.map((t) => (
+                  <span key={t} className={`role-badge org ${String(t).replace(/\s+/g, '-')}`}>{t}</span>
+                ))}
+                {staff ? null : <RoleBadge role={member.role} />}
+                {member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+              </div>
               <div className="crow-meta">{stats ? `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}` : 'No match data'}</div>
             </div>
           );

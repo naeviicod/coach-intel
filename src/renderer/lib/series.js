@@ -100,6 +100,9 @@ export function emptyPlayerLine(member) {
     deaths: 0,
     assists: 0,
     damage: 0,
+    hill_time: 0,
+    rounds_won: 0,
+    rounds_lost: 0,
   };
 }
 
@@ -113,50 +116,130 @@ export function memberMatchKeys(member) {
   return [member?.gamertag, member?.name, ...(member?.aliases || [])].map(norm).filter(Boolean);
 }
 
-export function parsePlayerLine(line) {
-  const parts = String(line || '').trim().split(/\s+/);
-  if (parts.length < 3) return null;
-  const nums = [];
-  const nameParts = [];
-  for (const part of parts) {
-    if (/^\d+$/.test(part)) nums.push(Number(part));
-    else if (!nums.length) nameParts.push(part);
+export function parseClockToSeconds(token) {
+  const m = String(token || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function isStatToken(token) {
+  return /^\d+$/.test(token) || /^\d+\/\d+$/.test(token) || /^\d+:\d{2}$/.test(token) || /^\d+-\d+$/.test(token);
+}
+
+export function matchRosterMember(name, roster) {
+  const key = norm(name);
+  if (!key) return null;
+  const stripped = key.replace(/\d+$/, '');
+  let best = null;
+  let bestScore = 0;
+  for (const member of roster || []) {
+    for (const k of memberMatchKeys(member)) {
+      if (k.length < 3) continue;
+      if (k === key || (stripped && k === stripped)) return member;
+      const a = stripped || key;
+      if (a.length >= 3 && (k.startsWith(a) || a.startsWith(k) || k.includes(a) || a.includes(k))) {
+        const score = Math.min(k.length, a.length);
+        if (score > bestScore) {
+          best = member;
+          bestScore = score;
+        }
+      }
+    }
   }
-  if (!nameParts.length || nums.length < 2) return null;
+  return bestScore >= 4 ? best : null;
+}
+
+export function parsePlayerLine(line) {
+  const tokens = String(line || '').replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+  const nameTokens = [];
+  const statTokens = [];
+  for (const token of tokens) {
+    if (isStatToken(token)) statTokens.push(token);
+    else if (!statTokens.length) nameTokens.push(token);
+  }
+  if (!nameTokens.length || !statTokens.length) return null;
+
+  let kills = 0;
+  let deaths = 0;
+  let assists = 0;
+  let damage = 0;
+  let hill_time = 0;
+  let rounds_won = 0;
+  let rounds_lost = 0;
+  const nums = [];
+  for (const token of statTokens) {
+    const clock = parseClockToSeconds(token);
+    if (clock != null) {
+      hill_time = clock;
+      continue;
+    }
+    const slash = token.match(/^(\d+)\/(\d+)$/);
+    if (slash) {
+      kills = Number(slash[1]);
+      deaths = Number(slash[2]);
+      continue;
+    }
+    const pair = token.match(/^(\d+)-(\d+)$/);
+    if (pair) {
+      rounds_won = Number(pair[1]);
+      rounds_lost = Number(pair[2]);
+      continue;
+    }
+    nums.push(Number(token));
+  }
+  if (nums.length >= 2 && !kills && !deaths) {
+    kills = nums.shift();
+    deaths = nums.shift();
+  }
+  if (nums.length) assists = nums.shift() || 0;
+  if (nums.length) {
+    const next = nums.shift();
+    if (next >= 200) damage = next;
+    else if (!hill_time && next > 20) hill_time = next;
+    else if (!rounds_won) rounds_won = next;
+  }
+  if (nums.length && !rounds_lost) rounds_lost = nums.shift() || 0;
+  if (!kills && !deaths && !hill_time && !rounds_won) return null;
   return {
-    name: nameParts.join(' '),
-    kills: nums[0] || 0,
-    deaths: nums[1] || 0,
-    assists: nums[2] || 0,
-    damage: nums[3] || 0,
+    name: nameTokens.join(' '),
+    kills,
+    deaths,
+    assists,
+    damage,
+    hill_time,
+    rounds_won,
+    rounds_lost,
   };
 }
 
-export function applyScoreboardToRoster(text, members) {
+function lineStats(parsed) {
+  return {
+    kills: parsed.kills || 0,
+    deaths: parsed.deaths || 0,
+    assists: parsed.assists || 0,
+    damage: parsed.damage || 0,
+    hill_time: parsed.hill_time || 0,
+    rounds_won: parsed.rounds_won || 0,
+    rounds_lost: parsed.rounds_lost || 0,
+  };
+}
+
+export function applyScoreboardToRoster(text, members, { matchedOnly = false } = {}) {
   const roster = playingRoster(members);
   const players = roster.map(emptyPlayerLine);
   const byId = Object.fromEntries(players.map((row) => [row.member_id, row]));
-  const byKey = new Map();
-  for (const member of roster) {
-    for (const key of memberMatchKeys(member)) byKey.set(key, member);
-  }
+  const matched = new Set();
   for (const line of String(text || '').split(/\r?\n/)) {
     const parsed = parsePlayerLine(line);
     if (!parsed) continue;
-    const key = norm(parsed.name);
-    let member = byKey.get(key);
-    if (!member) {
-      member = roster.find((row) => memberMatchKeys(row).some((k) => k && (key.includes(k) || k.includes(key))));
-    }
+    const member = matchRosterMember(parsed.name, roster);
     if (!member) continue;
-    Object.assign(byId[member.id], {
-      kills: parsed.kills,
-      deaths: parsed.deaths,
-      assists: parsed.assists,
-      damage: parsed.damage,
-    });
+    Object.assign(byId[member.id], lineStats(parsed));
+    matched.add(member.id);
   }
-  return players;
+  if (!matchedOnly) return players;
+  return players.filter((row) => matched.has(row.member_id));
 }
 
 export function guessMapFromName(filename, maps = []) {
