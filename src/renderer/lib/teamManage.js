@@ -367,6 +367,10 @@ function arrivalSlot(member, destMembers) {
 }
 
 export async function openTransferModal(ctx, fromTeam, members, { onDone } = {}) {
+  if (ctx && ctx.canTransfer === false) {
+    toast('Only org owners, admins, and developers can move players between teams.', 'error');
+    return;
+  }
   const list = (Array.isArray(members) ? members : [members]).filter((m) => m?.id);
   if (!list.length) return;
 

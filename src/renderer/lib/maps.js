@@ -51,10 +51,28 @@ export async function resolveMapImage(name) {
     for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
       data.push(window.cci.dataUrlForPath(`maps/${id}.${ext}`));
     }
+    for (const key of ['hp', 'snd', 'ovl']) {
+      for (const ext of ['jpg', 'jpeg', 'png', 'webp']) {
+        data.push(window.cci.dataUrlForPath(`maps/${id}-${key}.${ext}`));
+      }
+    }
   }
   const fromData = (await Promise.all(data)).find(Boolean);
   if (fromData) return fromData;
-  return firstExisting([asset(`maps/${id}.jpg`), asset(`maps/${id}.webp`), asset(`maps/${id}.png`)]);
+  return firstExisting([
+    asset(`maps/${id}.jpg`),
+    asset(`maps/${id}.webp`),
+    asset(`maps/${id}.png`),
+    asset(`maps/${id}-hp.jpg`),
+    asset(`maps/${id}-hp.webp`),
+    asset(`maps/${id}-hp.png`),
+    asset(`maps/${id}-snd.jpg`),
+    asset(`maps/${id}-snd.webp`),
+    asset(`maps/${id}-snd.png`),
+    asset(`maps/${id}-ovl.jpg`),
+    asset(`maps/${id}-ovl.webp`),
+    asset(`maps/${id}-ovl.png`),
+  ]);
 }
 
 // Returns { src, isLayout }: isLayout is true only when a real mode-specific

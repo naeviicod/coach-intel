@@ -5,6 +5,8 @@ import { applyBackground, preloadBackground, DEFAULT_BACKGROUND } from './lib/ba
 import { getPref, setPref } from './prefs.js';
 import {
   canAccessPage,
+  canEditTeam,
+  canTransferMembers,
   defaultLanding,
   localStaffAccess,
   accessFromProfile,
@@ -354,7 +356,9 @@ async function loadAccess() {
     }
     const listed = await window.cci.auth.listProfiles();
     const me = listed?.ok ? listed.data?.me : null;
-    state.access = accessFromProfile(me, { local: !me });
+    const teamIds = listed?.ok ? listed.data?.teamIds : [];
+    const linkedNames = listed?.ok ? listed.data?.linkedNames : [];
+    state.access = accessFromProfile(me, { local: !me, teamIds, linkedNames });
   } catch (err) {
     console.warn('[renderer] access load failed', err);
     state.access = localStaffAccess();
@@ -1266,6 +1270,8 @@ function pageCtx() {
     org: state.org,
     access: state.access,
     canEdit: Boolean(state.access?.canEdit),
+    canEditTeam: (teamId) => canEditTeam(state.access?.role, teamId, state.access),
+    canTransfer: canTransferMembers(state.access?.role, state.access),
     refreshShell: async () => {
       await loadShellData();
       renderSidebar();

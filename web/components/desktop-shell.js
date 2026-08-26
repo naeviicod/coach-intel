@@ -3,6 +3,7 @@ import { ContentMain } from './content-main';
 import { DesktopNav } from './desktop-nav';
 import { DesktopTopbar } from './desktop-topbar';
 import { LookSync } from './look-sync';
+import { PageGuard } from './page-guard';
 
 const RULESET = {
   label: 'Ruleset',
@@ -41,6 +42,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
         </span>
       </div>
       <div id="app" className="shell">
+        <PageGuard role={role} />
         <DesktopNav role={role} teams={teams} />
         <div className="main-column">
           <DesktopTopbar

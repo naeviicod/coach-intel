@@ -1,7 +1,7 @@
-import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../../../utils.js';
+import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark } from '../../../utils.js';
 import { uploadTeamLogo } from '../../../lib/teamManage.js';
 import { splitRoster, isStaffMember } from '../../../lib/roster.js';
-import { memberStaffTitle, orgTitles } from '../../../lib/profile.js';
+import { memberStaffTitle, orgTitles, memberDiscordVerified } from '../../../lib/profile.js';
 import { miniEmpty } from '../parts.js';
 
 export async function render(root, hub) {
@@ -98,7 +98,10 @@ function group(hub, title, members, matches, empty) {
         [
           playerAvatar(member),
           el('div', { class: 'crow-main' }, [
-            el('div', { class: 'crow-title' }, member.gamertag),
+            el('div', { class: 'crow-title' }, [
+              member.gamertag,
+              memberDiscordVerified(member) ? verifiedMark() : null,
+            ]),
             (() => {
               const sub = [member.name && member.name !== member.gamertag ? member.name : '', memberStaffTitle(member)]
                 .filter(Boolean)

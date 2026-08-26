@@ -1,3 +1,5 @@
+import { icon } from './icons';
+
 const INGAME = {
   IGL: 'IGL',
   AR: 'AR',
@@ -19,9 +21,13 @@ export function initials(name) {
 }
 
 export function markSrc(value) {
-  const src = String(value || '');
-  if (/^(https?:|data:|\/)/i.test(src)) return src;
-  return '';
+  const src = String(value || '').trim();
+  if (!src) return '';
+  if (/^(https?:|data:)/i.test(src)) return src;
+  if (src.startsWith('/') && !src.startsWith('/org/')) return src;
+  const key = src.replace(/^\/+/, '');
+  if (!key || key.includes('..')) return '';
+  return `/api/assets/${key.split('/').map(encodeURIComponent).join('/')}`;
 }
 
 export function roleClass(role) {
@@ -49,7 +55,7 @@ export function TeamMark({ team, className = 'team-logo' }) {
 }
 
 export function OrgMark({ org, className = 'sb-org-logo' }) {
-  const src = markSrc(org?.logo);
+  const src = markSrc(org?.logo) || markSrc('org/logos/org-logo.png');
   const label = org?.tag || org?.name || 'Org';
   return (
     <div className={className}>
@@ -147,4 +153,18 @@ export function fmtStamp(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+export function memberDiscordVerified(member) {
+  return Boolean(member?.user_id || member?.linked);
+}
+
+export function VerifiedMark() {
+  return (
+    <span
+      className="verified-mark"
+      title="Confirmed · signed in with Discord"
+      dangerouslySetInnerHTML={{ __html: icon('check', 9) }}
+    />
+  );
 }

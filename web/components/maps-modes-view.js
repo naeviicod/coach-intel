@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mapCoverSrc } from '../lib/maps';
 import { statsByKey } from '../lib/stats';
 import { activeMaps, modeNames, resolveRuleset } from '../lib/ruleset';
 import { EmptyState, PageHeader } from './page-header';
@@ -53,8 +54,14 @@ export function MapsModesView({ teams, matches, rulesetDocs, teamId }) {
       <div className="grid cols-3">
         {maps.map((m) => {
           const stats = mapStats.get(m.name);
+          const src = mapCoverSrc(m.name);
           return (
             <div key={m.map_id || m.name} className="card">
+              {src ? (
+                <div className="map-thumb cover">
+                  <img src={src} alt="" />
+                </div>
+              ) : null}
               <div className="card-head">
                 <h2>{m.name}</h2>
                 {m.competitive_pool ? <span className="pill">CDL</span> : null}

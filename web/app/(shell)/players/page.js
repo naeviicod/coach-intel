@@ -1,11 +1,10 @@
 import { AddPlayer } from '../../../components/add-records';
 import { CopyInvite } from '../../../components/copy-invite';
+import { RosterSlotButton } from '../../../components/roster-slot-button';
 import { PageHeader, EmptyState } from '../../../components/page-header';
-import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster } from '../../../lib/marks';
-import { canEdit } from '../../../lib/access';
+import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster, VerifiedMark, memberDiscordVerified } from '../../../lib/marks';
 import { suggestedAccessRole } from '../../../lib/invite';
-import { getProfile, loadAppData } from '../../../lib/data';
-import { createServerSupabase, getSessionUser } from '../../../lib/supabase/server';
+import { loadWorkspace } from '../../../lib/workspace';
 import Link from 'next/link';
 
 export const metadata = { title: 'Players · Coach Intel' };
@@ -17,7 +16,7 @@ function lineupMeta(starters, bench, staff) {
   return bits.join(' · ');
 }
 
-function RosterGroup({ title, rows, teamId, showInvite }) {
+function RosterGroup({ title, rows, teamId, showInvite, canEdit }) {
   return (
     <>
       <div className="card-head" style={{ padding: '8px 0 6px' }}>
@@ -36,7 +35,10 @@ function RosterGroup({ title, rows, teamId, showInvite }) {
             <div key={member.id} className="roster-row">
               <PlayerAvatar member={member} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="gamertag">{member.gamertag || member.name}</div>
+                <div className="gamertag">
+                  {member.gamertag || member.name}
+                  {memberDiscordVerified(member) ? <VerifiedMark /> : null}
+                </div>
                 {member.name && member.name !== member.gamertag ? (
                   <div className="member-name">{member.name}</div>
                 ) : null}
@@ -48,15 +50,18 @@ function RosterGroup({ title, rows, teamId, showInvite }) {
               ))}
               {staff ? null : <RoleBadge role={member.role} />}
               {staff ? <span className="pill">Staff</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
-              {showInvite ? (
+              {canEdit || showInvite ? (
                 <div className="row-actions edit-only">
-                  <CopyInvite
-                    teamId={teamId}
-                    memberId={member.id}
-                    gamertag={member.gamertag}
-                    accessRole={suggestedAccessRole(member)}
-                    linked={Boolean(member.user_id)}
-                  />
+                  <RosterSlotButton member={{ ...member, team_id: teamId }} canEdit={canEdit} />
+                  {showInvite ? (
+                    <CopyInvite
+                      teamId={teamId}
+                      memberId={member.id}
+                      gamertag={member.gamertag}
+                      accessRole={suggestedAccessRole(member)}
+                      linked={Boolean(member.user_id)}
+                    />
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -68,19 +73,13 @@ function RosterGroup({ title, rows, teamId, showInvite }) {
 }
 
 export default async function PlayersPage() {
-  const user = await getSessionUser();
-  const supabase = await createServerSupabase();
-  const [{ teams, members }, profile] = await Promise.all([
-    loadAppData(supabase),
-    user ? getProfile(supabase, user.id) : null,
-  ]);
-  const showInvite = canEdit(profile?.role);
+  const { teams, members, canEdit, canManageTeam } = await loadWorkspace();
 
   return (
     <>
       <PageHeader
         title="Players"
-        subtitle={showInvite
+        subtitle={canEdit
           ? 'Players, staff, and creatives. Invite copies a personal join link with that player\'s gamertag on it.'
           : 'Members across the organization'}
       />
@@ -92,8 +91,9 @@ export default async function PlayersPage() {
         teams.map((team) => {
           const roster = members.filter((m) => m.team_id === team.id);
           const { starters, bench, staff } = splitRoster(roster);
+          const manage = canManageTeam(team.id);
           return (
-            <div key={team.id} className="card section">
+            <div key={team.id} className={`card section${manage ? '' : ' team-readonly'}`}>
               <div className="team-identity" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
                 <TeamMark team={team} className="team-logo lg" />
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -102,16 +102,16 @@ export default async function PlayersPage() {
                   <div className="team-meta">{lineupMeta(starters.length, bench.length, staff.length)}</div>
                 </div>
                 <div className="edit-only" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <AddPlayer teams={teams} canEdit={showInvite} teamId={team.id} />
+                  <AddPlayer teams={teams} canEdit={manage} teamId={team.id} />
                 </div>
               </div>
               {roster.length === 0 ? (
                 <div className="field-hint">No members yet. Add a player to this roster.</div>
               ) : (
                 <>
-                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} showInvite={showInvite} />
-                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} showInvite={showInvite} />
-                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} showInvite={showInvite} />
+                  <RosterGroup title="Starting lineup" rows={starters} teamId={team.id} showInvite={manage} canEdit={manage} />
+                  <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} showInvite={manage} canEdit={manage} />
+                  <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} showInvite={manage} canEdit={manage} />
                 </>
               )}
             </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { newId, saveDoc } from '../lib/docs';
+import { mapCoverSrc } from '../lib/maps';
 import { poolsByMode, resolveRuleset } from '../lib/ruleset';
 import { availableMaps, buildVetoSequence, groupStepsByMode, isSequenceComplete, resultSeries, seriesModes, shortMode, VETO_FORMATS } from '../lib/veto';
 import { collectVetoes, intelForOpponent, suggestForStep, summaryLines } from '../lib/vetoIntel';
@@ -27,8 +28,14 @@ export function VetoLabView({ teams, vetoes, opponents, matches, rulesetDocs, te
     setSteps(seq.steps);
   }
 
-  function setMap(index, map) {
-    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, map } : s)));
+  function assign(map) {
+    const idx = steps.findIndex((s) => !s.map);
+    if (idx === -1) return;
+    setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, map } : s)));
+  }
+
+  function undoTo(index) {
+    setSteps((prev) => prev.map((s, i) => (i >= index ? { ...s, map: null } : s)));
   }
 
   async function save() {
@@ -60,6 +67,11 @@ export function VetoLabView({ teams, vetoes, opponents, matches, rulesetDocs, te
   const groups = groupStepsByMode(steps);
   const series = resultSeries(seriesModesList, steps);
   const saved = vetoes.filter((v) => v.team_id === team.id);
+  const cursor = steps.findIndex((s) => !s.map);
+  const current = cursor === -1 ? null : steps[cursor];
+  const pool = current ? availableMaps(current, steps, pools) : [];
+  const hints = current ? suggestForStep(intel, current, pool) : [];
+  const hintFor = Object.fromEntries(hints.map((h) => [h.map, h]));
 
   return (
     <>
@@ -69,7 +81,7 @@ export function VetoLabView({ teams, vetoes, opponents, matches, rulesetDocs, te
         actions={<TeamPicker teams={teams} teamId={team.id} />}
       />
       <div className="veto-config">
-        <input list="veto-opp-list" placeholder="Opponent" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
+        <input type="text" list="veto-opp-list" placeholder="Opponent" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
         <datalist id="veto-opp-list">
           {opponents.map((o) => <option key={o.opponent_id || o.id} value={o.name} />)}
         </datalist>
@@ -84,41 +96,71 @@ export function VetoLabView({ teams, vetoes, opponents, matches, rulesetDocs, te
       </div>
       <Err error={error} />
       {summaryLines(intel).map((line) => <div key={line} className="field-hint" style={{ marginBottom: 6 }}>{line}</div>)}
-      <div className="grid cols-3" style={{ marginBottom: 16 }}>
+      <div className="grid veto-modes">
         {groups.map((group) => (
-          <div key={group.mode} className="card">
-            <div className="card-head"><h2>{shortMode(group.mode)}</h2></div>
+          <div key={group.mode} className="veto-col">
+            <div className="veto-col-mode">{group.mode}</div>
             {group.steps.map((step) => {
               const idx = steps.indexOf(step);
-              const pool = availableMaps(step, steps, pools);
-              const hints = suggestForStep(intel, step, pool);
+              const isCurrent = idx === cursor;
               return (
-                <div key={`${group.mode}-${idx}`} className="crow">
-                  <div className="crow-main">
-                    <div className="crow-title">{step.action} · {step.team === 'us' ? 'Us' : 'Them'}</div>
-                    {hints[0] ? <div className="crow-sub">{hints[0].why}: {hints[0].map}</div> : null}
-                  </div>
-                  <select value={step.map || ''} onChange={(e) => setMap(idx, e.target.value || null)}>
-                    <option value="">—</option>
-                    {(step.map && !pool.includes(step.map) ? [step.map, ...pool] : pool).map((m) => <option key={m}>{m}</option>)}
-                  </select>
+                <div key={`${group.mode}-${idx}`} className={`veto-step${isCurrent ? ' current' : ''}${step.map ? ' done' : ''}`}>
+                  <span className={`veto-turn ${step.team}`}>{step.team === 'us' ? 'US' : 'THEM'}</span>
+                  <span className={`veto-act ${step.action}`}>{step.action === 'pick' ? 'PICK' : 'BAN'}</span>
+                  <span className="veto-map">{step.map || (isCurrent ? 'Choose' : 'open')}</span>
+                  {step.map ? (
+                    <button type="button" className="btn sm subtle" onClick={() => undoTo(idx)}>Undo</button>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         ))}
       </div>
-      <div className="section-title">Series</div>
-      <div className="card">
-        {series.map((g) => (
-          <div key={g.game} className="crow">
-            <div className="crow-main">
-              <div className="crow-title">Game {g.game}</div>
-              <div className="crow-sub">{g.mode}</div>
-            </div>
-            <div className="crow-meta">{g.map || '—'}</div>
+      {current ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">
+            <h2>{current.team === 'us' ? 'Your' : 'Their'} {current.action} · {current.mode}</h2>
+            {hints.length ? <div className="card-meta">Highlighted from the book</div> : null}
           </div>
-        ))}
+          {pool.length ? (
+            <div className="grid veto-pool">
+              {pool.map((map) => {
+                const src = mapCoverSrc(map);
+                const hint = hintFor[map];
+                return (
+                  <button key={map} type="button" className={`veto-tile ${current.action}${hint ? ' hint' : ''}`} onClick={() => assign(map)}>
+                    {src ? (
+                      <span className="veto-tile-art">
+                        <img src={src} alt="" />
+                      </span>
+                    ) : null}
+                    <span className="veto-tile-name">{map}</span>
+                    {hint ? <span className="veto-tile-why">{hint.why}: {hint.map}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="field-hint">No maps left in this pool.</div>
+          )}
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="field-hint" style={{ padding: 6 }}>Veto complete. Every map is locked.</div>
+        </div>
+      )}
+      <div className="section-title">Series</div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="veto-series">
+          {series.map((g) => (
+            <div key={g.game} className="veto-game">
+              <div className="veto-game-n">Game {g.game}</div>
+              <div className={`veto-game-map${g.map ? '' : ' pending'}`}>{g.map || 'Pending'}</div>
+              <div className="veto-game-mode">{shortMode(g.mode)} · {g.mode}</div>
+            </div>
+          ))}
+        </div>
       </div>
       {saved.length ? (
         <>

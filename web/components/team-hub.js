@@ -46,7 +46,7 @@ export function TeamHub({
   }
 
   return (
-    <div className="hub">
+    <div className={`hub${canEdit ? '' : ' team-readonly'}`}>
       <header className="hub-rail">
         <div className="team-select">
           {teams.length > 1 ? (
@@ -90,6 +90,11 @@ export function TeamHub({
               </Link>
             );
           })}
+          <Link href={`/playbooks?team=${encodeURIComponent(team.id)}`} className="rail-link">
+            <Icon name="strats" size={14} />
+            <span>Strats & Playbooks</span>
+            <span className="count">{strats.length}</span>
+          </Link>
         </nav>
       </header>
       <div className="hub-body">

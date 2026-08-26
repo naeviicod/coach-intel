@@ -22,7 +22,7 @@ export async function POST(request) {
 
   const { data: member } = await supabase
     .from('members')
-    .select('id, title')
+    .select('id, title, gamertag')
     .eq('team_id', teamId)
     .eq('id', memberId)
     .maybeSingle();
@@ -34,6 +34,7 @@ export async function POST(request) {
       memberId,
       accessRole: body.accessRole || suggestedAccessRole(member),
       email: body.email,
+      gamertag: body.gamertag || member.gamertag,
     });
     return NextResponse.json({ url: invite.url });
   } catch (err) {

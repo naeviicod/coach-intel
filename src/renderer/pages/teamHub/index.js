@@ -92,7 +92,7 @@ export async function render(container, ctx) {
     goTeam: (teamId) => ctx.navigate('team-hub', `${teamId}/${hubCtx.section}`),
     openPlaybooks: (...rest) =>
       ctx.navigate('playbooks', [team.id, ...rest.filter(Boolean)].join('/')),
-    canEdit: Boolean(ctx.canEdit),
+    canEdit: Boolean(ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit),
     ctxToggle: contextToggle(context),
     refreshRail: null,
   };
@@ -127,6 +127,7 @@ export async function render(container, ctx) {
   };
 
   live = { container, teamId: team.id, rail, workspace, context, hubCtx, counts };
+  container.classList.toggle('team-readonly', !hubCtx.canEdit);
   await paintSection(workspace, def, hubCtx, () => render(container, ctx), { animate: false });
   await renderContextPanel(context, hubCtx);
 }
@@ -224,6 +225,20 @@ function renderRail(rail, hub, counts) {
       )
     );
   }
+  nav.append(
+    el(
+      'button',
+      {
+        type: 'button',
+        class: 'rail-link',
+        onclick: () => hub.openPlaybooks(),
+      },
+      [
+        el('span', { class: 'icon', html: icon('strats', 14) }),
+        el('span', {}, 'Strats & Playbooks'),
+      ]
+    )
+  );
   rail.append(nav);
 }
 

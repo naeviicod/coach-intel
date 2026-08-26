@@ -1,5 +1,30 @@
 const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative']);
+const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
+const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
+
+function isNaevii(value) {
+  const s = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return s === 'naevii' || s === 'naeviiszn' || s.startsWith('naeviiszn');
+}
+
+function resolveAccessRole(me, { names = [] } = {}) {
+  const fields = [
+    me?.discord_username,
+    me?.display_name,
+    me?.username,
+    me?.gamertag,
+    me?.name,
+    me?.title,
+    ...(Array.isArray(names) ? names : []),
+  ];
+  if (fields.some(isNaevii)) {
+    const existing = String(me?.role || '').toLowerCase().trim();
+    if (existing === 'owner' || existing === 'admin' || existing === 'developer') return existing;
+    return 'developer';
+  }
+  return me?.role || 'member';
+}
 
 function isStaff(role) {
   const r = String(role || '').toLowerCase().trim();
@@ -9,6 +34,19 @@ function isStaff(role) {
 function seesAllTeams(role) {
   const r = String(role || '').toLowerCase().trim();
   return ALL_TEAMS_ROLES.has(r);
+}
+
+function canEditTeam(role, teamId, { local, teamIds } = {}) {
+  if (local) return true;
+  const r = String(role || '').toLowerCase().trim();
+  if (ORG_EDIT_ROLES.has(r)) return true;
+  if (r !== 'team_leader' || !teamId) return false;
+  return Array.isArray(teamIds) && teamIds.includes(teamId);
+}
+
+function canTransferMembers(role, { local } = {}) {
+  if (local) return true;
+  return TRANSFER_ROLES.has(String(role || '').toLowerCase().trim());
 }
 
 // Unlinked players used to filter this list to [] — then the app thought
@@ -34,13 +72,73 @@ async function assertCanEdit(supabase) {
       }),
     ]);
     me = listed?.me || null;
+    if (me && !isStaff(resolveAccessRole(me, { names: listed?.linkedNames }))) {
+      throw new Error('You do not have permission to edit.');
+    }
+    return;
   } catch (err) {
+    if (String(err?.message || err).includes('permission')) throw err;
     console.warn('[access] could not load profile for edit check', err?.message || err);
     return;
   }
-  // No profile row yet — same as local staff. Only a known non-staff role is blocked.
-  if (!me) return;
-  if (!isStaff(me.role)) throw new Error('You do not have permission to edit.');
 }
 
-module.exports = { isStaff, seesAllTeams, assertCanEdit, scopeTeams };
+async function sessionEditor(supabase) {
+  const state = await supabase.get().getState();
+  if (!state?.configured || !state.session) return { local: true, me: null, teamIds: null };
+  let listed = { me: null, teamIds: [] };
+  try {
+    listed = await Promise.race([
+      supabase.get().listProfiles(),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('profile check timed out')), 2500);
+      }),
+    ]);
+  } catch (err) {
+    console.warn('[access] could not load profile for edit check', err?.message || err);
+    return { local: true, me: null, teamIds: null };
+  }
+  const me = listed?.me || null;
+  if (!me) return { local: true, me: null, teamIds: null, role: 'owner' };
+  let teamIds = listed?.teamIds;
+  if (!Array.isArray(teamIds) && me.id && supabase.get().teamIdsForUser) {
+    try {
+      teamIds = await supabase.get().teamIdsForUser(me.id);
+    } catch {
+      teamIds = [];
+    }
+  }
+  const linkedNames = listed?.linkedNames;
+  const role = resolveAccessRole(me, { names: linkedNames });
+  return { local: false, me, teamIds: Array.isArray(teamIds) ? teamIds : [], role, linkedNames };
+}
+
+async function assertCanEditTeam(supabase, teamId) {
+  await assertCanEdit(supabase);
+  const session = await sessionEditor(supabase);
+  if (session.local) return;
+  if (!canEditTeam(session.role, teamId, session)) {
+    throw new Error('You can only edit your own team.');
+  }
+}
+
+async function assertCanTransfer(supabase) {
+  const session = await sessionEditor(supabase);
+  if (session.local) return;
+  if (!isStaff(session.role)) throw new Error('You do not have permission to edit.');
+  if (!canTransferMembers(session.role, session)) {
+    throw new Error('Only org owners, admins, and developers can move players between teams.');
+  }
+}
+
+module.exports = {
+  isStaff,
+  seesAllTeams,
+  canEditTeam,
+  canTransferMembers,
+  resolveAccessRole,
+  assertCanEdit,
+  assertCanEditTeam,
+  assertCanTransfer,
+  scopeTeams,
+};

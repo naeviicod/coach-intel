@@ -6,10 +6,15 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   discord_username text,
   avatar_url text,
+  display_name text,
+  title text,
   role text not null default 'member'
     check (role in ('owner', 'admin', 'developer', 'team_leader', 'coach', 'analyst', 'member', 'user', 'creative')),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists display_name text;
+alter table public.profiles add column if not exists title text;
 
 alter table public.profiles enable row level security;
 
@@ -117,7 +122,9 @@ begin
     'id', rec.id,
     'role', rec.role,
     'discord_username', rec.discord_username,
-    'avatar_url', rec.avatar_url
+    'avatar_url', rec.avatar_url,
+    'display_name', rec.display_name,
+    'title', rec.title
   );
 end;
 $$;
@@ -237,7 +244,7 @@ create unique index if not exists members_user_id_unique
   where user_id is not null;
 
 -- Invite a roster member to sign in with Discord and bind that account to this
--- player + team. The token is the web path: https://coach.championshipseries.eu/join/<id>
+-- player + team. The token is the web path: https://coach.championshipseries.eu/join/<gamertag>/<id>
 create table if not exists public.invites (
   id text primary key,
   team_id text not null references public.teams (id) on delete cascade,
@@ -309,12 +316,15 @@ begin
     'team_id', inv.team_id,
     'member_id', inv.member_id,
     'access_role', inv.access_role,
+    'play_role', mem.role,
+    'slot', mem.slot,
     'accent', tm.accent
   );
 end;
 $$;
 
--- Signed-in Discord user claims the roster slot and receives the invite's access role.
+-- Signed-in Discord user claims the roster slot. That slot's gamertag becomes
+-- their profile name; they can change it later from Settings.
 create or replace function public.redeem_invite(invite_token text)
 returns json
 language plpgsql
@@ -323,6 +333,7 @@ set search_path = public
 as $$
 declare
   inv public.invites%rowtype;
+  mem public.members%rowtype;
   uid uuid := auth.uid();
   existing_id text;
   current_role text;
@@ -353,11 +364,15 @@ begin
 
   update public.members
     set user_id = uid, updated_at = now()
-    where id = inv.member_id and team_id = inv.team_id;
+    where id = inv.member_id and team_id = inv.team_id
+    returning * into mem;
 
-  if current_role is distinct from 'owner' then
-    update public.profiles set role = inv.access_role where id = uid;
-  end if;
+  update public.profiles
+    set
+      role = case when current_role is distinct from 'owner' then inv.access_role else role end,
+      display_name = coalesce(nullif(btrim(display_name), ''), mem.gamertag),
+      title = coalesce(nullif(btrim(title), ''), mem.title)
+    where id = uid;
 
   update public.invites
     set accepted_at = now(), accepted_user_id = uid
@@ -367,15 +382,60 @@ begin
     'ok', true,
     'team_id', inv.team_id,
     'member_id', inv.member_id,
-    'access_role', inv.access_role
+    'access_role', inv.access_role,
+    'display_name', coalesce(mem.gamertag, '')
+  );
+end;
+$$;
+
+-- Anyone can change their own chip name/title. Players cannot write members
+-- via RLS, so this security-definer keeps the linked roster slot in sync.
+create or replace function public.update_my_profile(new_name text, new_title text)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  rec public.profiles%rowtype;
+  cleaned_name text := left(btrim(coalesce(new_name, '')), 80);
+  cleaned_title text := left(btrim(coalesce(new_title, '')), 80);
+begin
+  if uid is null then
+    return json_build_object('ok', false, 'error', 'Not signed in');
+  end if;
+  if cleaned_name = '' then
+    return json_build_object('ok', false, 'error', 'Name is required');
+  end if;
+
+  update public.profiles
+    set display_name = cleaned_name, title = nullif(cleaned_title, '')
+    where id = uid
+    returning * into rec;
+
+  if not found then
+    return json_build_object('ok', false, 'error', 'Profile not found');
+  end if;
+
+  update public.members
+    set gamertag = cleaned_name, title = nullif(cleaned_title, ''), updated_at = now()
+    where user_id = uid;
+
+  return json_build_object(
+    'ok', true,
+    'display_name', rec.display_name,
+    'title', rec.title
   );
 end;
 $$;
 
 revoke all on function public.invite_preview(text) from public;
 revoke all on function public.redeem_invite(text) from public;
+revoke all on function public.update_my_profile(text, text) from public;
 grant execute on function public.invite_preview(text) to anon, authenticated;
 grant execute on function public.redeem_invite(text) to authenticated;
+grant execute on function public.update_my_profile(text, text) to authenticated;
 
 -- ---------- Team-scoped visibility & writes ----------
 -- Until now, "teams are readable by any signed-in teammate" and "owner/team_leader/

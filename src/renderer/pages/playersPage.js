@@ -1,7 +1,7 @@
-import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark } from '../utils.js';
+import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark } from '../utils.js';
 import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
-import { defaultSlot, isStaffMember, splitRoster } from '../lib/roster.js';
-import { isNaevii, memberStaffTitle, orgTitles } from '../lib/profile.js';
+import { defaultSlot, isStaffMember, nextLineupSlot, splitRoster } from '../lib/roster.js';
+import { isNaevii, memberStaffTitle, orgTitles, memberDiscordVerified } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
 import { toast } from '../components/modal.js';
 
@@ -12,7 +12,7 @@ export async function render(container, ctx) {
     el('div', { class: 'page-header' }, [
       el('div', {}, [
         el('div', { class: 'page-title' }, 'Players'),
-        el('div', { class: 'page-subtitle' }, ctx.canEdit ? 'Players, staff, and creatives. Invite copies a coach.championshipseries.eu/join link for that roster slot.' : 'Members across the organization'),
+        el('div', { class: 'page-subtitle' }, ctx.canEdit ? 'Players, staff, and creatives. Invite copies a personal join link with that player\'s gamertag on it.' : 'Members across the organization'),
       ]),
     ])
   );
@@ -28,7 +28,7 @@ export async function render(container, ctx) {
 
   for (const team of teams) {
     const [rawMembers, matches] = await Promise.all([window.cci.getMembers(team.id), window.cci.getMatches(team.id)]);
-    const members = await repairPlayingNaevii(team.id, rawMembers, ctx.canEdit);
+    const members = await repairPlayingNaevii(team.id, rawMembers, ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit);
     container.append(rosterCard(team, members, matches, ctx, teams));
   }
 }
@@ -36,6 +36,8 @@ export async function render(container, ctx) {
 function rosterCard(team, members, matches, ctx, teams) {
   const { starters, bench, staff } = splitRoster(members);
   const playing = starters.length + bench.length;
+  const manage = ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit;
+  const canTransfer = Boolean(ctx.canTransfer) && (teams || []).some((t) => t.id !== team.id);
   const transferSelected = el('button', {
     class: 'btn primary',
     onclick: () => {
@@ -52,7 +54,7 @@ function rosterCard(team, members, matches, ctx, teams) {
     },
   }, 'Transfer selected');
 
-  const card = el('div', { class: 'card section' }, [
+  const card = el('div', { class: `card section${manage ? '' : ' team-readonly'}` }, [
     el('div', { class: 'team-identity', style: 'margin-bottom:16px;' }, [
       teamMark(team, { class: 'team-logo lg' }),
       el('div', { style: 'min-width:0;flex:1;' }, [
@@ -65,7 +67,7 @@ function rosterCard(team, members, matches, ctx, teams) {
           class: 'btn primary',
           onclick: () => openMemberModal(ctx, team.id, null, { slot: defaultSlot(members) }),
         }, '+ Add Player'),
-        ctx.canEdit ? transferSelected : null,
+        canTransfer ? transferSelected : null,
       ]),
     ]),
   ]);
@@ -81,12 +83,16 @@ function rosterCard(team, members, matches, ctx, teams) {
     return card;
   }
 
-  appendGroup(card, 'Starting lineup', starters, team, matches, ctx, teams, { empty: 'No starters yet. Add a player or promote someone from the bench.' });
-  appendGroup(card, 'Backup / Bench', bench, team, matches, ctx, teams, {
+  appendGroup(card, 'Starting lineup', starters, team, matches, ctx, { empty: 'No starters yet. Add a player or promote someone from the bench.', manage, canTransfer });
+  appendGroup(card, 'Backup / Bench', bench, team, matches, ctx, {
     empty: playing >= 4 ? 'No bench yet. Add a backup for when someone sits.' : null,
+    manage,
+    canTransfer,
   });
-  appendGroup(card, 'Staff & Org', staff, team, matches, ctx, teams, {
+  appendGroup(card, 'Staff & Org', staff, team, matches, ctx, {
     empty: 'No staff yet. Add a coach, analyst, artist, or other org member.',
+    manage,
+    canTransfer,
   });
 
   return card;
@@ -106,7 +112,7 @@ function selectedMembers(card, members) {
   return members.filter((m) => ids.has(m.id));
 }
 
-function appendGroup(card, title, members, team, matches, ctx, teams, { empty } = {}) {
+function appendGroup(card, title, members, team, matches, ctx, { empty, manage, canTransfer } = {}) {
   if (!members.length && !empty) return;
   card.append(el('div', { class: 'card-head', style: 'padding:8px 0 6px;' }, [
     el('div', { class: 'card-title' }, title),
@@ -116,18 +122,17 @@ function appendGroup(card, title, members, team, matches, ctx, teams, { empty } 
     card.append(el('div', { class: 'field-hint', style: 'padding:4px 0 12px;' }, empty));
     return;
   }
-  for (const member of members) card.append(memberRow(member, team, matches, ctx, teams));
+  for (const member of members) card.append(memberRow(member, team, matches, ctx, { manage, canTransfer }));
 }
 
-function memberRow(member, team, matches, ctx, teams) {
+function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
   const totals = aggregate(statsForMember(matches, member.id));
   const onBench = member.slot === 'bench';
   const staff = isStaffMember(member);
   const orgRole = memberStaffTitle(member);
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
-  const canTransfer = (teams || []).some((t) => t.id !== team.id);
   return el('div', { class: 'roster-row' }, [
-    ctx.canEdit
+    manage
       ? el('input', {
           type: 'checkbox',
           class: 'roster-check',
@@ -140,7 +145,10 @@ function memberRow(member, team, matches, ctx, teams) {
       style: 'flex:1;min-width:0;cursor:pointer;',
       onclick: () => ctx.navigate('member', `${team.id}/${member.id}`),
     }, [
-      el('div', { class: 'gamertag' }, member.gamertag),
+      el('div', { class: 'gamertag' }, [
+        member.gamertag,
+        memberDiscordVerified(member) ? verifiedMark() : null,
+      ]),
       (() => {
         const sub = [member.name && member.name !== member.gamertag ? member.name : '', orgRole]
           .filter(Boolean)
@@ -181,10 +189,15 @@ function memberRow(member, team, matches, ctx, teams) {
 }
 
 async function toggleSlot(ctx, teamId, member) {
-  await window.cci.saveMember(teamId, {
-    ...member,
-    slot: member.slot === 'bench' ? 'starter' : 'bench',
-  });
+  try {
+    await window.cci.saveMember(teamId, {
+      ...member,
+      linked: undefined,
+      slot: nextLineupSlot(member.slot),
+    });
+  } catch (err) {
+    toast(err?.message || 'Could not update lineup.', 'error');
+  }
   ctx.navigate('players');
 }
 

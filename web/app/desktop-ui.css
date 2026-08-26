@@ -1268,7 +1268,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   .page-identity .page-title { font-size: 27px; }
 }
 
-body.access-readonly .edit-only { display: none !important; }
+body.access-readonly .edit-only,
+.team-readonly .edit-only { display: none !important; }
 
 .lineup-grid {
   display: grid;
@@ -2428,7 +2429,11 @@ tr.clickable-row:hover td { background: #ffffff06; }
 }
 .crow-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .crow-main { min-width: 0; flex: 1; }
-.crow-title { font-size: 12.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crow-title {
+  font-size: 12.5px; font-weight: 650;
+  display: inline-flex; align-items: center; gap: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .crow-sub {
   font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-faint); margin-top: 2px;

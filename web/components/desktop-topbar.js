@@ -108,7 +108,7 @@ export function DesktopTopbar({ userLabel, role, title, avatarUrl, org, teams, m
           </div>
           <div className="topbar-profile-role">{roleTitle || 'Signed in'}</div>
         </div>
-        <Face photo={avatarUrl || org?.profilePhoto} name={userLabel} />
+        <Face photo={avatarUrl} name={userLabel} />
       </Link>
     </header>
   );

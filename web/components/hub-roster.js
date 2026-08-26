@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { MiniEmpty } from './hub-parts';
-import { orgTitles, PlayerAvatar, RoleBadge, splitRoster, TeamMark } from '../lib/marks';
+import { orgTitles, PlayerAvatar, RoleBadge, splitRoster, TeamMark, VerifiedMark, memberDiscordVerified } from '../lib/marks';
 import { aggregate, statsForMember } from '../lib/stats';
 
 export function HubRoster({ team, members, matches, ctxToggle }) {
@@ -67,7 +67,10 @@ function Group({ title, rows, matches, empty }) {
             <div key={member.id} className="crow">
               <PlayerAvatar member={member} />
               <div className="crow-main">
-                <div className="crow-title">{member.gamertag || member.name}</div>
+                <div className="crow-title">
+                  {member.gamertag || member.name}
+                  {memberDiscordVerified(member) ? <VerifiedMark /> : null}
+                </div>
                 {member.name && member.name !== member.gamertag ? <div className="crow-sub">{member.name}</div> : null}
               </div>
               {titles.map((t) => (

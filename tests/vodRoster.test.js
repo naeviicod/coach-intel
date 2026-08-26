@@ -47,6 +47,15 @@ test('a fifth player defaults onto the bench', async () => {
   assert.equal(isBench(members[4]), true);
 });
 
+test('benching a starter flips them onto the bench and back', async () => {
+  const { nextLineupSlot, splitRoster } = await import(libUrl('roster.js'));
+  assert.equal(nextLineupSlot('starter'), 'bench');
+  assert.equal(nextLineupSlot('bench'), 'starter');
+  const after = splitRoster([{ id: '1', slot: nextLineupSlot('starter') }]);
+  assert.equal(after.bench.length, 1);
+  assert.equal(after.starters.length, 0);
+});
+
 test('a developer title does not kick a starter off the playing roster', async () => {
   const { splitRoster, isStaffMember } = await import(libUrl('roster.js'));
   const naevii = { id: 'n', gamertag: 'NaeviiSZN', title: 'Developer', role: 'Flex', slot: 'starter' };

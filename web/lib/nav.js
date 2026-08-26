@@ -85,3 +85,11 @@ export const APP_PREFIXES = [
 export function isAppPath(pathname) {
   return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
+
+export function pageFromPath(pathname) {
+  const p = String(pathname || '');
+  const hit = APP_PREFIXES.filter((prefix) => p === prefix || p.startsWith(`${prefix}/`)).sort(
+    (a, b) => b.length - a.length
+  )[0];
+  return hit ? hit.slice(1) : '';
+}

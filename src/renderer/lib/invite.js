@@ -4,7 +4,7 @@ import { ROLE_LABELS } from './access.js';
 
 export const ACCESS_ROLES = [
   { value: 'user', label: 'Player', hint: 'Analytics + Team Hub, only their team.' },
-  { value: 'team_leader', label: 'Team leader', hint: 'Can edit their team. Does not see other teams.' },
+  { value: 'team_leader', label: 'Team leader', hint: 'Sees every team. Can edit only their own. Cannot transfer players.' },
   { value: 'coach', label: 'Coach', hint: 'Full staff access across the org.' },
   { value: 'analyst', label: 'Analyst', hint: 'Analytics only, across the org.' },
   { value: 'creative', label: 'Creative', hint: 'Team Hub + member directory, their team. For artists, designers, and content.' },
@@ -32,15 +32,27 @@ export function accessRoleLabel(role) {
 
 const INVITE_SITE = 'https://coach.championshipseries.eu';
 
-export function inviteUrl(token) {
-  return `${INVITE_SITE}/join/${String(token || '').trim()}`;
+export function inviteeSlug(gamertag) {
+  const slug = String(gamertag || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+  return slug || 'player';
+}
+
+export function inviteUrl(token, gamertag) {
+  const t = String(token || '').trim();
+  if (!t) return `${INVITE_SITE}/join`;
+  if (!gamertag) return `${INVITE_SITE}/join/${t}`;
+  return `${INVITE_SITE}/join/${inviteeSlug(gamertag)}/${t}`;
 }
 
 export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
   const body = el('div', {}, [
     el('h3', {}, `Invite ${member.gamertag}`),
     el('div', { class: 'field-hint', style: 'margin-bottom:14px;line-height:1.5;' },
-      'Creates a one-time link. They open it in a browser, sign in with Discord, and that account is bound to this member — they get the access you pick.'),
+      'Creates a one-time link with their gamertag on it. They open it in a browser, sign in with Discord, and that account is bound to this member — they get the access you pick.'),
     el('div', { class: 'field-hint', id: 'invite-status' }, 'Loading…'),
     el('div', { class: 'field' }, [
       el('label', { for: 'invite-role' }, 'Access in Coach Intel'),
@@ -63,12 +75,12 @@ export function openInviteModal(ctx, teamId, member, { onDone } = {}) {
         placeholder: 'xx@gmail.com',
         autocomplete: 'off',
       }),
-      el('div', { class: 'field-hint' }, 'The join page greets them by this email. Send the link in Discord — Coach Intel does not email it.'),
+      el('div', { class: 'field-hint' }, 'Not shown on the join page. The page greets them by their gamertag from the roster.'),
     ]),
     el('div', { class: 'field', id: 'invite-link-field', style: 'display:none;' }, [
       el('label', {}, 'Invite link'),
       el('input', { type: 'text', id: 'invite-link', readonly: 'readonly' }),
-      el('div', { class: 'field-hint' }, 'Send it in Discord. It looks like coach.championshipseries.eu/join/… — they open it in a browser, no desktop app.'),
+      el('div', { class: 'field-hint' }, 'Send it in Discord. It looks like coach.championshipseries.eu/join/bracke/… — they open it in a browser, no desktop app.'),
     ]),
   ]);
   const overlay = openModal(body, { width: '520px' });

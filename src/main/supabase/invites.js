@@ -21,8 +21,20 @@ function normalizeInviteEmail(value) {
 
 const INVITE_SITE = 'https://coach.championshipseries.eu';
 
-function inviteUrl(token) {
-  return `${INVITE_SITE}/join/${token}`;
+function inviteeSlug(gamertag) {
+  const slug = String(gamertag || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+  return slug || 'player';
+}
+
+function inviteUrl(token, gamertag) {
+  const t = String(token || '').trim();
+  if (!t) return `${INVITE_SITE}/join`;
+  if (!gamertag) return `${INVITE_SITE}/join/${t}`;
+  return `${INVITE_SITE}/join/${inviteeSlug(gamertag)}/${t}`;
 }
 
 function raise(error, fallback) {
@@ -120,9 +132,15 @@ function createInviteService({ client, dataRoot }) {
       .select()
       .single();
     if (error) raise(error, 'Could not create the invite. Run the latest schema.sql in Supabase.');
+    const { data: member } = await c
+      .from('members')
+      .select('gamertag')
+      .eq('team_id', teamId)
+      .eq('id', memberId)
+      .maybeSingle();
     return {
       token,
-      url: inviteUrl(token),
+      url: inviteUrl(token, member?.gamertag),
       access_role: role,
       expires_at: data.expires_at || expires,
       team_id: teamId,
@@ -164,7 +182,7 @@ function createInviteService({ client, dataRoot }) {
     return {
       linked,
       invite: invite
-        ? { ...invite, url: inviteUrl(invite.id) }
+        ? { ...invite, url: inviteUrl(invite.id, member?.gamertag) }
         : null,
     };
   }

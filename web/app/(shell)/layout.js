@@ -1,10 +1,10 @@
 import '../desktop-ui.css';
 import '../desktop-web.css';
 import { redirect } from 'next/navigation';
+import { resolveAccessRole, scopeTeams } from '../../lib/access';
 import { DesktopShell } from '../../components/desktop-shell';
-import { roleLabel } from '../../lib/access';
 import { ensureProfile, getOrg, getProfile, listAllMembers, listTeams } from '../../lib/data';
-import { isNaevii } from '../../lib/marks';
+import { sessionIdentity } from '../../lib/identity';
 import { createServerSupabase, getSessionUser } from '../../lib/supabase/server';
 
 export default async function ShellLayout({ children }) {
@@ -19,26 +19,22 @@ export default async function ShellLayout({ children }) {
     getProfile(supabase, user.id),
     getOrg(supabase).catch(() => null),
   ]);
-  const userLabel =
-    org?.profileName ||
-    profile?.discord_username ||
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.user_metadata?.custom_claims?.global_name ||
-    user.email ||
-    'Signed in';
-  const title =
-    org?.profileTitle ||
-    (isNaevii(userLabel) || isNaevii(profile?.discord_username) ? 'Developer' : roleLabel(profile?.role));
+  const identity = sessionIdentity({ user, profile, members, org });
+  const teamIds = (members || [])
+    .filter((row) => row.user_id === user.id)
+    .map((row) => row.team_id)
+    .filter(Boolean);
+  const role = identity.role || resolveAccessRole(profile);
+  const scopedTeams = scopeTeams(teams, { role, teamIds });
 
   return (
     <DesktopShell
-      userLabel={userLabel}
-      role={profile?.role}
-      title={title}
-      avatarUrl={profile?.avatar_url}
+      userLabel={identity.name}
+      role={role}
+      title={identity.title}
+      avatarUrl={identity.avatarUrl || identity.photo}
       org={org}
-      teams={teams}
+      teams={scopedTeams}
       members={members}
     >
       {children}

@@ -3,6 +3,10 @@
 
 import { isNaevii } from './profile.js';
 
+export function nextLineupSlot(slot) {
+  return slot === 'bench' ? 'starter' : 'bench';
+}
+
 export function normalizeSlot(slot) {
   if (slot === 'bench' || slot === 'staff') return slot;
   return 'starter';

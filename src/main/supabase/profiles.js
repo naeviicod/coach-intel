@@ -39,7 +39,16 @@ function createProfilesService({ client }) {
       await ensure();
       listed = await load();
     }
-    return listed;
+    let teamIds = [];
+    let linkedNames = [];
+    if (userId) {
+      const { data, error } = await c.from('members').select('team_id, gamertag, name').eq('user_id', userId);
+      if (!error) {
+        teamIds = [...new Set((data || []).map((row) => row.team_id).filter(Boolean))];
+        linkedNames = [...new Set((data || []).flatMap((row) => [row.gamertag, row.name]).filter(Boolean))];
+      }
+    }
+    return { ...listed, teamIds, linkedNames };
   }
 
   async function updateRole(userId, role) {

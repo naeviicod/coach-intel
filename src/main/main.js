@@ -13,9 +13,9 @@ const events = require('./events');
 const discord = require('./discord');
 const notificationStore = require('./notificationStore');
 const supabase = require('./supabase');
-const { syncLocalRosterToRemote, sharedWriteHint } = require('./rosterSync');
+const { syncLocalRosterToRemote, sharedWriteHint, mergeMemberLists } = require('./rosterSync');
 const cloudSync = require('./cloudSync');
-const { assertCanEdit, scopeTeams } = require('./access');
+const { assertCanEdit, assertCanEditTeam, assertCanTransfer, scopeTeams, resolveAccessRole } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
@@ -116,9 +116,11 @@ async function teamsForSession(teams) {
   try {
     const state = await supabase.get().getState();
     if (!state?.session) return teams;
-    const { me } = await supabase.get().listProfiles();
-    const ids = await supabase.get().teamIdsForUser(me?.id);
-    return scopeTeams(teams, { role: me?.role, teamIds: ids });
+    const listed = await supabase.get().listProfiles();
+    const me = listed?.me;
+    const ids = listed?.teamIds || (await supabase.get().teamIdsForUser(me?.id));
+    const role = resolveAccessRole(me, { names: listed?.linkedNames });
+    return scopeTeams(teams, { role, teamIds: ids });
   } catch (err) {
     console.warn('[main] team scope failed', err.message);
     return teams;
@@ -345,21 +347,26 @@ app.on('open-url', (event, url) => {
 });
 
 async function seedPackagedData() {
-  if (!app.isPackaged) return;
   const dest = path.join(app.getPath('userData'), 'data');
-  const marker = path.join(dest, 'knowledge', 'cdl-ruleset.json');
-  try {
-    await fs.access(marker);
-    return;
-  } catch {
-    // First launch of the packaged app — copy the bundled seed data out of
-    // the read-only .app so teams, ruleset and knowledge can be written.
+  const src = app.isPackaged
+    ? path.join(process.resourcesPath, 'data')
+    : path.join(__dirname, '..', '..', 'data');
+  if (app.isPackaged) {
+    const marker = path.join(dest, 'knowledge', 'cdl-ruleset.json');
+    try {
+      await fs.access(marker);
+    } catch {
+      try {
+        await fs.cp(src, dest, { recursive: true });
+      } catch (err) {
+        console.error('[main] seed data copy failed', err);
+      }
+    }
   }
-  const src = path.join(process.resourcesPath, 'data');
   try {
-    await fs.cp(src, dest, { recursive: true });
+    await fs.cp(path.join(src, 'maps'), path.join(dest, 'maps'), { recursive: true, force: false });
   } catch (err) {
-    console.error('[main] seed data copy failed', err);
+    if (err.code !== 'ENOENT') console.error('[main] map art seed failed', err);
   }
 }
 
@@ -464,6 +471,20 @@ function requireEdit(handler) {
   };
 }
 
+function requireEditTeam(handler) {
+  return async (e, teamId, ...rest) => {
+    await assertCanEditTeam(supabase, teamId);
+    return handler(e, teamId, ...rest);
+  };
+}
+
+function requireTransfer(handler) {
+  return async (...args) => {
+    await assertCanTransfer(supabase);
+    return handler(...args);
+  };
+}
+
 async function cloudSave(kind, teamId, saved) {
   const { session } = await supabase.get().getState();
   try {
@@ -561,26 +582,7 @@ async function teamsWithLocal(remote) {
 
 async function membersWithLocal(teamId, remote) {
   const local = await dataStore.getMembers(teamId);
-  const byId = new Map();
-  for (const m of remote || []) if (m?.id) byId.set(m.id, m);
-  for (const m of local) {
-    if (!m?.id) continue;
-    const prev = byId.get(m.id);
-    if (!prev) {
-      byId.set(m.id, m); // created while offline/signed out, never synced yet
-      continue;
-    }
-    // Supabase is the shared source of truth once a member is synced.
-    byId.set(m.id, {
-      ...m,
-      ...prev,
-      user_id: prev.user_id || m.user_id || null,
-      linked: prev.linked || m.linked || null,
-    });
-  }
-  return [...byId.values()].sort((a, b) =>
-    String(a.gamertag || '').localeCompare(String(b.gamertag || ''))
-  );
+  return mergeMemberLists(local, remote);
 }
 
 ipcMain.handle('cci:getMembers', async (e, teamId) => {
@@ -608,12 +610,16 @@ ipcMain.handle('cci:getMember', async (e, teamId, memberId) => {
     return local;
   }
 });
-ipcMain.handle('cci:saveMember', requireEdit(async (e, teamId, member) => {
-  const savedLocal = await dataStore.saveMember(teamId, member);
+ipcMain.handle('cci:saveMember', requireEditTeam(async (e, teamId, member) => {
+  const { linked, ...safe } = member || {};
+  const savedLocal = await dataStore.saveMember(teamId, {
+    ...safe,
+    updated_at: new Date().toISOString(),
+  });
   const { session } = await supabase.get().getState();
   try {
     if (session) await supabase.get().ensureProfile().catch(() => null);
-    const remote = await supabase.get().saveMember(teamId, { ...member, ...savedLocal, id: savedLocal.id });
+    const remote = await supabase.get().saveMember(teamId, { ...safe, ...savedLocal, id: savedLocal.id });
     return { ...savedLocal, ...remote };
   } catch (err) {
     console.error('[main] saveMember failed', ipcErrorMessage(err));
@@ -621,7 +627,7 @@ ipcMain.handle('cci:saveMember', requireEdit(async (e, teamId, member) => {
     return savedLocal;
   }
 }));
-ipcMain.handle('cci:deleteMember', requireEdit(async (e, teamId, memberId) => {
+ipcMain.handle('cci:deleteMember', requireEditTeam(async (e, teamId, memberId) => {
   const { session } = await supabase.get().getState();
   try {
     await supabase.get().deleteMember(teamId, memberId);
@@ -645,10 +651,10 @@ async function transferAndSync(fromTeamId, toTeamId, memberId, opts) {
   }
 }
 
-ipcMain.handle('cci:transferMember', requireEdit((e, fromTeamId, toTeamId, memberId, opts) =>
+ipcMain.handle('cci:transferMember', requireTransfer((e, fromTeamId, toTeamId, memberId, opts) =>
   transferAndSync(fromTeamId, toTeamId, memberId, opts)
 ));
-ipcMain.handle('cci:transferMembers', requireEdit(async (e, fromTeamId, toTeamId, memberIds, opts) => {
+ipcMain.handle('cci:transferMembers', requireTransfer(async (e, fromTeamId, toTeamId, memberIds, opts) => {
   const moved = [];
   for (const id of memberIds || []) {
     moved.push(await transferAndSync(fromTeamId, toTeamId, id, opts));
@@ -1138,13 +1144,35 @@ async function downloadAssetFallback(relative, fullPath) {
   }
 }
 
+function packagedDataFile(relative) {
+  const rel = String(relative || '').replace(/^[/\\]+/, '');
+  if (!rel || rel.includes('..') || path.isAbsolute(rel)) return null;
+  const root = app.isPackaged
+    ? path.join(process.resourcesPath, 'data')
+    : path.join(__dirname, '..', '..', 'data');
+  const dest = path.resolve(root, rel);
+  if (dest !== root && !dest.startsWith(root + path.sep)) return null;
+  return dest;
+}
+
 ipcMain.handle('cci:dataUrlForPath', async (e, relative) => {
   const fullPath = dataStore.resolveDataPath(relative);
-  if (!fullPath) return null;
-  try {
-    const buf = await fs.readFile(fullPath);
-    return toDataUrl(fullPath, buf);
-  } catch {
-    return downloadAssetFallback(relative, fullPath);
+  if (fullPath) {
+    try {
+      const buf = await fs.readFile(fullPath);
+      return toDataUrl(fullPath, buf);
+    } catch {
+      /* try the packaged map-art library next */
+    }
   }
+  const bundled = packagedDataFile(relative);
+  if (bundled) {
+    try {
+      const buf = await fs.readFile(bundled);
+      return toDataUrl(bundled, buf);
+    } catch {
+      /* cloud last */
+    }
+  }
+  return fullPath ? downloadAssetFallback(relative, fullPath) : null;
 });

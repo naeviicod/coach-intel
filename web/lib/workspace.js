@@ -1,5 +1,6 @@
-import { canEdit } from './access';
+import { canEdit, canEditTeam, canTransferMembers, resolveAccessRole, scopeTeams } from './access';
 import { getProfile, loadAppData } from './data';
+import { sessionIdentity } from './identity';
 import { createServerSupabase, getSessionUser } from './supabase/server';
 
 export async function loadWorkspace() {
@@ -9,5 +10,22 @@ export async function loadWorkspace() {
     loadAppData(supabase),
     user ? getProfile(supabase, user.id) : null,
   ]);
-  return { ...data, canEdit: canEdit(profile?.role), role: profile?.role };
+  const identity = sessionIdentity({ user, profile, members: data.members, org: data.org });
+  const linked = (data.members || []).filter((row) => user?.id && row.user_id === user.id);
+  const teamIds = linked.map((row) => row.team_id).filter(Boolean);
+  const role = resolveAccessRole(profile, {
+    names: [identity?.name, ...linked.flatMap((row) => [row.gamertag, row.name])],
+  });
+  const teams = scopeTeams(data.teams, { role, teamIds });
+  return {
+    ...data,
+    teams,
+    canEdit: canEdit(role),
+    canTransfer: canTransferMembers(role, { local: !profile }),
+    teamIds,
+    role,
+    profile,
+    identity,
+    canManageTeam: (teamId) => canEditTeam(role, teamId, { local: !profile, teamIds }),
+  };
 }

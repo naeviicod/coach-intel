@@ -113,6 +113,18 @@ test('transfer moves a player to another team and keeps the same id', async () =
   await store.deleteTeam(bravo.id);
 });
 
+test('saveMember keeps a bench slot and stamps updated_at', async () => {
+  await store.ensureDirectories();
+  const team = await store.saveTeam({ name: 'QA_Bench_Team', tag: 'QBN' });
+  const player = await store.saveMember(team.id, { gamertag: 'QA_Bench_Player', role: 'SMG', slot: 'starter' });
+  const benched = await store.saveMember(team.id, { ...player, slot: 'bench' });
+  assert.equal(benched.slot, 'bench');
+  assert.match(String(benched.updated_at || ''), /^\d{4}-/);
+  const loaded = await store.getMember(team.id, player.id);
+  assert.equal(loaded.slot, 'bench');
+  await store.deleteTeam(team.id);
+});
+
 test('transfer finishes a half-done move when the player file is already on the destination', async () => {
   await store.ensureDirectories();
   const alpha = await store.saveTeam({ name: 'QA_Stuck_Alpha', tag: 'QSA' });

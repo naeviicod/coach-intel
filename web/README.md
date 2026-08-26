@@ -24,6 +24,6 @@ Authentication → URL Configuration. Redirect URLs must match exactly (no `?nex
 
 Keep the existing `coachintel://auth-callback` URL for the desktop app.
 
-Org sign-in alias: `https://coach.championshipseries.eu/join`. Per-player invites are `https://coach.championshipseries.eu/join/<token>` (old `/invite/<token>` URLs redirect). Copy them from a team roster on the site, or Players → Invite in the desktop app.
+Org sign-in alias: `https://coach.championshipseries.eu/join`. Per-player invites are `https://coach.championshipseries.eu/join/<gamertag>/<token>` (old `/join/<token>` and `/invite/<token>` URLs still work). Copy them from a team roster on the site, or Players → Invite in the desktop app.
 
 Local preview: `cd web && npm install && npm run dev`.

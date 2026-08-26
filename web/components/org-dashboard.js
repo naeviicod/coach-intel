@@ -36,6 +36,7 @@ export function OrgDashboard({
   tasks: initialTasks = [],
   matches: initialMatches = [],
   notes: initialNotes = [],
+  allowedTeamIds = null,
 }) {
   const [org, setOrg] = useState(initialOrg);
   const [teams, setTeams] = useState(initialTeams || []);
@@ -53,7 +54,12 @@ export function OrgDashboard({
         supabase.from('shared_docs').select('payload').eq('kind', 'org').eq('id', 'profile').is('deleted_at', null).maybeSingle(),
         supabase.from('shared_docs').select('kind, team_id, payload').is('deleted_at', null).in('kind', ['task', 'match', 'note']),
       ]);
-      if (teamRows) setTeams(teamRows);
+      if (teamRows) {
+        const allow = Array.isArray(allowedTeamIds) && allowedTeamIds.length
+          ? new Set(allowedTeamIds)
+          : null;
+        setTeams(allow ? teamRows.filter((row) => allow.has(row.id)) : teamRows);
+      }
       if (memberRows) setMembers(memberRows);
       if (orgRow?.payload) setOrg(orgRow.payload);
       if (docs) {
@@ -74,7 +80,7 @@ export function OrgDashboard({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [allowedTeamIds]);
   const byTeam = useMemo(() => {
     const map = new Map(teams.map((team) => [team.id, { members: [], matches: [], tasks: [], notes: [] }]));
     for (const member of members) {

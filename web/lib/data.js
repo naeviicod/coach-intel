@@ -1,14 +1,19 @@
+function withTeamLogo(row) {
+  if (!row) return row;
+  return { ...row, logo: row.logo || (row.id ? `org/logos/teams/${row.id}.png` : null) };
+}
+
 export async function listTeams(supabase) {
   const query = supabase.from('teams').select('id, name, tag, logo').order('created_at', { ascending: true });
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  return (data || []).map(withTeamLogo);
 }
 
 export async function getTeam(supabase, teamId) {
   const { data, error } = await supabase.from('teams').select('id, name, tag, logo').eq('id', teamId).maybeSingle();
   if (error) throw error;
-  return data;
+  return withTeamLogo(data);
 }
 
 export async function listMembers(supabase, teamId) {
@@ -24,7 +29,7 @@ export async function listMembers(supabase, teamId) {
 export async function getProfile(supabase, userId) {
   const { data } = await supabase
     .from('profiles')
-    .select('id, discord_username, avatar_url, role')
+    .select('id, discord_username, avatar_url, role, display_name, title')
     .eq('id', userId)
     .maybeSingle();
   return data;

@@ -1,10 +1,14 @@
 // Org-level permission roles (profiles.role), not in-game SMG/AR positions.
 // `user` is the player role the product uses; `member` is the historical DB value.
 
+import { isNaevii } from './profile.js';
+
 const STAFF_ROLES = new Set(['owner', 'admin', 'developer', 'team_leader', 'coach']);
 const PLAYER_ROLES = new Set(['member', 'user', 'player']);
 const CREATIVE_ROLES = new Set(['creative']);
-const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'analyst', 'creative']);
+const ALL_TEAMS_ROLES = new Set(['owner', 'admin', 'developer', 'coach', 'team_leader', 'analyst', 'creative']);
+const ORG_EDIT_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
+const TRANSFER_ROLES = new Set(['owner', 'admin', 'developer']);
 
 const ANALYTICS_PAGES = new Set([
   'teams',
@@ -25,14 +29,14 @@ const TEAM_PAGES = new Set([
   'vod-library',
   'needs-review',
   'veto-lab',
+  'war-room',
 ]);
 
-// The org calendar is org-wide planning, so it belongs to the people who plan
-// for the whole org. Team leaders and players schedule their own team's week
-// from the Planner inside that team's hub, which writes the same event records.
-const ORG_CALENDAR_ROLES = new Set(['owner', 'admin', 'developer', 'coach']);
-
 const ALWAYS_PAGES = new Set(['settings']);
+const STAFF_ONLY_PAGES = new Set(['calendar', 'tasks']);
+const ORG_TOOL_PAGES = new Set(['maps-modes', 'scouting', 'integrations']);
+const ORG_TOOL_ROLES = new Set(['owner', 'admin', 'developer']);
+const PLAYER_MAIN_PAGES = new Set(['dashboard', 'intel-feed']);
 
 export const ROLE_LABELS = {
   owner: 'Org owner',
@@ -70,6 +74,19 @@ export function canEdit(role) {
   return isStaff(role);
 }
 
+export function canEditTeam(role, teamId, { local, teamIds } = {}) {
+  if (local) return true;
+  const r = String(role || '').toLowerCase().trim();
+  if (ORG_EDIT_ROLES.has(r)) return true;
+  if (r !== 'team_leader' || !teamId) return false;
+  return Array.isArray(teamIds) && teamIds.includes(teamId);
+}
+
+export function canTransferMembers(role, { local } = {}) {
+  if (local) return true;
+  return TRANSFER_ROLES.has(String(role || '').toLowerCase().trim());
+}
+
 export function seesAllTeams(role) {
   const r = String(role || '').toLowerCase().trim();
   return ALL_TEAMS_ROLES.has(r);
@@ -82,12 +99,13 @@ export function isCreative(role) {
 
 export function canAccessPage(role, page) {
   if (ALWAYS_PAGES.has(page)) return true;
-  if (page === 'calendar') {
-    const r = String(role || '').toLowerCase().trim();
-    return ORG_CALENDAR_ROLES.has(r) || ORG_CALENDAR_ROLES.has(normalizeRole(r));
-  }
+  const r = String(role || '').toLowerCase().trim();
+  if (ORG_TOOL_PAGES.has(page)) return ORG_TOOL_ROLES.has(r);
+  if (STAFF_ONLY_PAGES.has(page)) return isStaff(role);
   if (isStaff(role)) return true;
-  if (isPlayer(role)) return ANALYTICS_PAGES.has(page) || TEAM_PAGES.has(page);
+  if (isPlayer(role)) {
+    return PLAYER_MAIN_PAGES.has(page) || ANALYTICS_PAGES.has(page) || TEAM_PAGES.has(page);
+  }
   if (normalizeRole(role) === 'analyst') return ANALYTICS_PAGES.has(page);
   if (isCreative(role)) return page === 'team-hub' || page === 'players' || page === 'database' || page === 'member';
   return false;
@@ -105,11 +123,31 @@ export function roleLabel(role) {
 }
 
 export function localStaffAccess() {
-  return { role: 'owner', canEdit: true, local: true, me: null };
+  return { role: 'owner', canEdit: true, local: true, me: null, teamIds: null };
 }
 
-export function accessFromProfile(me, { local = false } = {}) {
+// Naevii / NaeviiSZN is the app developer. Discord `profiles.role` can still
+// be `user` after a player invite — the chip title is not what gates edits.
+export function resolveAccessRole(me, { names = [] } = {}) {
+  const fields = [
+    me?.discord_username,
+    me?.display_name,
+    me?.username,
+    me?.gamertag,
+    me?.name,
+    me?.title,
+    ...(Array.isArray(names) ? names : []),
+  ];
+  if (fields.some(isNaevii)) {
+    const existing = String(me?.role || '').toLowerCase().trim();
+    if (existing === 'owner' || existing === 'admin' || existing === 'developer') return existing;
+    return 'developer';
+  }
+  return me?.role || 'member';
+}
+
+export function accessFromProfile(me, { local = false, teamIds = [], linkedNames = [] } = {}) {
   if (local || !me) return localStaffAccess();
-  const role = me.role || 'member';
-  return { role, canEdit: canEdit(role), local: false, me };
+  const role = resolveAccessRole(me, { names: linkedNames });
+  return { role, canEdit: canEdit(role), local: false, me, teamIds: Array.isArray(teamIds) ? teamIds : [] };
 }

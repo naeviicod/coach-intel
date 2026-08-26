@@ -1,11 +1,15 @@
 import { OrgDashboard } from '../../../components/org-dashboard';
-import { loadAppData } from '../../../lib/data';
-import { createServerSupabase } from '../../../lib/supabase/server';
+import { seesAllTeams } from '../../../lib/access';
+import { loadWorkspace } from '../../../lib/workspace';
 
 export const metadata = { title: 'Dashboard · Coach Intel' };
 
 export default async function DashboardPage() {
-  const supabase = await createServerSupabase();
-  const data = await loadAppData(supabase);
-  return <OrgDashboard {...data} />;
+  const data = await loadWorkspace();
+  return (
+    <OrgDashboard
+      {...data}
+      allowedTeamIds={seesAllTeams(data.role) ? null : data.teamIds}
+    />
+  );
 }

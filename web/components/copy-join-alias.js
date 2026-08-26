@@ -13,7 +13,7 @@ export function CopyJoinAlias() {
   }
 
   return (
-    <button type="button" className="text-link" onClick={copy}>
+    <button type="button" className="btn sm" onClick={copy}>
       {label}
     </button>
   );

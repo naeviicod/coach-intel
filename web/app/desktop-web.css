@@ -99,6 +99,26 @@ button.sb-section-label { cursor: pointer; }
 .add-row { margin-bottom: 12px; }
 .veto-config input { min-width: 160px; }
 
+.strat-map-preview {
+  position: relative;
+  height: 280px;
+  margin-top: 12px;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.strat-map-preview .board-map { display: block; }
+.veto-tile-art {
+  display: block;
+  width: 100%;
+  height: 72px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1c2027;
+  margin-bottom: 2px;
+}
+.veto-tile-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.map-thumb.cover { height: 110px; }
+
 @media (max-width: 900px) {
   #app.shell {
     display: block;

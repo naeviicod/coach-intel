@@ -226,8 +226,18 @@ async function getMembers(teamId) {
   }
   const members = [];
   for (const file of files) {
-    const data = await readJson(path.join(dir, file));
-    if (data) members.push({ id: path.basename(file, '.json'), ...data });
+    const filePath = path.join(dir, file);
+    const data = await readJson(filePath);
+    if (!data) continue;
+    const row = { id: path.basename(file, '.json'), ...data };
+    if (!row.updated_at) {
+      try {
+        row.updated_at = (await fs.stat(filePath)).mtime.toISOString();
+      } catch {
+        /* keep going */
+      }
+    }
+    members.push(row);
   }
   return members.sort((a, b) => String(a.gamertag || '').localeCompare(String(b.gamertag || '')));
 }
@@ -275,6 +285,7 @@ async function saveMember(teamId, member) {
     slot: member.slot === 'bench' || member.slot === 'staff' ? member.slot : 'starter',
     title: memberTitle(member.title, member),
     handles: memberHandles(member.handles),
+    updated_at: member.updated_at || new Date().toISOString(),
   };
   await writeJson(filePath, record);
 

@@ -3,6 +3,38 @@
 
 const cloudSync = require('./cloudSync');
 
+function updatedAtMs(row) {
+  const t = Date.parse(row?.updated_at || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
+function mergeMember(local, remote) {
+  if (!local) return remote;
+  if (!remote) return local;
+  const localNewer = updatedAtMs(local) >= updatedAtMs(remote);
+  const winner = localNewer ? local : remote;
+  const loser = localNewer ? remote : local;
+  return {
+    ...loser,
+    ...winner,
+    user_id: remote.user_id || local.user_id || null,
+    linked: remote.linked || local.linked || null,
+  };
+}
+
+function mergeMemberLists(local = [], remote = []) {
+  const byId = new Map();
+  for (const member of remote) if (member?.id) byId.set(member.id, member);
+  for (const member of local) {
+    if (!member?.id) continue;
+    const prev = byId.get(member.id);
+    byId.set(member.id, prev ? mergeMember(member, prev) : member);
+  }
+  return [...byId.values()].sort((a, b) =>
+    String(a.gamertag || '').localeCompare(String(b.gamertag || ''))
+  );
+}
+
 function ipcErrorMessage(err) {
   return String(err?.message || err || 'Request failed');
 }
@@ -31,9 +63,21 @@ async function syncLocalRosterToRemote({ supabase, dataStore }) {
       continue;
     }
     const members = await dataStore.getMembers(team.id);
-    for (const member of members) {
+    let remoteMembers = [];
+    try {
+      remoteMembers = await supabase.get().getMembers(team.id);
+    } catch {
+      remoteMembers = [];
+    }
+    for (const member of mergeMemberLists(members, remoteMembers)) {
       try {
-        await supabase.get().saveMember(team.id, member);
+        const saved = await supabase.get().saveMember(team.id, member);
+        await dataStore.saveMember(team.id, {
+          ...member,
+          ...saved,
+          id: member.id,
+          updated_at: saved.updated_at || member.updated_at,
+        });
       } catch (err) {
         errors.push(`${member.gamertag || member.id}: ${sharedWriteHint(err)}`);
       }
@@ -50,4 +94,4 @@ async function syncLocalRosterToRemote({ supabase, dataStore }) {
   return { ok: true, errors: [] };
 }
 
-module.exports = { syncLocalRosterToRemote, sharedWriteHint };
+module.exports = { syncLocalRosterToRemote, sharedWriteHint, mergeMemberLists };
