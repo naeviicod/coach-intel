@@ -60,14 +60,15 @@ a { color: inherit; }
 
 .lockup {
   --lockup-h: min(248px, 21vw);
-  --mark-nudge: -10px;
+  --mark-h: min(292px, 25vw);
+  --mark-nudge: 0px;
   position: relative;
   width: fit-content;
   max-width: 100%;
   display: grid;
   grid-template-columns: auto auto;
   column-gap: clamp(4px, 0.7vw, 10px);
-  align-items: start;
+  align-items: center;
 }
 .lockup img {
   display: block;
@@ -75,9 +76,8 @@ a { color: inherit; }
   pointer-events: none;
 }
 .lockup-mark {
-  width: var(--lockup-h);
+  width: var(--mark-h);
   justify-self: end;
-  transform: translate3d(0, var(--mark-nudge), 0);
 }
 .lockup-mark img { width: 100%; }
 .lockup-copy {
@@ -147,7 +147,7 @@ a { color: inherit; }
 .gate .onboarding-screen.signin-screen {
   position: relative;
   z-index: 1;
-  width: min(560px, 92vw);
+  width: min(680px, 92vw);
   height: auto;
   display: flex;
   flex-direction: column;
@@ -164,8 +164,8 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
-  padding: 36px 40px 28px;
+  gap: 18px;
+  padding: 28px 32px 22px;
   border-radius: 20px;
   background: color-mix(in srgb, #080a0c 48%, transparent);
   backdrop-filter: blur(22px) saturate(1.2);
@@ -176,7 +176,7 @@ a { color: inherit; }
     0 28px 56px -28px rgba(0, 0, 0, 0.7);
 }
 .gate .signin-brief { width: 100%; }
-.stage.signin-brief { width: min(760px, 92vw); }
+.stage.signin-brief { width: min(680px, 92vw); }
 .signin-kicker {
   font-size: 10px;
   font-weight: 700;
@@ -188,35 +188,30 @@ a { color: inherit; }
   font-size: 11px;
   color: var(--muted);
 }
-.gate .signin-identity { display: grid; justify-items: center; row-gap: 10px; }
+.gate .signin-identity { display: grid; justify-items: center; }
 .gate .signin-lockup {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  column-gap: 16px;
-  max-width: min(430px, 82vw);
+  column-gap: 12px;
+  max-width: min(360px, 80vw);
 }
 .gate .signin-mark {
-  width: min(116px, 20vw);
-  height: min(116px, 20vw);
+  width: min(96px, 16vw);
+  height: min(96px, 16vw);
   object-fit: contain;
 }
 .gate .signin-wordmark {
-  width: min(280px, 48vw);
+  width: min(220px, 42vw);
   height: auto;
   min-width: 0;
   object-fit: contain;
 }
-.gate .signin-slogan-frame {
-  width: min(360px, 74vw);
-  aspect-ratio: 17 / 1;
-  overflow: hidden;
-}
-.gate .signin-slogan {
-  display: block;
+.gate .signin-discord {
   width: 100%;
-  height: auto;
-  transform: translate3d(0, -42%, 0);
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 999px;
 }
 .gate .card {
   width: 100%;
@@ -246,9 +241,12 @@ a { color: inherit; }
   font-weight: 600;
   letter-spacing: 0.04em;
 }
-.invite-gate .stage {
-  width: min(440px, 90vw);
-  animation: inviteStageIn 500ms var(--ease-out) both;
+.invite-gate.has-pass .onboarding-screen.signin-screen {
+  width: min(820px, 94vw);
+}
+.invite-gate .signin-discord {
+  width: 100%;
+  min-width: 0;
 }
 .invite-gate .brand-lockup {
   opacity: 0.88;
@@ -259,31 +257,43 @@ a { color: inherit; }
   max-width: none;
 }
 .invite-pass {
-  width: min(400px, 92vw);
-  margin-top: 22px;
+  width: 100%;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
   border-radius: 16px;
   background: color-mix(in srgb, #12161a 92%, transparent);
   box-shadow: inset 0 1px 0 rgba(244, 246, 248, 0.08);
+  text-align: left;
+}
+.invite-pass-marks,
+.invite-pass-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }
 .invite-pass-org,
-.invite-pass-team,
-.invite-pass-player {
+.invite-pass-team {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
+  gap: 12px;
+  padding: 14px 18px;
+  min-width: 0;
+}
+.invite-pass-player {
+  min-width: 0;
+  padding: 14px 18px;
 }
 .invite-pass-team,
-.invite-pass-player {
+.invite-pass-welcome {
+  border-left: 1px solid var(--line);
+}
+.invite-pass-body {
   border-top: 1px solid var(--line);
 }
 .invite-org-mark,
 .invite-team-mark {
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   background: #1c2027;
   overflow: hidden;
   flex-shrink: 0;
@@ -292,11 +302,6 @@ a { color: inherit; }
   justify-content: center;
   font-weight: 700;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
-}
-.invite-team-mark {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
 }
 .invite-org-mark img,
 .invite-team-mark img {
@@ -345,20 +350,33 @@ a { color: inherit; }
 }
 .invite-pass-welcome {
   margin: 0;
-  padding: 0 18px 14px;
+  padding: 14px 18px;
   color: var(--text);
   font-size: 13.5px;
-  line-height: 1.5;
+  line-height: 1.45;
   font-weight: 500;
+  display: flex;
+  align-items: center;
   animation: inviteWelcomeIn 420ms var(--ease-out) 120ms both;
 }
 .invite-pass-hint {
   margin: 0;
-  padding: 12px 18px 16px;
+  padding: 10px 18px 12px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.4;
+}
+@media (max-width: 720px) {
+  .invite-pass-marks,
+  .invite-pass-body {
+    grid-template-columns: 1fr;
+  }
+  .invite-pass-team,
+  .invite-pass-welcome {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
 }
 @keyframes inviteWelcomeIn {
   from { opacity: 0; transform: translate3d(0, 6px, 0); }
@@ -638,12 +656,14 @@ a { color: inherit; }
 @media (max-width: 640px) {
   .lockup {
     --lockup-h: min(160px, 42vw);
+    --mark-h: min(188px, 48vw);
     grid-template-columns: 1fr;
     justify-items: center;
   }
   .lockup-mark { justify-self: center; }
   .lockup-copy { width: min(calc(var(--lockup-h) * 2.38), 86vw); }
-  .gate .btn, .signin-discord { min-width: 0; width: min(280px, 86vw); }
+  .gate .btn { min-width: 0; width: min(280px, 86vw); }
+  .gate .signin-discord { width: 100%; }
   .app-shell { grid-template-columns: 1fr; }
   .app-nav { border-right: 0; border-bottom: 1px solid var(--line); }
   .kpi-row, .dash-grid { grid-template-columns: 1fr 1fr; }

@@ -506,16 +506,16 @@ function signalSplashDone() {
   document.dispatchEvent(new CustomEvent('cci:splash-done'));
 }
 
-// The destination is rendered behind the splash during boot. Releasing this
-// single composited layer makes every finished-screen element arrive together,
-// rather than letting the sidebar, content, and sign-in controls pop in on
-// separate clocks.
+function settleAtmosphere() {
+  document.getElementById('atmosphere')?.classList.add('settled');
+}
+
+// Destination sits behind the splash during boot. Reveal starts with the
+// fade so the finished screen is already there under an opacity dissolve.
 function revealApp() {
   const app = document.getElementById('app');
   if (!app || app.dataset.splashRevealed === '1') return;
   app.dataset.splashRevealed = '1';
-  // Give the browser a paint boundary after the splash has been removed. This
-  // keeps the app's single opacity fade distinct from the splash dissolve.
   requestAnimationFrame(() => app.classList.remove('booting'));
 }
 
@@ -523,32 +523,33 @@ function finishSplash(splash) {
   if (!splash) {
     applySavedLook();
     signalSplashDone();
+    settleAtmosphere();
     revealApp();
     return;
   }
   if (splash.dataset.done === '1') return;
   splash.dataset.done = '1';
   splash.setAttribute('aria-hidden', 'true');
-  const done = () => {
+  const hide = () => {
     splash.classList.add('hide');
     splash.style.display = 'none';
     signalSplashDone();
-    revealApp();
+    settleAtmosphere();
   };
-  // The look has to be settled before the dissolve starts. It remains hidden
-  // behind the opaque splash, so the handoff has one visual clock only.
   applySavedLook();
   if (prefersReducedMotion()) {
-    done();
+    hide();
+    revealApp();
     return;
   }
   splash.classList.add('dissolving');
+  revealApp();
   let finished = false;
   const settle = () => {
     if (finished) return;
     finished = true;
     splash.removeEventListener('transitionend', onEnd);
-    done();
+    hide();
   };
   const onEnd = (event) => {
     if (event && event.target !== splash) return;

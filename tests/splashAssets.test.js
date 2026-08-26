@@ -43,7 +43,9 @@ test('splash keeps the separate brand assets in the supplied horizontal lockup',
   assert.match(html, /class="splash-slogan-frame"/);
   assert.match(styles, /grid-template-columns:\s*auto auto/);
   assert.match(styles, /--lockup-h:\s*min\(248px, 21vw\)/);
-  assert.match(styles, /--mark-nudge:\s*-10px/);
+  assert.match(styles, /--mark-h:\s*min\(292px, 25vw\)/);
+  assert.match(styles, /--mark-nudge:\s*0px/);
+  assert.match(styles, /\.splash-logo \{[\s\S]{0,420}align-items:\s*center/);
   assert.match(styles, /width:\s*calc\(var\(--lockup-h\) \* 2\.38\)/);
   assert.match(styles, /column-gap:\s*clamp\(4px, 0\.7vw, 10px\)/);
   assert.match(styles, /\.splash-slogan-frame \{\s*width: 100%/);
@@ -67,13 +69,17 @@ test('the splash logo has a staged GPU-only entrance that is visible before hand
   assert.match(styles, /will-change:\s*transform, opacity/);
 });
 
-test('the splash dissolves as one plane before the app is revealed', () => {
+test('the splash dissolves into the app as one overlapping handoff', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
   const signIn = fs.readFileSync(path.join(renderer, 'pages', 'signIn.js'), 'utf8');
 
   assert.match(styles, /#splash\.dissolving \{[\s\S]{0,140}opacity:\s*0/);
-  assert.match(styles, /#splash \{[\s\S]{0,320}transition:\s*opacity var\(--dur-splash\) var\(--ease-out\)/);
+  assert.match(styles, /#splash \{[\s\S]{0,360}transition:\s*opacity var\(--dur-splash\) var\(--ease-out\)/);
+  assert.match(styles, /@keyframes splashBarSweep/);
+  assert.doesNotMatch(styles, /@keyframes splashStageOut/);
+  assert.doesNotMatch(styles, /transform:\s*scale\(0\.64\)/);
+  assert.doesNotMatch(styles, /#splash\.dissolving \.splash-stage/);
   assert.doesNotMatch(styles, /#splash\.handoff/);
   assert.doesNotMatch(styles, /#splash\.landed/);
   assert.doesNotMatch(styles, /splashLockupExit/);
@@ -89,7 +95,7 @@ test('the splash dissolves as one plane before the app is revealed', () => {
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
 });
 
-test('the finished screen fades in as one stable surface after the dissolve', () => {
+test('the finished screen fades in under the dissolving splash', () => {
   const html = fs.readFileSync(index, 'utf8');
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
@@ -99,7 +105,9 @@ test('the finished screen fades in as one stable surface after the dissolve', ()
   assert.match(styles, /#app\.booting \{[\s\S]{0,220}will-change:\s*opacity/);
   assert.doesNotMatch(styles, /#app\.booting \{[\s\S]{0,260}transform:/);
   assert.match(styles, /#app \{[\s\S]{0,220}opacity var\(--dur-app-reveal\)/);
-  assert.match(styles, /--dur-app-reveal:\s*240ms/);
+  assert.match(styles, /--dur-app-reveal:\s*420ms/);
+  assert.doesNotMatch(styles, /@keyframes signinSettle/);
+  assert.doesNotMatch(styles, /#splash\.dissolving:not\(\.hide\) ~ #app \.signin-brief/);
   assert.doesNotMatch(styles, /\.signin-screen \{[\s\S]{0,300}transition:/);
   assert.doesNotMatch(styles, /\.signin-discord \{[\s\S]{0,300}transition:/);
   assert.match(app, /function revealApp\(\)/);
@@ -107,8 +115,9 @@ test('the finished screen fades in as one stable surface after the dissolve', ()
   assert.match(app, /onComplete: \(\) => enterApp\(\)/);
   assert.doesNotMatch(app, /signIn\.render\(content, \{ onComplete: \(\) => window\.location\.reload\(\) \}\)/);
   assert.match(app, /requestAnimationFrame\(\(\) => app\.classList\.remove\('booting'\)\)/);
-  assert.match(app, /splash\.classList\.add\('dissolving'\)/);
-  assert.match(app, /signalSplashDone\(\);\s*revealApp\(\);/);
+  assert.match(app, /splash\.classList\.add\('dissolving'\);\s*revealApp\(\)/);
+  assert.match(app, /signalSplashDone\(\);/);
+  assert.match(app, /settleAtmosphere\(\);\s*revealApp\(\)/);
   assert.doesNotMatch(app, /playSignInHandoff/);
   assert.doesNotMatch(app, /HAND_OFF_MS/);
 });
@@ -121,11 +130,12 @@ test('the sign-in destination retains a compact version of the splash identity',
   assert.match(signIn, /class: 'signin-lockup'/);
   assert.match(signIn, /class: 'signin-wordmark'/);
   assert.match(signIn, /asset\('splash-wordmark\.png'\)/);
-  assert.match(signIn, /class: 'signin-slogan-frame'/);
-  assert.match(signIn, /asset\('splash-slogan\.png'\)/);
+  assert.doesNotMatch(signIn, /signin-slogan/);
+  assert.doesNotMatch(signIn, /splash-slogan\.png/);
   assert.match(styles, /\.signin-lockup \{[\s\S]{0,280}grid-template-columns:\s*auto minmax\(0, 1fr\)/);
-  assert.match(styles, /\.signin-wordmark \{[\s\S]{0,220}width:\s*min\(280px, 48vw\)/);
-  assert.match(styles, /\.signin-slogan-frame \{[\s\S]{0,260}aspect-ratio:\s*17 \/ 1/);
+  assert.match(styles, /\.signin-brief \{[\s\S]{0,280}width:\s*min\(680px, 92vw\)/);
+  assert.match(styles, /\.signin-wordmark \{[\s\S]{0,220}width:\s*min\(220px, 42vw\)/);
+  assert.match(styles, /\.signin-discord \{[\s\S]{0,220}border-radius:\s*999px/);
 });
 
 test('splash sits on the app pit with no pulse HUD', () => {
@@ -143,6 +153,35 @@ test('splash sits on the app pit with no pulse HUD', () => {
   assert.doesNotMatch(styles, /splashSheen/);
   assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /#splash\.dissolving/);
+});
+
+test('wallpaper art follows a non-lime accent instead of staying gold', () => {
+  const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
+  assert.match(styles, /html\.accent-tinted #atmosphere\.art-bg \.arena-art-img \{[\s\S]{0,160}filter:\s*var\(--brand-tint/);
+  assert.match(styles, /html\.accent-tinted #atmosphere\.art-bg \.arena-art-tint \{ opacity: 0\.58; \}/);
+});
+
+test('the pit stays frosted until the splash is gone', () => {
+  const html = fs.readFileSync(index, 'utf8');
+  const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
+  const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
+  assert.match(html, /class="arena-frost"/);
+  assert.match(styles, /\.arena-frost \{[\s\S]{0,280}backdrop-filter:\s*blur\(36px\)/);
+  assert.match(styles, /#atmosphere:not\(\.settled\) \.arena-art/);
+  assert.match(styles, /filter:\s*blur\(32px\)/);
+  assert.match(app, /function settleAtmosphere\(\)/);
+  assert.match(app, /classList\.add\('settled'\)/);
+});
+
+test('the sidebar brand is the wordmark only', () => {
+  const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
+  assert.match(app, /class: 'sb-wordmark'/);
+  assert.doesNotMatch(app, /class: 'sb-lockup'/);
+  assert.doesNotMatch(app, /class: 'sb-mark'/);
+  assert.match(styles, /\.sb-brand \{[\s\S]{0,180}flex-direction:\s*column/);
+  assert.doesNotMatch(styles, /\.sb-lockup \{/);
+  assert.doesNotMatch(styles, /\.sb-mark \{/);
 });
 
 test('the About lockup paints the accent rather than filtering towards it', () => {

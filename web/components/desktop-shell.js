@@ -25,7 +25,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
       />
       <LookSync accent={org?.accent} background={org?.background} />
       <OrgLiveSync />
-      <div id="atmosphere" className="splash-atmosphere arena" data-background="pit" aria-hidden="true">
+      <div id="atmosphere" className="splash-atmosphere arena settled" data-background="pit" aria-hidden="true">
         <span className="arena-field arena-field-soft" />
         <span className="arena-field" />
         <span className="arena-hex" />
@@ -62,7 +62,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
               <span>Ruleset checked {RULESET.last_checked}</span>
             </div>
             <div className="sbar-group sources">
-              <span className="sbar-label">v2.2.0</span>
+              <span className="sbar-label">v2.4.0</span>
               <span className="sbar-src">{RULESET.label}</span>
               <span className="sbar-src">On-device Match Log</span>
             </div>

@@ -25,7 +25,7 @@
   --dur-panel: 200ms;
   --dur-page: 220ms;
   --dur-splash: 420ms;
-  --dur-app-reveal: 240ms;
+  --dur-app-reveal: 420ms;
   /* Wallpaper changes settle behind the still-opaque splash before reveal. */
   --dur-look: 520ms;
 
@@ -209,8 +209,7 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   -webkit-user-drag: none;
   filter: blur(48px) brightness(0.28);
   transform: scale(1.08);
-  animation: splashFrostLift 650ms cubic-bezier(0.7, 0, 1, 1) forwards;
-  will-change: opacity;
+  opacity: 1;
 }
 
 /* The art is a still. HUD breath gives it life; a dark veil lifts so the
@@ -343,6 +342,9 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   transform: scale(var(--art-zoom, 1));
   transform-origin: center;
 }
+html.accent-tinted #atmosphere.art-bg .arena-art-img {
+  filter: var(--brand-tint, none);
+}
 .arena-art-tint {
   position: absolute;
   inset: 0;
@@ -352,12 +354,33 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   opacity: 0;
   transition: opacity var(--dur-look) var(--ease-out);
 }
-html.accent-tinted #atmosphere.art-bg .arena-art-tint { opacity: 0.22; }
+html.accent-tinted #atmosphere.art-bg .arena-art-tint { opacity: 0.58; }
 html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   mix-blend-mode: saturation;
   background: #9aa09a;
 }
 #atmosphere.art-bg .arena-art { opacity: 1; }
+.arena-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background: color-mix(in srgb, #080a0c 42%, transparent);
+  backdrop-filter: blur(36px) brightness(0.58);
+  -webkit-backdrop-filter: blur(36px) brightness(0.58);
+  opacity: 1;
+  transition: opacity 480ms var(--ease-out);
+}
+#atmosphere:not(.settled) .arena-art,
+#atmosphere:not(.settled) .arena-field,
+#atmosphere:not(.settled) .arena-field-soft,
+#atmosphere:not(.settled) .arena-hex {
+  filter: blur(32px);
+}
+#atmosphere.settled .arena-frost {
+  opacity: 0;
+  visibility: hidden;
+}
 /* Honeycomb and flow layers fade out under the art rather than cutting, so the
    splash hands over in one motion. */
 #atmosphere .arena-field,
@@ -620,11 +643,13 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   display: flex;
   flex-direction: column;
   align-items: center;
+  transform-origin: center center;
 }
 
 .splash-logo {
   --lockup-h: min(248px, 21vw);
-  --mark-nudge: -10px;
+  --mark-h: min(292px, 25vw);
+  --mark-nudge: 0px;
   position: relative;
   width: fit-content;
   max-width: 100%;
@@ -632,7 +657,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   display: grid;
   grid-template-columns: auto auto;
   column-gap: clamp(4px, 0.7vw, 10px);
-  align-items: start;
+  align-items: center;
   overflow: visible;
 }
 .splash-logo img {
@@ -642,7 +667,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   -webkit-user-drag: none;
 }
 .splash-logo-mark-frame {
-  width: var(--lockup-h);
+  width: var(--mark-h);
   justify-self: end;
   position: relative;
   z-index: 2;
@@ -707,40 +732,43 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .splash-bar {
   position: relative;
-  width: 196px;
-  height: 2px;
+  width: 168px;
+  height: 3px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, #12161a);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, #14181c);
 }
 .splash-bar-fill,
 .splash-bar-sheen {
   position: absolute;
-  inset: 0;
   border-radius: inherit;
 }
 .splash-bar-fill {
-  background: var(--accent);
+  inset: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 48%, #1c2024), var(--accent));
   transform: scaleX(0);
   transform-origin: left center;
   z-index: 1;
 }
 .splash-bar-sheen {
-  display: none;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  z-index: 2;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.34), transparent);
+  transform: translateX(-140%);
+  animation: splashBarSweep 2.2s cubic-bezier(0.23, 1, 0.32, 1) infinite;
 }
 #splash.loaded .splash-bar {
   opacity: 1;
 }
-#splash.loaded .splash-bar-sheen {
-  display: none;
-}
 .splash-version {
   font-family: var(--font);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.22em;
-  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  color: var(--text-faint);
 }
 
 #splash.dissolving {
@@ -782,6 +810,10 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes splashMetaIn { to { opacity: 1; } }
+@keyframes splashBarSweep {
+  from { transform: translateX(-140%); }
+  to { transform: translateX(420%); }
+}
 @keyframes splashFlowA {
   from { transform: rotate(-16deg) translate3d(0, 0, 0) scale(1); }
   to { transform: rotate(-16deg) translate3d(6%, 3%, 0) scale(1.05); }
@@ -814,7 +846,7 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
     will-change: auto;
   }
   .splash-logo, .splash-logo-mark-frame, .splash-lockup-copy, .splash-slogan-frame,
-  .splash-meta, .splash-flow, .arena-field, .arena-scan,
+  .splash-meta, .splash-stage, .splash-flow, .arena-field, .arena-scan,
   .splash-background, .splash-frost, .splash-glow, .splash-veil,
   .intel-wave, .intel-map {
     animation: none !important;
@@ -828,11 +860,12 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   .splash-bar, .splash-bar-fill, .splash-bar-sheen { animation: none !important; }
   .splash-bar-fill { transition: none !important; }
   .splash-bar { opacity: 1; }
-  #app, #splash, #atmosphere.rest, .signin-mark, .signin-discord, .signin-screen .inline-error {
+  #app, #splash, #atmosphere.rest, .signin-mark, .signin-discord, .signin-brief, .signin-screen .inline-error {
     transition: none !important;
+    animation: none !important;
     filter: none !important;
   }
-  .signin-mark, .signin-discord, .signin-screen .inline-error {
+  .signin-mark, .signin-discord, .signin-brief, .signin-screen .inline-error {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -870,10 +903,6 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   -webkit-app-region: no-drag;
 }
 .brand-tint { filter: var(--brand-tint, none); }
-/* The wordmark sits on the nav's content column: 20px in on both sides, so its
-   left edge lines up with the link icons and its right edge with the link
-   boxes. The old 168px cap left it stranded 40px short of the right inset,
-   which read as neither aligned nor centred. */
 .sb-wordmark {
   position: relative;
   display: block;
@@ -3157,8 +3186,7 @@ tr.clickable-row:hover td { background: #ffffff06; }
 .onboarding-brand-wrap { text-align: center; }
 .onboarding-brand { width: min(547px, 53vw); height: auto; display: block; margin: 0 auto; background: transparent; }
 
-/* Sign-in shares the persistent atmosphere. Its destination is revealed by the
-   app shell above, so no child gets a second, delayed entrance clock. */
+/* Sign-in shares the persistent atmosphere. The splash fades over it. */
 .signin-screen {
   position: relative;
   width: 100%;
@@ -3172,9 +3200,9 @@ tr.clickable-row:hover td { background: #ffffff06; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
-  width: min(520px, 92vw);
-  padding: 36px 40px 28px;
+  gap: 18px;
+  width: min(680px, 92vw);
+  padding: 28px 32px 22px;
   border-radius: 20px;
   background: color-mix(in srgb, var(--bg, #080a0c) 48%, transparent);
   backdrop-filter: blur(22px) saturate(1.2);
@@ -3199,7 +3227,6 @@ tr.clickable-row:hover td { background: #ffffff06; }
 }
 .signin-mark,
 .signin-wordmark,
-.signin-slogan,
 .signin-discord,
 .signin-screen .inline-error {
   position: relative;
@@ -3208,46 +3235,35 @@ tr.clickable-row:hover td { background: #ffffff06; }
 .signin-identity {
   display: grid;
   justify-items: center;
-  row-gap: clamp(7px, 1vw, 10px);
 }
 .signin-lockup {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  column-gap: clamp(10px, 1.2vw, 16px);
-  max-width: min(430px, 82vw);
+  column-gap: 12px;
+  max-width: min(360px, 80vw);
   -webkit-app-region: drag;
 }
 .signin-mark {
-  width: min(116px, 20vw);
-  height: min(116px, 20vw);
+  width: min(96px, 16vw);
+  height: min(96px, 16vw);
   object-fit: contain;
   background: transparent;
   opacity: 1;
 }
 .signin-wordmark {
-  width: min(280px, 48vw);
+  width: min(220px, 42vw);
   height: auto;
   min-width: 0;
   object-fit: contain;
 }
-.signin-slogan-frame {
-  position: relative;
-  z-index: 1;
-  width: min(360px, 74vw);
-  aspect-ratio: 17 / 1;
-  overflow: hidden;
-}
-.signin-slogan {
-  display: block;
-  width: 100%;
-  height: auto;
-  transform: translate3d(0, -42%, 0);
-}
 .signin-discord {
-  min-width: 280px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
   padding: 12px 18px;
   font-size: 13px;
+  border-radius: 999px;
   -webkit-app-region: no-drag;
   opacity: 1;
 }

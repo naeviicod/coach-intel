@@ -27,7 +27,7 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
   ].filter(Boolean))];
 
   return (
-    <div className="gate invite-gate">
+    <div className={`gate invite-gate${who && !error && look ? ' has-pass' : ''}`}>
       <Pit />
       {look?.accent ? <LookSync accent={look.accent} /> : null}
       <main className="onboarding-screen signin-screen gate-in">
@@ -38,9 +38,6 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
               <img className="signin-mark" src="/assets/splash-logo.png" alt="Coach Intel" />
               <img className="signin-wordmark" src="/assets/splash-wordmark.png" alt="" aria-hidden="true" />
             </div>
-            <div className="signin-slogan-frame" aria-hidden="true">
-              <img className="signin-slogan" src="/assets/splash-slogan.png" alt="" />
-            </div>
           </div>
           {error ? (
             <div className="card inline-error" style={{ maxWidth: 400 }}>
@@ -50,26 +47,28 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
           ) : null}
           {who && !error && look ? (
             <article className="invite-pass">
-              <div className="invite-pass-org">
-                <OrgMark org={{ logo: look.orgLogo, name: look.orgName }} className="invite-org-mark" />
-                <div>
-                  <div className="invite-pass-kicker">Organization</div>
-                  <div className="invite-pass-name">{look.orgName}</div>
+              <div className="invite-pass-marks">
+                <div className="invite-pass-org">
+                  <OrgMark org={{ logo: look.orgLogo, name: look.orgName }} className="invite-org-mark" />
+                  <div>
+                    <div className="invite-pass-kicker">Organization</div>
+                    <div className="invite-pass-name">{look.orgName}</div>
+                  </div>
+                </div>
+                <div className="invite-pass-team">
+                  <TeamMark
+                    team={{ logo: look.teamLogo, name: look.teamName, tag: look.teamTag }}
+                    className="invite-team-mark"
+                  />
+                  <div>
+                    <div className="invite-pass-kicker">{look.teamTag || 'Team'}</div>
+                    <div className="invite-pass-name">{look.teamName}</div>
+                    {slot ? <div className="invite-pass-tag">{slot}</div> : null}
+                  </div>
                 </div>
               </div>
-              <div className="invite-pass-team">
-                <TeamMark
-                  team={{ logo: look.teamLogo, name: look.teamName, tag: look.teamTag }}
-                  className="invite-team-mark"
-                />
-                <div>
-                  <div className="invite-pass-kicker">{look.teamTag || 'Team'}</div>
-                  <div className="invite-pass-name">{look.teamName}</div>
-                  {slot ? <div className="invite-pass-tag">{slot}</div> : null}
-                </div>
-              </div>
-              <div className="invite-pass-player">
-                <div>
+              <div className="invite-pass-body">
+                <div className="invite-pass-player">
                   <div className="invite-pass-kicker">Join as</div>
                   <div className="invite-player-tag">{who}</div>
                   {playerChips.length ? (
@@ -80,15 +79,14 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
                     <div className="invite-pass-tag">{chips.join(' · ')}</div>
                   ) : null}
                 </div>
+                <p className="invite-pass-welcome">{copy.body}</p>
               </div>
-              <p className="invite-pass-welcome">{copy.body}</p>
               <p className="invite-pass-hint">
                 Sign in with Discord to link this roster slot. You can change your profile later in Settings.
               </p>
             </article>
           ) : null}
           <DiscordSignIn nextPath={nextPath} />
-          <div className="signin-foot">Opens Discord. You land in the app.</div>
         </div>
       </main>
     </div>

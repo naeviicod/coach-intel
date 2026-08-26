@@ -131,7 +131,7 @@ export function AboutCard() {
       <div className="field-hint" style={{ marginBottom: 12 }}>Know More. Win More.</div>
       <div className="list-item-row">
         <div className="settings-row-title">Version</div>
-        <div className="about-value">v2.2.0</div>
+        <div className="about-value">v2.4.0</div>
       </div>
       <div className="list-item-row">
         <div className="settings-row-title">Website</div>
