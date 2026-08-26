@@ -53,6 +53,18 @@ function canTransferMembers(role, { local } = {}) {
   return TRANSFER_ROLES.has(String(role || '').toLowerCase().trim());
 }
 
+function canManageOrg(role, opts) {
+  return canTransferMembers(role, opts);
+}
+
+async function assertCanManageOrg(supabase) {
+  const session = await sessionEditor(supabase);
+  if (session.local) return;
+  if (!canManageOrg(session.role, session)) {
+    throw new Error('Only org owners, admins, and developers can do that.');
+  }
+}
+
 // Unlinked players used to filter this list to [] — then the app thought
 // the org was missing and reopened first-run setup. Revoking an invite
 // only unlinks that roster slot; it must never hide a provisioned org.
@@ -140,9 +152,11 @@ module.exports = {
   seesAllTeams,
   canEditTeam,
   canTransferMembers,
+  canManageOrg,
   resolveAccessRole,
   assertCanEdit,
   assertCanEditTeam,
   assertCanTransfer,
+  assertCanManageOrg,
   scopeTeams,
 };

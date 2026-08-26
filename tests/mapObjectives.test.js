@@ -61,6 +61,22 @@ test('getMapObjectives returns Den Overload research instead of empty placeholde
   assert.equal(isUnverified(data.team_b_zone), false);
 });
 
+test('colossus hardpoint spawns sit on the left (blue) and right (red)', async () => {
+  const { pathToFileURL } = require('node:url');
+  const pack = JSON.parse(fss.readFileSync(path.join(__dirname, '..', 'data', 'knowledge', 'map-objectives.json'), 'utf8'));
+  const { spawnLayoutFromObjectives, defaultPositions } = await import(
+    pathToFileURL(path.join(__dirname, '..', 'web/lib/strat-pieces.js')).href
+  );
+  const layout = spawnLayoutFromObjectives(pack.maps.colossus.hardpoint);
+  const pos = defaultPositions([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }], layout);
+  const us = pos.filter((p) => !p.opponent);
+  const them = pos.filter((p) => p.opponent);
+  assert.ok(us.length);
+  assert.ok(them.length);
+  assert.ok(us.every((p) => p.x < 0.35), 'blue belongs on the left');
+  assert.ok(them.every((p) => p.x > 0.65), 'red belongs on the right');
+});
+
 test('new strats default piece scale to 70 percent', async () => {
   await store.ensureDirectories();
   const team = await store.saveTeam({ name: 'Scale Team', tag: 'SCL' });

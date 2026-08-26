@@ -3,7 +3,7 @@ import { shareButton } from '../components/discordShare.js';
 import { openModal } from '../components/modal.js';
 import { resolveMapLayout, modeLayoutKey } from '../lib/maps.js';
 import { paintDrawings, paintOne, hitDrawingIndex, DRAW_COLOR } from './stratBoard/draw.js';
-import { defaultPositions, normalizePos, nextOpponentSlot, renderPiece, clampPieceScale, MAX_PER_TEAM, DEFAULT_PIECE_SCALE } from './stratBoard/pieces.js';
+import { defaultPositions, normalizePos, nextOpponentSlot, renderPiece, clampPieceScale, MAX_PER_TEAM, DEFAULT_PIECE_SCALE, looksLikeLegacyCorners } from './stratBoard/pieces.js';
 import { toolRail, bindShortcuts } from './stratBoard/tools.js';
 import { paintKeys, spawnLayoutFromObjectives, objectivesSummary } from './stratBoard/objectives.js';
 
@@ -95,7 +95,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     // just show blank here.
     objective_key: existing?.objective_key || '',
     status: existing?.status || 'DRAFT',
-    player_positions: existing
+    player_positions: existing && !looksLikeLegacyCorners(existing.player_positions)
       ? existing.player_positions.map(normalizePos)
       : defaultPositions(members),
     drawings: existing ? [...existing.drawings] : [],
@@ -116,19 +116,20 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     type: 'text',
     value: state.strategy_name,
     placeholder: 'Strat name (auto-numbered if left blank)',
+    class: 'board-field',
     style: 'font-weight:700;font-size:14px;width:220px;',
     disabled: readOnly ? 'disabled' : null,
   });
   const mapSelect = el(
     'select',
-    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.map = e.target.value; dirty = true; applyMap({ reseed: !state.strategy_id }); } },
+    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.map = e.target.value; dirty = true; applyMap({ reseed: true }); } },
     (ruleset?.maps || []).filter((m) => m.active !== false).map((m) =>
       el('option', { value: m.name, selected: m.name === state.map ? 'selected' : null }, m.name)
     )
   );
   const modeSelect = el(
     'select',
-    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.mode = e.target.value; dirty = true; applyMap({ reseed: !state.strategy_id }); } },
+    { disabled: readOnly ? 'disabled' : null, onchange: (e) => { state.mode = e.target.value; dirty = true; applyMap({ reseed: true }); } },
     (ruleset?.modes || []).map((m) => el('option', { value: m, selected: m === state.mode ? 'selected' : null }, m))
   );
   const statusSelect = el(
@@ -140,6 +141,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     type: 'text',
     value: state.objective_key,
     placeholder: 'Hill / Site (optional)',
+    class: 'board-field',
     style: 'width:132px;',
     disabled: readOnly ? 'disabled' : null,
     title: 'Attach this strat to a specific hill, bombsite or lane — e.g. "P3", "A", "Carry Route"',
@@ -235,7 +237,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
     objectivesPanel.append(data
       ? objectivesSummary(data)
       : el('div', { style: 'opacity:.7;' }, 'Select a map and mode to see recorded objectives.'));
-    if (reseed && !readOnly) {
+    if ((reseed || looksLikeLegacyCorners(state.player_positions)) && !readOnly) {
       state.player_positions = defaultPositions(members, spawnLayout);
       redrawMarkers();
       renderBench();

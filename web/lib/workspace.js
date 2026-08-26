@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { canEdit, canEditTeam, canTransferMembers, resolveAccessRole, scopeTeams } from './access';
+import { canEdit, canEditTeam, canTransferMembers, canManageOrg, resolveAccessRole, scopeTeams } from './access';
 import { getOrg, getProfile, listAllMembers, listTeams, loadDocBundles } from './data';
 import { sessionIdentity } from './identity';
 import { createServerSupabase, getSessionUser } from './supabase/server';
@@ -63,6 +63,7 @@ export async function loadWorkspace({ rosterOnly = false } = {}) {
     allTeams,
     canEdit: canEdit(role),
     canTransfer: canTransferMembers(role, { local: !profile }),
+    isOrgAdmin: canManageOrg(role, { local: !profile }),
     teamIds,
     role,
     profile,

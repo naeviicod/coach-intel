@@ -15,7 +15,7 @@ const notificationStore = require('./notificationStore');
 const supabase = require('./supabase');
 const { syncLocalRosterToRemote, sharedWriteHint, mergeMemberLists } = require('./rosterSync');
 const cloudSync = require('./cloudSync');
-const { assertCanEdit, assertCanEditTeam, assertCanTransfer, scopeTeams, resolveAccessRole } = require('./access');
+const { assertCanEdit, assertCanEditTeam, assertCanTransfer, assertCanManageOrg, scopeTeams, resolveAccessRole } = require('./access');
 const { DEEP_LINK_SCHEME } = require('./discord/constants');
 const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
@@ -478,6 +478,13 @@ function requireEditTeam(handler) {
   };
 }
 
+function requireOrgAdmin(handler) {
+  return async (...args) => {
+    await assertCanManageOrg(supabase);
+    return handler(...args);
+  };
+}
+
 function requireTransfer(handler) {
   return async (...args) => {
     await assertCanTransfer(supabase);
@@ -801,7 +808,7 @@ ipcMain.handle('cci:saveRankings', requireEdit(async (e, rankings) => {
   return cloudSave('rankings', '', saved);
 }));
 
-ipcMain.handle('cci:deleteAllData', requireEdit(() => dataStore.deleteAllData()));
+ipcMain.handle('cci:deleteAllData', requireOrgAdmin(() => dataStore.deleteAllData()));
 ipcMain.handle('cci:getAppVersion', () => app.getVersion());
 ipcMain.handle('cci:setTrafficLights', (e, collapsed) => {
   if (process.platform !== 'darwin') return;

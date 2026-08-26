@@ -67,6 +67,10 @@ export function canTransferMembers(role, { local } = {}) {
   return TRANSFER_ROLES.has(String(role || '').toLowerCase().trim());
 }
 
+export function canManageOrg(role, opts) {
+  return canTransferMembers(role, opts);
+}
+
 export function seesAllTeams(role) {
   return ALL_TEAMS_ROLES.has(String(role || '').toLowerCase().trim());
 }

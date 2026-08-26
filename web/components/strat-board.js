@@ -6,27 +6,19 @@ import { mapLayoutSrc } from '../lib/maps';
 import { mapNames, modeNames } from '../lib/ruleset';
 import { DRAW_COLOR, hitDrawingIndex, paintDrawings, paintOne } from '../lib/strat-draw';
 import {
-  DEFAULT_PIECE_SCALE,
-  MAX_PER_TEAM,
-  cleanPositions,
-  clampPieceScale,
-  defaultPositions,
-  nextOpponentSlot,
-  normalizePos,
+  DEFAULT_PIECE_SCALE, MAX_PER_TEAM, cleanPositions, clampPieceScale, normalizePos,
+  spawnPositions, nextOpponentForMap, looksLikeLegacyCorners,
 } from '../lib/strat-pieces';
+import mapObjectives from '@knowledge/map-objectives.json';
 import { Icon } from './icon';
 import { Err } from './workspace';
 
 const STATUSES = ['DRAFT', 'READY FOR REVIEW', 'APPROVED', 'IN PRACTICE', 'MATCH READY', 'ARCHIVED'];
 const TOOLS = [
-  { key: 'select', label: 'Select', shortcut: 'S' },
-  { key: 'pen', label: 'Draw', shortcut: 'D' },
-  { key: 'arrow', label: 'Arrow', shortcut: 'A' },
-  { key: 'line', label: 'Line', shortcut: 'L' },
-  { key: 'rect', label: 'Rectangle', shortcut: 'R' },
-  { key: 'zone', label: 'Circle', shortcut: 'C' },
-  { key: 'text', label: 'Text', shortcut: 'T' },
-  { key: 'pin', label: 'Pin', shortcut: 'P' },
+  { key: 'select', label: 'Select', shortcut: 'S' }, { key: 'pen', label: 'Draw', shortcut: 'D' },
+  { key: 'arrow', label: 'Arrow', shortcut: 'A' }, { key: 'line', label: 'Line', shortcut: 'L' },
+  { key: 'rect', label: 'Rectangle', shortcut: 'R' }, { key: 'zone', label: 'Circle', shortcut: 'C' },
+  { key: 'text', label: 'Text', shortcut: 'T' }, { key: 'pin', label: 'Pin', shortcut: 'P' },
   { key: 'erase', label: 'Erase', shortcut: 'E' },
 ];
 
@@ -55,9 +47,11 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
   const [objective, setObjective] = useState(strat?.objective_key || '');
   const [notes, setNotes] = useState(strat?.notes || '');
   const [scale, setScale] = useState(clampPieceScale(strat?.piece_scale ?? DEFAULT_PIECE_SCALE));
-  const [positions, setPositions] = useState(() =>
-    strat?.player_positions?.length ? strat.player_positions.map(normalizePos) : defaultPositions(roster)
-  );
+  const [positions, setPositions] = useState(() => {
+    const existing = strat?.player_positions?.length ? strat.player_positions.map(normalizePos) : null;
+    if (existing && !looksLikeLegacyCorners(existing)) return existing;
+    return spawnPositions(roster, strat?.map || maps[0] || '', strat?.mode || modes[0] || '', mapObjectives);
+  });
   const [tool, setTool] = useState('select');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,6 +62,15 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
   const canvasRef = useRef(null);
   const layoutSrc = mapLayoutSrc(map, mode);
   const readOnly = !canEdit;
+  const mapSeeded = useRef(Boolean(strat?.player_positions?.length) && !looksLikeLegacyCorners(strat.player_positions));
+
+  useEffect(() => {
+    if (mapSeeded.current) {
+      mapSeeded.current = false;
+      return;
+    }
+    setPositions(spawnPositions(roster, map, mode, mapObjectives));
+  }, [map, mode]);
 
   function redraw() {
     const canvas = canvasRef.current;
@@ -268,6 +271,7 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
           placeholder="Strat name"
           disabled={readOnly}
           onChange={(e) => setName(e.target.value)}
+          className="board-field"
           style={{ fontWeight: 700, fontSize: 14, width: 220 }}
         />
         <select value={map} disabled={readOnly} onChange={(e) => setMap(e.target.value)}>
@@ -286,6 +290,7 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
           placeholder="Hill / Site"
           disabled={readOnly}
           onChange={(e) => setObjective(e.target.value)}
+          className="board-field"
           style={{ width: 132 }}
         />
         <select value={status} disabled={readOnly} onChange={(e) => setStatus(e.target.value)}>
@@ -370,7 +375,7 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
                 className="btn subtle"
                 style={{ width: '100%', marginTop: 8 }}
                 onClick={() => {
-                  const slot = nextOpponentSlot(positions);
+                  const slot = nextOpponentForMap(positions, map, mode, mapObjectives);
                   if (slot) setPositions((list) => [...list, slot]);
                 }}
               >

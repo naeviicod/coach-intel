@@ -173,6 +173,16 @@ test('Naevii / NaeviiSZN get developer rights even when profiles.role is user', 
   assert.equal(canEdit(access.role), true);
 });
 
+test('coaches cannot wipe the org', () => {
+  const { canManageOrg, canEdit } = require('../src/main/access');
+  assert.equal(canEdit('coach'), true);
+  assert.equal(canManageOrg('coach'), false);
+  assert.equal(canManageOrg('owner'), true);
+  assert.equal(canManageOrg('admin'), true);
+  assert.equal(canManageOrg('developer'), true);
+  assert.equal(canManageOrg('user'), false);
+});
+
 test('unlinked players keep local teams so a revoke cannot wipe the org', () => {
   const { scopeTeams } = require('../src/main/access');
   const teams = [{ id: 'rome' }, { id: 'other' }];

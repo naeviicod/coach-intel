@@ -5,5 +5,5 @@ export const metadata = { title: 'Settings · Coach Intel' };
 
 export default async function Page() {
   const data = await loadWorkspace();
-  return <SettingsView org={data.org} canEdit={data.canEdit} identity={data.identity} profile={data.profile} />;
+  return <SettingsView org={data.org} canEdit={data.canEdit} isOrgAdmin={data.isOrgAdmin} identity={data.identity} profile={data.profile} />;
 }

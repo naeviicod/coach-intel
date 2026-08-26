@@ -191,6 +191,11 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/strat-board.js'), /strat-map-preview/);
   assert.match(read('components/strat-board.js'), /saveStrat/);
   assert.match(read('components/strat-board.js'), /player_positions/);
+  assert.match(read('components/settings-view.js'), /isOrgAdmin/);
+  assert.doesNotMatch(read('components/settings-view.js'), /Delete All Data/);
+  assert.match(fs.readFileSync(path.join(root, 'src/main/main.js'), 'utf8'), /requireOrgAdmin\(\(\) => dataStore\.deleteAllData/);
+  assert.match(read('lib/strat-pieces.js'), /spawnPositions/);
+  assert.match(read('app/desktop-web.css'), /board-wrap \.strat-map-preview/);
   assert.match(read('components/veto-lab-view.js'), /veto-tile/);
   assert.match(read('components/veto-lab-view.js'), /veto-col/);
   assert.match(read('lib/maps.js'), /colossus\.jpg/);

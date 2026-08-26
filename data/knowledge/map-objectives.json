@@ -93,8 +93,8 @@
           { "order": 4, "label": "P4", "location": "Lounge" }
         ],
         "keys": {
-          "blue": [{ "x": 0.22, "y": 0.78, "label": "Blue" }, { "x": 0.32, "y": 0.86, "label": "Blue" }],
-          "red": [{ "x": 0.78, "y": 0.22, "label": "Red" }, { "x": 0.68, "y": 0.14, "label": "Red" }]
+          "blue": [{ "x": 0.12, "y": 0.50, "label": "Blue" }],
+          "red": [{ "x": 0.88, "y": 0.50, "label": "Red" }]
         }
       }
     },

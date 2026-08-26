@@ -85,10 +85,10 @@ function ProfileCard({ identity, profile }) {
       </div>
       <div className="inline-fields">
         <Field label="Your Name">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
         </Field>
         <Field label="Title">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} list="web-title-suggestions" placeholder="Player" />
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} list="web-title-suggestions" placeholder="Player" />
           <datalist id="web-title-suggestions">
             {TITLE_SUGGESTIONS.map((item) => (
               <option key={item} value={item} />
@@ -105,7 +105,7 @@ function ProfileCard({ identity, profile }) {
   );
 }
 
-export function SettingsView({ org, canEdit, identity, profile }) {
+export function SettingsView({ org, canEdit, isOrgAdmin, identity, profile }) {
   const [name, setName] = useState(org?.name || '');
   const [tag, setTag] = useState(org?.tag || '');
   const [accent, setAccent] = useState(normalizeHex(org?.accent) || DEFAULT_ACCENT);
@@ -134,11 +134,12 @@ export function SettingsView({ org, canEdit, identity, profile }) {
     <>
       <PageHeader title="Settings" subtitle="Your profile, org identity, and invite links" />
       <ProfileCard identity={identity} profile={profile} />
+      {isOrgAdmin ? (
       <form onSubmit={save} className="card section">
           <div className="section-title">Identity</div>
           <div className="inline-fields">
-            <Field label="Org Name"><input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
-            <Field label="Tag / Abbreviation"><input value={tag} onChange={(e) => setTag(e.target.value)} disabled={!canEdit} /></Field>
+            <Field label="Org Name"><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+            <Field label="Tag / Abbreviation"><input type="text" value={tag} onChange={(e) => setTag(e.target.value)} /></Field>
           </div>
           <div className="section-title" style={{ marginTop: 16 }}>Highlight Color</div>
           <p className="field-hint" style={{ marginBottom: 12, maxWidth: 620, lineHeight: 1.5 }}>
@@ -152,8 +153,7 @@ export function SettingsView({ org, canEdit, identity, profile }) {
                 className={`accent-swatch${accent === preset.hex ? ' active' : ''}`}
                 title={preset.name}
                 style={{ background: preset.hex }}
-                onClick={() => { setAccent(preset.hex); applyAccent(preset.hex); }}
-                disabled={!canEdit}
+    onClick={() => { setAccent(preset.hex); applyAccent(preset.hex); }}
               />
             ))}
             <input
@@ -161,20 +161,17 @@ export function SettingsView({ org, canEdit, identity, profile }) {
               className="accent-picker"
               value={accent}
               onChange={(e) => { setAccent(e.target.value); applyAccent(e.target.value); }}
-              disabled={!canEdit}
               aria-label="Custom accent"
             />
           </div>
-          {canEdit ? (
-            <div className="settings-actions">
-              <button type="submit" className="btn primary">Save Changes</button>
-            </div>
-          ) : (
-            <div className="field-hint">View only — staff change org identity.</div>
-          )}
+          <div className="settings-actions">
+            <button type="submit" className="btn primary">Save Changes</button>
+          </div>
           {saved ? <div className="field-hint" style={{ color: 'var(--win)' }}>Saved.</div> : null}
           <Err error={error} />
         </form>
+      ) : null}
+      {isOrgAdmin ? (
         <div className="card section">
           <div className="section-title">Invites</div>
           <div className="list-item-row">
@@ -186,6 +183,7 @@ export function SettingsView({ org, canEdit, identity, profile }) {
           </div>
           <p className="field-hint">Per-player binds are copied from a team roster. Discord on that link becomes their profile.</p>
         </div>
+      ) : null}
         <div className="card section">
           <div className="section-title">Account</div>
           <div className="list-item-row">

@@ -2,17 +2,17 @@ export const MAX_PER_TEAM = 4;
 export const DEFAULT_PIECE_SCALE = 0.7;
 
 const US_SLOTS = [
-  { x: 0.22, y: 0.68, facing: 0.18 },
-  { x: 0.32, y: 0.78, facing: -0.08 },
-  { x: 0.16, y: 0.54, facing: 0.42 },
-  { x: 0.3, y: 0.58, facing: 0.62 },
+  { x: 0.14, y: 0.38, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.46, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.54, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.62, facing: Math.PI / 2 },
 ];
 
 const THEM_SLOTS = [
-  { x: 0.78, y: 0.32, facing: Math.PI + 0.18 },
-  { x: 0.68, y: 0.22, facing: Math.PI - 0.08 },
-  { x: 0.84, y: 0.46, facing: Math.PI + 0.42 },
-  { x: 0.7, y: 0.42, facing: Math.PI + 0.62 },
+  { x: 0.86, y: 0.38, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.46, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.54, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.62, facing: -Math.PI / 2 },
 ];
 
 export function clampPieceScale(n, fallback = DEFAULT_PIECE_SCALE) {
@@ -35,18 +35,78 @@ export function normalizePos(pos) {
   };
 }
 
-export function defaultPositions(members) {
+export function defaultPositions(members, layout) {
+  const usSlots = layout?.spawns?.us || US_SLOTS;
+  const themSlots = layout?.spawns?.them || THEM_SLOTS;
   const us = (members || []).slice(0, MAX_PER_TEAM).map((m, i) =>
-    normalizePos({ member_id: m.id, ...(US_SLOTS[i] || US_SLOTS[0]) })
+    normalizePos({ member_id: m.id, ...(usSlots[i] || US_SLOTS[i]) })
   );
-  const them = THEM_SLOTS.slice(0, MAX_PER_TEAM).map((slot) => normalizePos({ opponent: true, ...slot }));
+  const them = themSlots.slice(0, MAX_PER_TEAM).map((slot) => normalizePos({ opponent: true, ...slot }));
   return [...us, ...them];
 }
 
-export function nextOpponentSlot(existing) {
+export function nextOpponentSlot(existing, layout) {
   const used = (existing || []).filter((p) => p.opponent);
   if (used.length >= MAX_PER_TEAM) return null;
-  return normalizePos({ opponent: true, ...(THEM_SLOTS[used.length] || THEM_SLOTS[0]) });
+  const themSlots = layout?.spawns?.them || THEM_SLOTS;
+  return normalizePos({ opponent: true, ...(themSlots[used.length] || THEM_SLOTS[used.length]) });
+}
+
+function fanOut(keys) {
+  if (!keys?.length) return null;
+  return Array.from({ length: 4 }, (_, i) => {
+    const key = keys[i % keys.length];
+    const facing = Number.isFinite(key.facing)
+      ? key.facing
+      : Math.atan2(0.5 - key.x, -(0.5 - key.y));
+    const side = Math.abs(key.x - 0.5) >= Math.abs(key.y - 0.5);
+    const spread = ((i % 4) - 1.5) * 0.055;
+    return {
+      x: clamp01(key.x + (side ? 0 : spread)),
+      y: clamp01(key.y + (side ? spread : 0)),
+      facing,
+    };
+  });
+}
+
+export function spawnLayoutFromObjectives(data) {
+  const us = fanOut(data?.keys?.blue);
+  const them = fanOut(data?.keys?.red);
+  if (!us && !them) return null;
+  return { spawns: { us, them } };
+}
+
+function mapSlug(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function modeKey(mode) {
+  const m = String(mode || '').toLowerCase();
+  if (m.includes('hardpoint') || m === 'hp') return 'hardpoint';
+  if (m.includes('search') || m.includes('destroy') || m === 'snd') return 'snd';
+  if (m.includes('overload') || m === 'ovl') return 'overload';
+  return '';
+}
+
+export function spawnPositions(members, map, mode, pack) {
+  const entry = pack?.maps?.[mapSlug(map)]?.[modeKey(mode)];
+  return defaultPositions(members, spawnLayoutFromObjectives(entry));
+}
+
+export function nextOpponentForMap(existing, map, mode, pack) {
+  const entry = pack?.maps?.[mapSlug(map)]?.[modeKey(mode)];
+  return nextOpponentSlot(existing, spawnLayoutFromObjectives(entry));
+}
+
+export function looksLikeLegacyCorners(positions) {
+  const us = (positions || []).filter((p) => !p.opponent);
+  const them = (positions || []).filter((p) => p.opponent);
+  if (!us.length || !them.length) return false;
+  return us.every((p) => p.y > 0.5 && p.x < 0.45) && them.every((p) => p.y < 0.5 && p.x > 0.55);
 }
 
 export function cleanPositions(list) {

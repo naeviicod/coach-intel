@@ -8,22 +8,28 @@ function clamp01(n) {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5;
 }
 
-function fanOut(keys, facing) {
+function fanOut(keys, fallbackFacing) {
   if (!keys?.length) return null;
   return Array.from({ length: 4 }, (_, i) => {
     const key = keys[i % keys.length];
-    const ring = Math.floor(i / keys.length);
-    const dx = ring % 2 === 0 ? -0.035 : 0.035;
-    const dy = ring < 1 ? -0.03 : 0.03;
-    return { x: clamp01(key.x + dx), y: clamp01(key.y + dy), facing };
+    const facing = Number.isFinite(key.facing)
+      ? key.facing
+      : Number.isFinite(fallbackFacing)
+        ? fallbackFacing
+        : Math.atan2(0.5 - key.x, -(0.5 - key.y));
+    const side = Math.abs(key.x - 0.5) >= Math.abs(key.y - 0.5);
+    const spread = ((i % 4) - 1.5) * 0.055;
+    return {
+      x: clamp01(key.x + (side ? 0 : spread)),
+      y: clamp01(key.y + (side ? spread : 0)),
+      facing,
+    };
   });
 }
 
 export function spawnLayoutFromObjectives(data) {
-  const blue = data?.keys?.blue;
-  const red = data?.keys?.red;
-  const us = fanOut(blue, 0);
-  const them = fanOut(red, Math.PI);
+  const us = fanOut(data?.keys?.blue);
+  const them = fanOut(data?.keys?.red);
   if (!us && !them) return null;
   return { spawns: { us, them } };
 }

@@ -4,17 +4,17 @@ export const MAX_PER_TEAM = 4;
 export const DEFAULT_PIECE_SCALE = 0.7;
 
 const US_SLOTS = [
-  { x: 0.22, y: 0.68, facing: 0.18 },
-  { x: 0.32, y: 0.78, facing: -0.08 },
-  { x: 0.16, y: 0.54, facing: 0.42 },
-  { x: 0.30, y: 0.58, facing: 0.62 },
+  { x: 0.14, y: 0.38, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.46, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.54, facing: Math.PI / 2 },
+  { x: 0.14, y: 0.62, facing: Math.PI / 2 },
 ];
 
 const THEM_SLOTS = [
-  { x: 0.78, y: 0.32, facing: Math.PI + 0.18 },
-  { x: 0.68, y: 0.22, facing: Math.PI - 0.08 },
-  { x: 0.84, y: 0.46, facing: Math.PI + 0.42 },
-  { x: 0.70, y: 0.42, facing: Math.PI + 0.62 },
+  { x: 0.86, y: 0.38, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.46, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.54, facing: -Math.PI / 2 },
+  { x: 0.86, y: 0.62, facing: -Math.PI / 2 },
 ];
 
 export function clampPieceScale(n, fallback = DEFAULT_PIECE_SCALE) {
@@ -52,6 +52,13 @@ export function nextOpponentSlot(existing, layout) {
   if (used.length >= MAX_PER_TEAM) return null;
   const themSlots = layout?.spawns?.them || THEM_SLOTS;
   return normalizePos({ opponent: true, ...(themSlots[used.length] || THEM_SLOTS[used.length]) });
+}
+
+export function looksLikeLegacyCorners(positions) {
+  const us = (positions || []).filter((p) => !p.opponent);
+  const them = (positions || []).filter((p) => p.opponent);
+  if (!us.length || !them.length) return false;
+  return us.every((p) => p.y > 0.5 && p.x < 0.45) && them.every((p) => p.y < 0.5 && p.x > 0.55);
 }
 
 function shortLabel(text) {
