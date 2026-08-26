@@ -111,7 +111,8 @@ test('web auth talks only to the Coach Intel Supabase project', () => {
   assert.match(legacyInvite, /redirect\(`\/join\//);
   const oauth = read('components/discord-sign-in.js');
   const middleware = read('middleware.js');
-  assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback\?next=\$\{encodeURIComponent\(next\)\}`/);
+  assert.match(oauth, /redirectTo: `\$\{origin\}\/auth\/callback`/);
+  assert.doesNotMatch(oauth, /callback\?next=/);
   assert.match(oauth, /ci-auth-next=\$\{encodeURIComponent\(next\)\}/);
   assert.match(middleware, /pathname !== '\/auth\/callback'/);
   assert.match(middleware, /searchParams\.get\('code'\)/);

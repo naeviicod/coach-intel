@@ -12,7 +12,7 @@ export function DiscordSignIn({ nextPath = '/dashboard' }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: `${origin}/auth/callback`,
       },
     });
     if (error) {
