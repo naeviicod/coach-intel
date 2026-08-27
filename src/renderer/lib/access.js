@@ -154,5 +154,14 @@ export function isProtectedPerson(person) {
 export function accessFromProfile(me, { local = false, teamIds = [], linkedNames = [] } = {}) {
   if (local || !me) return localStaffAccess();
   const role = resolveAccessRole(me, { names: linkedNames });
-  return { role, canEdit: canEdit(role), local: false, me, teamIds: Array.isArray(teamIds) ? teamIds : [] };
+  return {
+    role,
+    canEdit: canEdit(role),
+    local: false,
+    me,
+    teamIds: Array.isArray(teamIds) ? teamIds : [],
+    // A display-only, in-memory fallback for the signed-in member's linked
+    // roster slot. It is never persisted and contains no account identifiers.
+    linkedNames: Array.isArray(linkedNames) ? linkedNames : [],
+  };
 }

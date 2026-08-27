@@ -1,18 +1,8 @@
 #!/bin/sh
-# Do not brand the stock Electron.app as Coach Intel — that made Spotlight
-# and the Dock open this leftover binary instead of /Applications/Coach Intel.app.
-# Keep a unique bundle id so other projects' Electron.app copies don't collide,
-# and do not claim coachintel:// (the packaged app owns that).
-set -e
-DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PLIST="$DIR/node_modules/electron/dist/Electron.app/Contents/Info.plist"
-RES="$DIR/node_modules/electron/dist/Electron.app/Contents/Resources"
-
-if [ -f "$PLIST" ]; then
-  /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Electron'" "$PLIST" 2>/dev/null || true
-  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Electron'" "$PLIST" 2>/dev/null || true
-  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.naevii.coachintel.dev" "$PLIST" 2>/dev/null || true
-  /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$PLIST" 2>/dev/null || true
-fi
-
-rm -rf "$RES/app"
+# Never mutate node_modules/electron/Electron.app. It is already signed by
+# Electron, and touching its Info.plist or resources invalidates that signature
+# before electron-builder can make the final Coach Intel application bundle.
+#
+# Coach Intel branding, bundle ID, protocol registration and signing are applied
+# only to the final packaged app through package.json electron-builder settings.
+exit 0

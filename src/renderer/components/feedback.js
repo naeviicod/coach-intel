@@ -91,7 +91,9 @@ export async function fillFeedbackForm(body, {
     window.cci.getAppVersion().catch(() => null),
   ]);
   const signedIn = Boolean(authState?.configured && authState.session);
-  const sessionEmail = authState?.session?.user?.email || '';
+  // Auth IPC deliberately never exposes the Supabase session (or email) to the
+  // renderer. A member can still choose to provide contact details explicitly.
+  const sessionEmail = '';
   const identity = chipIdentity(org, access);
   const cats = categoryChips(prefill?.category || 'bug');
   const subjectInput = el('input', {

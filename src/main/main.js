@@ -21,6 +21,7 @@ const { shouldClaimProtocol } = require('./packagedApp');
 const { CODES } = require('./discord/redact');
 const { buildFeedbackMailto } = require('./feedbackMailto');
 const { autoUpdater } = require('electron-updater');
+const { createDesktopSetupService, parseSetupCallback } = require('./desktopSetup');
 
 app.setName('Coach Intel');
 console.log('[main] Coach Intel starting');
@@ -31,6 +32,7 @@ let mainWindow;
 let cachedTeamScope = null;
 const memberRefreshInflight = new Set();
 let teamsRefreshInflight = false;
+let desktopSetupService = null;
 // Route from a coachintel:// link that arrived before the window was ready.
 let queuedDeepLink = null;
 
@@ -52,12 +54,35 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.setTitle('Coach Intel');
+
+  // The renderer is a local, sandboxed document. Never let a renderer-originated
+  // navigation turn this privileged window into a remote browser surface.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault();
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:') shell.openExternal(parsed.toString()).catch(() => {});
+    } catch {
+      // Ignore malformed renderer navigation attempts.
+    }
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:') shell.openExternal(parsed.toString()).catch(() => {});
+    } catch {
+      // Ignore malformed renderer popup attempts.
+    }
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
+  mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
 
   mainWindow.webContents.on('context-menu', (event, params) => {
     if (params.mediaType === 'image' || params.hasImageContents) event.preventDefault();
@@ -73,6 +98,37 @@ function createWindow() {
       queuedDeepLink = null;
     }
   });
+}
+
+function createApplicationMenu() {
+  const template = [
+    {
+      label: 'Coach Intel',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+        { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // ---------- Deep links (coachintel://<route>) ----------
@@ -100,7 +156,12 @@ function focusWindow() {
 // so it must be caught before routeFromDeepLink's route-segment regex — that
 // regex would just reject it and the sign-in would silently go nowhere.
 function isAuthCallback(url) {
-  return typeof url === 'string' && url.startsWith(`${DEEP_LINK_SCHEME}://auth-callback`);
+  try {
+    const parsed = new URL(String(url || ''));
+    return parsed.protocol === `${DEEP_LINK_SCHEME}:` && parsed.hostname === 'auth-callback' && ['', '/'].includes(parsed.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function inviteTokenFromUrl(url) {
@@ -151,8 +212,21 @@ async function redeemPendingInvite() {
   }
 }
 
+function rendererAuthState(state) {
+  const session = state?.session || null;
+  return {
+    configured: Boolean(state?.configured),
+    session: session ? { authenticated: true } : null,
+  };
+}
+
 function sendAuthState(payload) {
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cci:authStateChanged', payload);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('cci:authStateChanged', {
+      session: payload?.session ? { authenticated: true } : null,
+      error: payload?.error ? String(payload.error) : null,
+    });
+  }
 }
 
 // Gates a fresh sign-in on membership in the org's Discord server, using the
@@ -220,6 +294,10 @@ async function handleAuthCallback(url) {
 }
 
 function handleDeepLink(url) {
+  if (parseSetupCallback(url)) {
+    handleDesktopSetupCallback(url);
+    return;
+  }
   if (isAuthCallback(url)) {
     handleAuthCallback(url);
     return;
@@ -237,6 +315,18 @@ function handleDeepLink(url) {
   } else {
     queuedDeepLink = route;
   }
+}
+
+async function handleDesktopSetupCallback(url) {
+  if (!desktopSetupService) return;
+  const result = await desktopSetupService.redeem(url);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('cci:desktopSetupStatus', {
+      ok: Boolean(result?.ok),
+      displayName: result?.displayName || null,
+    });
+  }
+  focusWindow();
 }
 
 async function handleInviteLink(token) {
@@ -284,13 +374,10 @@ function registerDeepLinkProtocol() {
   app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.execPath, [appEntryPath()]);
 }
 
-// ---------- Auto-update (Windows) ----------
+// ---------- Auto-update ----------
 //
-// Mac builds aren't code-signed, and Squirrel.Mac refuses to apply an unsigned
-// update, so this only runs on win32 for now. `npm run release:win` publishes
-// the installer + latest.yml to a GitHub Release; this is what checks that feed.
 function initAutoUpdater() {
-  if (process.platform !== 'win32' || !app.isPackaged) return;
+  if (!['win32', 'darwin'].includes(process.platform) || !app.isPackaged) return;
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[main] update downloaded', info.version);
@@ -383,6 +470,7 @@ app.whenReady().then(async () => {
   if (process.platform === 'darwin') {
     const icon = nativeImage.createFromPath(ICON_PATH);
     if (!icon.isEmpty()) app.dock.setIcon(icon);
+    createApplicationMenu();
   } else {
     // titleBarStyle: 'hiddenInset' and trafficLightPosition (in createWindow)
     // are macOS-only — on Windows the window falls back to Electron's default
@@ -394,6 +482,7 @@ app.whenReady().then(async () => {
   await dataStore.ensureDirectories();
 
   registerDeepLinkProtocol();
+  desktopSetupService = createDesktopSetupService({ openExternal: (url) => shell.openExternal(url) });
   discord.init({
     dataRoot: dataStore.DATA_ROOT,
     getOrgName: async () => (await dataStore.getOrg())?.name || null,
@@ -1150,7 +1239,13 @@ async function safeSupabaseCall(fn) {
 ipcMain.handle('cci:syncRoster', requireEdit(() => syncLocalRosterToRemote({ supabase, dataStore })));
 ipcMain.handle('cci:syncNow', () => syncLocalRosterToRemote({ supabase, dataStore }));
 
-ipcMain.handle('cci:authGetState', () => supabase.get().getState());
+ipcMain.handle('cci:authGetState', async () => rendererAuthState(await supabase.get().getState()));
+ipcMain.handle('cci:getInstallationState', () => ({
+  // First-run setup is intentionally a Coach Intel screen after the member has
+  // copied the signed app to Applications; it is not presented as an Apple
+  // Installer page from a mounted DMG.
+  inApplications: process.platform !== 'darwin' || Boolean(app.isInApplicationsFolder?.()),
+}));
 ipcMain.handle('cci:authSignInWithDiscord', () => safeSupabaseCall(() => supabase.get().signInWithDiscord()));
 ipcMain.handle('cci:authSignOut', async () => {
   cachedTeamScope = null;
@@ -1159,6 +1254,14 @@ ipcMain.handle('cci:authSignOut', async () => {
 });
 ipcMain.handle('cci:authListProfiles', () => safeSupabaseCall(() => supabase.get().listProfiles()));
 ipcMain.handle('cci:authUpdateRole', requireEdit((e, userId, role) => safeSupabaseCall(() => supabase.get().updateProfileRole(userId, role))));
+ipcMain.handle('cci:desktopSetupStart', async () => {
+  if (!desktopSetupService) return { ok: false, error: 'unavailable' };
+  try {
+    return await desktopSetupService.begin(app.getVersion());
+  } catch {
+    return { ok: false, error: 'unavailable' };
+  }
+});
 
 ipcMain.handle('cci:inviteCreate', async (e, payload) => {
   await assertCanEditTeam(supabase, payload?.teamId);

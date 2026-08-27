@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('cci', {
 
   deleteAllData: () => ipcRenderer.invoke('cci:deleteAllData'),
   getAppVersion: () => ipcRenderer.invoke('cci:getAppVersion'),
+  getInstallationState: () => ipcRenderer.invoke('cci:getInstallationState'),
   setTrafficLights: (collapsed) => ipcRenderer.invoke('cci:setTrafficLights', collapsed),
 
   getNeedsReview: (teamId) => ipcRenderer.invoke('cci:getNeedsReview', teamId),
@@ -153,6 +154,18 @@ contextBridge.exposeInMainWorld('cci', {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on('cci:authStateChanged', listener);
       return () => ipcRenderer.removeListener('cci:authStateChanged', listener);
+    },
+  },
+
+  // First-run setup has a deliberately tiny bridge. The renderer can request
+  // that the system browser opens, then receives only a display label — never
+  // a Supabase session, setup code, verifier, or account identifier.
+  desktopSetup: {
+    start: () => ipcRenderer.invoke('cci:desktopSetupStart'),
+    onStatus: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('cci:desktopSetupStatus', listener);
+      return () => ipcRenderer.removeListener('cci:desktopSetupStatus', listener);
     },
   },
 

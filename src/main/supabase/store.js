@@ -9,7 +9,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 
-function createSessionStore({ dataRoot, secretStore }) {
+function createSessionStore({ dataRoot, secretStore, allowInsecureStorage = false }) {
   const dir = path.join(dataRoot, 'org', 'integrations');
   const encryptedPath = path.join(dir, 'supabase-session.enc');
   // Used only when the OS keychain is unavailable (e.g. an unsigned dev build
@@ -22,10 +22,9 @@ function createSessionStore({ dataRoot, secretStore }) {
     const available = Boolean(secretStore && secretStore.isAvailable());
     if (!available && !warnedNoKeychain) {
       warnedNoKeychain = true;
-      console.warn(
-        '[supabase] OS keychain unavailable — session will be stored in a permissions-locked file instead of encrypted. ' +
-          'Common on an unsigned dev build; signing the app (even ad-hoc) usually fixes it.'
-      );
+      console.warn(allowInsecureStorage
+        ? '[supabase] OS keychain unavailable — an unsigned development build will use a permissions-locked session file.'
+        : '[supabase] OS keychain unavailable — production session persistence is disabled.');
     }
     return available;
   }
@@ -46,6 +45,7 @@ function createSessionStore({ dataRoot, secretStore }) {
         return {};
       }
     }
+    if (!allowInsecureStorage) return {};
     try {
       return JSON.parse(await fs.readFile(plaintextPath, 'utf-8'));
     } catch (err) {
@@ -61,6 +61,7 @@ function createSessionStore({ dataRoot, secretStore }) {
       await fs.chmod(encryptedPath, 0o600).catch(() => {});
       return;
     }
+    if (!allowInsecureStorage) return;
     await fs.writeFile(plaintextPath, JSON.stringify(data));
     await fs.chmod(plaintextPath, 0o600).catch(() => {});
   }

@@ -1,0 +1,9 @@
+COACH INTEL FOR MAC
+
+1. Drag Coach Intel to the Applications folder.
+2. Open Coach Intel from Applications.
+3. Complete the secure Coach Intel setup in your default browser.
+
+The first-run setup greets your Coach Intel member profile when available.
+If you are offline or the setup session has expired, you can continue with the
+generic setup and sign in later.

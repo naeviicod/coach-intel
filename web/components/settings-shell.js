@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { resolveSettingsSection } from '../lib/settings-access';
+import { DesktopDownloadCard } from './desktop-download';
 import { Icon } from './icon';
 import { PageHeader } from './page-header';
 import { AccountCard, BackgroundCard, OrganizationCard, ProfileCard } from './settings-view';
@@ -23,6 +24,8 @@ export function SettingsShell({
   role,
   members,
   teams,
+  release,
+  detectedPlatform,
 }) {
   const { visible, def, sectionKey } = resolveSettingsSection(role, isOrgAdmin, section);
 
@@ -59,6 +62,9 @@ export function SettingsShell({
           {sectionKey === 'integrations' ? <IntegrationsCard /> : null}
           {sectionKey === 'team-access' ? <TeamAccessCard members={members} teams={teams} /> : null}
           {sectionKey === 'data' ? <DataCard /> : null}
+          {sectionKey === 'ci-desktop' ? (
+            <DesktopDownloadCard identity={identity} release={release} detectedPlatform={detectedPlatform} />
+          ) : null}
           {sectionKey === 'feedback' ? <FeedbackCard /> : null}
           {sectionKey === 'about' ? <AboutCard /> : null}
         </div>

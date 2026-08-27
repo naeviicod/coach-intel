@@ -30,6 +30,6 @@ create policy "anyone can read published releases"
 -- insert into public.app_releases (version, mac_url, windows_url)
 -- values (
 --   '1.5.4',
---   'https://github.com/naeviicod/coach-intel/releases/download/v1.5.4/Coach-Intel-1.5.4-mac.zip',
+--   'https://github.com/naeviicod/coach-intel/releases/download/v1.5.4/Coach-Intel-1.5.4-macOS.dmg',
 --   'https://github.com/naeviicod/coach-intel/releases/download/v1.5.4/Coach-Intel-Setup-1.5.4.exe'
 -- );

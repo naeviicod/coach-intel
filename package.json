@@ -1,7 +1,7 @@
 {
   "name": "coach-intel",
   "productName": "Coach Intel",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "description": "Coach Intel — offline competitive intelligence assistant for Call of Duty",
   "homepage": "https://coach.championshipseries.eu/",
   "main": "src/main/main.js",
@@ -14,9 +14,14 @@
     "test": "node --test \"tests/**/*.test.js\"",
     "verify:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/main.js",
     "verify:interaction": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/interaction.js",
-    "dist": "sh scripts/dist-mac.sh",
+    "dist": "npm run dist:mac:dev",
+    "dist:mac": "sh scripts/dist-mac.sh",
+    "dist:mac:dev": "COACH_INTEL_UNSIGNED=1 sh scripts/dist-mac.sh",
+    "release:mac": "npx electron-builder --mac --universal --publish never",
+    "verify:mac:release": "sh scripts/verify-macos-release.sh",
+    "verify:version": "node scripts/verify-version.js",
     "dist:win": "electron-builder --win nsis",
-    "release:win": "electron-builder --win nsis --publish always",
+    "release:win": "electron-builder --win nsis --publish never",
     "ship": "npm version patch",
     "postversion": "git push && git push --tags"
   },
@@ -29,13 +34,31 @@
     "productName": "Coach Intel",
     "mac": {
       "category": "public.app-category.sports",
-      "target": "dir",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
+      ],
       "icon": "build/icon.icns",
-      "identity": null
+      "artifactName": "Coach-Intel-${version}-macOS.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": true,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Coach Intel uses the microphone only when you explicitly start an audio-enabled coaching feature."
+      }
     },
     "win": {
       "target": ["nsis"],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "Coach-Intel-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -48,6 +71,35 @@
       "provider": "github",
       "owner": "naeviicod",
       "repo": "coach-intel"
+    },
+    "dmg": {
+      "title": "Coach Intel ${version}",
+      "background": "src/renderer/assets/splash-background.png",
+      "icon": "build/icon.icns",
+      "iconSize": 104,
+      "iconTextSize": 13,
+      "window": {
+        "width": 900,
+        "height": 560
+      },
+      "contents": [
+        {
+          "x": 240,
+          "y": 365
+        },
+        {
+          "x": 660,
+          "y": 365,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 450,
+          "y": 495,
+          "type": "file",
+          "path": "build/Install Coach Intel.txt"
+        }
+      ]
     },
     "protocols": [
       {
@@ -67,10 +119,6 @@
       {
         "from": "data/knowledge",
         "to": "data/knowledge"
-      },
-      {
-        "from": "data/templates",
-        "to": "data/templates"
       },
       {
         "from": "data/maps",

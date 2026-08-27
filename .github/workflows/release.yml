@@ -1,15 +1,102 @@
-name: Release Windows build
+name: Release Coach Intel desktop
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: coach-intel-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release-win:
+  validate:
+    name: Validate desktop and web
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:version
+      - run: npm test
+      # The repository currently has no lint or typecheck scripts. The test
+      # suite includes renderer syntax checks; add dedicated scripts before
+      # enabling a lint/typecheck release gate.
+      - name: Build production web frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+  release-macos:
+    name: Build, sign, notarize, and verify macOS
+    needs: validate
+    runs-on: macos-14
+    env:
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Require production signing and notarization credentials
+        shell: bash
+        run: |
+          test -n "$CSC_LINK"
+          test -n "$CSC_KEY_PASSWORD"
+          test -n "$APPLE_API_KEY_ID"
+          test -n "$APPLE_API_ISSUER"
+          test -n "$APPLE_API_KEY_P8"
+      - name: Materialize App Store Connect API key outside the repository
+        shell: bash
+        run: |
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY_P8" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APPLE_API_KEY=$KEY_PATH" >> "$GITHUB_ENV"
+      - name: Build signed and notarized universal artifacts
+        run: npm run release:mac
+      - name: Staple notarization ticket to the DMG
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          xcrun stapler staple "dist/Coach-Intel-${VERSION}-macOS.dmg"
+      - name: Verify app signature, Gatekeeper, stapling, and DMG contents
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          npm run verify:mac:release -- "dist/mac-universal/Coach Intel.app" "dist/Coach-Intel-${VERSION}-macOS.dmg"
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          shasum -a 256 "dist/Coach-Intel-${VERSION}-macOS.dmg" "dist/Coach-Intel-${VERSION}-macOS.zip" > "dist/Coach-Intel-${VERSION}-macOS.SHA256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: |
+            dist/Coach-Intel-*-macOS.dmg
+            dist/Coach-Intel-*-macOS.zip
+            dist/Coach-Intel-*-macOS.SHA256
+            dist/latest-mac.yml
+          if-no-files-found: error
+
+  release-windows:
+    name: Build Windows installer
+    needs: validate
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,5 +106,28 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run release:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            dist/*.exe
+            dist/latest.yml
+          if-no-files-found: error
+
+  publish:
+    name: Publish verified release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release-macos, release-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+      - name: Publish only fully verified artifacts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" release-artifacts/* \
+            --title "Coach Intel ${GITHUB_REF_NAME#v}" \
+            --generate-notes

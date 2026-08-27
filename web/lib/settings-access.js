@@ -7,6 +7,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'integrations', label: 'Integrations', icon: 'integrations', sub: 'Discord and outside data sources', scope: 'org-admin' },
   { key: 'team-access', label: 'Team Access', icon: 'roster', sub: 'Who can sign in, and their role', scope: 'staff' },
   { key: 'data', label: 'Data & Storage', icon: 'database', sub: 'Where your data lives', scope: 'org-admin' },
+  { key: 'ci-desktop', label: 'CI Desktop', icon: 'desktop', sub: 'Download Coach Intel for Windows or Mac', scope: 'everyone' },
   { key: 'feedback', label: 'Feedback', icon: 'feedback', sub: 'Bugs, ideas, and anything that feels off', scope: 'everyone' },
   { key: 'about', label: 'About', icon: 'help', sub: 'Version and build information', scope: 'everyone' },
 ];

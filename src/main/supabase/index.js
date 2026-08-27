@@ -16,7 +16,13 @@ const { createAssetsService } = require('./assets');
 let service = null;
 
 function createService({ dataRoot, secretStore }) {
-  const sessionStore = createSessionStore({ dataRoot, secretStore });
+  const sessionStore = createSessionStore({
+    dataRoot,
+    secretStore,
+    // Plaintext persistence is a development-only escape hatch. Packaged builds
+    // keep auth material in Keychain or require the member to sign in again.
+    allowInsecureStorage: !app.isPackaged,
+  });
   const client = createSupabaseClient(sessionStore);
   const auth = createAuthService({ client });
   const profiles = createProfilesService({ client });

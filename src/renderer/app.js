@@ -19,6 +19,7 @@ import { toast } from './components/modal.js';
 import { openFeedbackModal, stashFeedback } from './components/feedback.js';
 import * as onboarding from './pages/onboarding.js';
 import * as signIn from './pages/signIn.js';
+import * as desktopSetup from './pages/desktopSetup.js';
 import * as dashboard from './pages/dashboard.js';
 import * as intelFeed from './pages/intelFeed.js';
 import * as tasksPage from './pages/tasksPage.js';
@@ -719,14 +720,26 @@ function revealFromSplash(showFn) {
 }
 
 async function prepareApp({ fast = false } = {}) {
-  const authState = await window.cci.auth.getState().catch(() => ({ configured: false, session: null }));
+  const installationState = window.cci.getInstallationState
+    ? window.cci.getInstallationState().catch(() => ({ inApplications: false }))
+    : Promise.resolve({ inApplications: false });
+  const [authState, installState] = await Promise.all([
+    window.cci.auth.getState().catch(() => ({ configured: false, session: null })),
+    installationState,
+  ]);
+  const needsDesktopSetup = /Mac/i.test(navigator.platform || '')
+    && installState?.inApplications
+    && getPref('macDesktopSetupComplete') !== true;
 
+  if (needsDesktopSetup && !authState?.session) return renderDesktopSetup;
   if (authState?.configured && !authState.session) return renderSignIn;
 
   await loadShellData(undefined, { search: !fast });
   if (authState?.session) {
     window.cci.syncRoster().catch((err) => console.warn('[renderer] roster sync failed', err));
   }
+
+  if (needsDesktopSetup) return renderDesktopSetup;
 
   if (shouldRunOnboarding({
     org: state.org,
@@ -770,7 +783,7 @@ async function prepareApp({ fast = false } = {}) {
     const app = document.getElementById('app');
     const content = document.getElementById('content');
     app.classList.add('shell');
-    content?.querySelectorAll('.signin-screen, .onboarding-screen').forEach((node) => node.remove());
+    content?.querySelectorAll('.signin-screen, .onboarding-screen, .desktop-setup-screen').forEach((node) => node.remove());
     content.className = '';
     content.style.padding = '';
     restAtmosphere();
@@ -838,7 +851,7 @@ async function enterApp() {
   entering = true;
   try {
     const content = document.getElementById('content');
-    content?.querySelectorAll('.signin-screen, .onboarding-screen').forEach((node) => node.remove());
+    content?.querySelectorAll('.signin-screen, .onboarding-screen, .desktop-setup-screen').forEach((node) => node.remove());
     const showFn = await prepareApp({ fast: true });
     applySavedLook();
     showFn();
@@ -880,6 +893,20 @@ function renderSignIn() {
   content.style.padding = '0';
   content.innerHTML = '';
   signIn.render(content, { onComplete: () => enterApp() });
+}
+
+function renderDesktopSetup() {
+  for (const id of ['sidebar', 'topbar', 'statusbar']) document.getElementById(id).style.display = 'none';
+  const content = document.getElementById('content');
+  content.className = 'flush';
+  content.style.padding = '0';
+  content.innerHTML = '';
+  desktopSetup.render(content, {
+    onComplete: () => {
+      setPref('macDesktopSetupComplete', true);
+      enterApp();
+    },
+  });
 }
 
 // ---------- Global navigation ----------

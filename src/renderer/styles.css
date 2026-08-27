@@ -3505,6 +3505,35 @@ tr.series-map-row td { color: var(--text-faint); font-size: 12px; }
 }
 .signin-screen.gate-in .signin-discord:disabled { opacity: .4; }
 .signin-screen.gate-in .signin-discord:active { transform: scale(0.97); }
+
+/* First-run setup is Coach Intel UI, not a simulated Apple Installer. It runs
+   only after the signed app has been copied to Applications and uses the same
+   brand atmosphere as sign-in while the system browser proves membership. */
+.desktop-setup-screen { position: relative; overflow: hidden; }
+.desktop-setup-brief {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: min(680px, 92vw);
+  padding: 34px 38px 30px;
+  border: 1px solid color-mix(in srgb, #ffffff 14%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg, #080a0c) 48%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 28px 56px -28px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-app-region: no-drag;
+}
+.desktop-setup-lockup { width: min(360px, 70vw); height: auto; }
+.desktop-setup-title { color: var(--text); font-size: clamp(22px, 3vw, 31px); font-weight: 760; letter-spacing: -0.025em; text-align: center; }
+.desktop-setup-copy { max-width: 520px; color: var(--text-dim); font-size: 13px; line-height: 1.62; text-align: center; }
+.desktop-setup-copy p { margin: 0 0 10px; }
+.desktop-setup-copy p:last-child { color: var(--text); font-weight: 600; margin-bottom: 0; }
+.desktop-setup-status { max-width: 480px; color: var(--accent); font-size: 12px; line-height: 1.45; text-align: center; }
+.desktop-setup-continue { min-width: min(340px, 100%); min-height: 44px; border-radius: 999px; }
 .onboarding-logo-preview {
   width: 36px;
   height: 36px;
