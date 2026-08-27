@@ -120,6 +120,38 @@ test('the download action is keyboard operable and announces its status', () => 
   assert.match(card, /aria-describedby/);
 });
 
+test('Settings download uses the current GitHub Windows installer when app_releases is missing or stale', () => {
+  const { overlayCurrentRelease, githubWindowsUrl } = require(path.join(web, 'lib', 'releases.js'));
+  const current = require(path.join(web, 'package.json')).version;
+  assert.equal(current, '3.9.0');
+  assert.equal(
+    githubWindowsUrl('3.9.0'),
+    'https://github.com/naeviicod/coach-intel/releases/download/v3.9.0/Coach-Intel-Setup-3.9.0.exe',
+  );
+
+  const fromEmpty = overlayCurrentRelease(null, '3.9.0');
+  assert.equal(fromEmpty.version, '3.9.0');
+  assert.equal(fromEmpty.windows_url, githubWindowsUrl('3.9.0'));
+  assert.equal(fromEmpty.mac_url, null);
+
+  const stale = overlayCurrentRelease({
+    version: '3.5.0',
+    windows_url: 'https://example.com/old.exe',
+    mac_url: 'https://example.com/old.dmg',
+  }, '3.9.0');
+  assert.equal(stale.version, '3.9.0');
+  assert.equal(stale.windows_url, githubWindowsUrl('3.9.0'));
+  assert.equal(stale.mac_url, null);
+
+  const currentRow = overlayCurrentRelease({
+    version: '3.9.0',
+    windows_url: 'https://cdn.example/Coach-Intel-Setup-3.9.0.exe',
+    mac_url: 'https://cdn.example/Coach-Intel-3.9.0-macOS.dmg',
+  }, '3.9.0');
+  assert.equal(currentRow.windows_url, 'https://cdn.example/Coach-Intel-Setup-3.9.0.exe');
+  assert.equal(currentRow.mac_url, 'https://cdn.example/Coach-Intel-3.9.0-macOS.dmg');
+});
+
 test('CI Desktop stays inside the authenticated settings shell, which already gates signed-out visitors', () => {
   // The (shell) layout redirects to sign-in before any settings section renders,
   // so the download UI never needs its own auth check.
