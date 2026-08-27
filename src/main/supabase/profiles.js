@@ -25,21 +25,24 @@ function createProfilesService({ client }) {
 
   async function list() {
     const c = requireClient();
-    const { data: sessionData } = await c.auth.getSession();
-    const userId = sessionData?.session?.user?.id || null;
 
-    const load = async () => {
-      const { data, error } = await c.from('profiles').select('*').order('created_at', { ascending: true });
-      if (error) throw error;
-      const profiles = data || [];
+    const fetchProfiles = () => c.from('profiles').select('*').order('created_at', { ascending: true });
+    const toListed = (userId, res) => {
+      if (res.error) throw res.error;
+      const profiles = res.data || [];
       const me = userId ? profiles.find((p) => p.id === userId) || null : null;
       return { profiles, me };
     };
 
-    let listed = await load();
+    // The session lookup and the profiles query don't depend on each other, so
+    // run them together instead of paying for both round trips back to back.
+    const [{ data: sessionData }, profilesRes] = await Promise.all([c.auth.getSession(), fetchProfiles()]);
+    const userId = sessionData?.session?.user?.id || null;
+
+    let listed = toListed(userId, profilesRes);
     if (userId && !listed.me) {
       await ensure();
-      listed = await load();
+      listed = toListed(userId, await fetchProfiles());
     }
     let teamIds = [];
     let linkedNames = [];

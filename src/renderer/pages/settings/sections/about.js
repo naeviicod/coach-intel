@@ -2,8 +2,7 @@ import { el } from '../../../utils.js';
 import { asset } from '../../../lib/assets.js';
 
 export async function render(panel, ctx) {
-  const version = await window.cci.getAppVersion();
-  const ruleset = await window.cci.getCdlRuleset();
+  const [version, ruleset] = await Promise.all([window.cci.getAppVersion(), window.cci.getCdlRuleset()]);
 
   panel.append(
     el('div', { class: 'card section' }, [

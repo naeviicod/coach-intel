@@ -2,7 +2,7 @@ import { el, initials } from '../../../utils.js';
 import { ASSIGNABLE_ROLES, ROLE_LABELS, canEdit, isProtectedPerson, resolveAccessRole } from '../../../lib/access.js';
 
 export async function render(panel, ctx) {
-  const authState = await window.cci.auth.getState();
+  const [authState, result] = await Promise.all([window.cci.auth.getState(), window.cci.auth.listProfiles()]);
   if (!authState.configured) {
     panel.append(
       el('div', { class: 'card section' }, [
@@ -13,7 +13,6 @@ export async function render(panel, ctx) {
     return;
   }
 
-  const result = await window.cci.auth.listProfiles();
   if (!result.ok) {
     panel.append(
       el('div', { class: 'card inline-error' }, [

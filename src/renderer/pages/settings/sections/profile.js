@@ -8,12 +8,11 @@ import { toast } from '../../../components/modal.js';
 // app looks like for them, and the way out. Org-wide settings live next door in
 // Organization, which most roles never see.
 export async function render(panel, ctx) {
-  const org = await window.cci.getOrg();
+  const [org, session] = await Promise.all([window.cci.getOrg(), sessionCard()]);
   const chip = chipIdentity(org, ctx.access);
 
   panel.append(profileCard(org, chip, ctx));
   panel.append(backgroundCard());
-  const session = await sessionCard();
   if (session) panel.append(session);
 }
 
