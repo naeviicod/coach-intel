@@ -461,7 +461,7 @@ function playerStatForm(match, team, members, existing, onDone) {
     onSubmit: async (values) => {
       const row = { ...values };
       for (const s of objStats) {
-        if (s.duration) row[s.key] = parseClockToSeconds(row[s.key]) ?? Number(row[s.key]) || 0;
+        if (s.duration) row[s.key] = parseClockToSeconds(row[s.key]) ?? (Number(row[s.key]) || 0);
       }
       const players = (match.players || []).filter((p) => p.member_id !== row.member_id);
       players.push(row);

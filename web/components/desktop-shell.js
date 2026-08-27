@@ -62,7 +62,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
               <span>Ruleset checked {RULESET.last_checked}</span>
             </div>
             <div className="sbar-group sources">
-              <span className="sbar-label">v3.5.0</span>
+              <span className="sbar-label">v3.7.0</span>
               <span className="sbar-src">{RULESET.label}</span>
               <span className="sbar-src">Org cloud</span>
             </div>

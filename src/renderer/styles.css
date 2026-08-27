@@ -24,8 +24,8 @@
   --dur-hover: 140ms;
   --dur-panel: 200ms;
   --dur-page: 220ms;
-  --dur-splash: 420ms;
-  --dur-app-reveal: 420ms;
+  --dur-splash: 820ms;
+  --dur-app-reveal: 820ms;
   /* Wallpaper changes settle behind the still-opaque splash before reveal. */
   --dur-look: 520ms;
 
@@ -172,12 +172,13 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
   display: grid;
   place-items: center;
   background: transparent;
+  filter: blur(0);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
   isolation: isolate;
-  transition: opacity var(--dur-splash) var(--ease-out);
+  transition: opacity var(--dur-splash) var(--ease-out), filter var(--dur-splash) var(--ease-out);
 }
 
 .splash-background {
@@ -345,6 +346,9 @@ html.is-mac #app.shell { padding-top: var(--shell-top); }
 html.accent-tinted #atmosphere.art-bg .arena-art-img {
   filter: var(--brand-tint, none);
 }
+html.booting-splash.accent-tinted #atmosphere.art-bg .arena-art-img {
+  filter: none;
+}
 .arena-art-tint {
   position: absolute;
   inset: 0;
@@ -355,6 +359,9 @@ html.accent-tinted #atmosphere.art-bg .arena-art-img {
   transition: opacity var(--dur-look) var(--ease-out);
 }
 html.accent-tinted #atmosphere.art-bg .arena-art-tint { opacity: 0.58; }
+html.booting-splash.accent-tinted #atmosphere.art-bg .arena-art-tint {
+  opacity: 0;
+}
 html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   mix-blend-mode: saturation;
   background: #9aa09a;
@@ -711,11 +718,14 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .splash-bar {
   position: relative;
-  width: min(560px, 58vw);
-  height: 2px;
+  width: 210px;
+  height: 5px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, #12161a);
+  background: color-mix(in srgb, #b6f542 10%, #0b0d10);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #b6f542 22%, transparent);
+  transform-origin: center center;
+  animation: splashBarPulse 0.8s var(--ease-in-out) infinite alternate;
 }
 .splash-bar-fill,
 .splash-bar-sheen {
@@ -724,24 +734,27 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 }
 .splash-bar-fill {
   inset: 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 38%, #1c2024), var(--accent));
+  overflow: hidden;
+  background: linear-gradient(90deg, #b6f542 0%, #eaffc2 55%, #ffffff 100%);
   transform: scaleX(0);
   transform-origin: left center;
   z-index: 1;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .splash-bar-sheen {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 22%;
+  width: 28%;
   z-index: 2;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
   transform: translateX(-140%);
-  animation: splashBarSweep 1.8s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+  animation: splashBarSweep 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
 }
-#splash.loaded .splash-bar {
+#splash.loaded .splash-bar,
+#splash.dissolving .splash-bar {
+  animation: none;
   opacity: 1;
+  transform: none;
 }
 .splash-version {
   font-family: var(--font);
@@ -753,15 +766,16 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
 
 #splash.dissolving {
   opacity: 0;
+  filter: blur(12px);
   pointer-events: none;
 }
 #splash.dissolving .splash-stage {
-  animation: splashStageOut var(--dur-splash) var(--ease-out) forwards;
-  will-change: transform;
+  animation: splashStageOut 480ms var(--ease-out) forwards;
+  will-change: opacity;
 }
 #splash.dissolving .splash-slogan-frame,
 #splash.dissolving .splash-meta {
-  animation: splashPieceOut 200ms var(--ease-out) forwards;
+  animation: splashPieceOut 360ms var(--ease-out) forwards;
 }
 #splash.hide {
   opacity: 0;
@@ -802,9 +816,13 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   from { transform: translateX(-140%); }
   to { transform: translateX(420%); }
 }
+@keyframes splashBarPulse {
+  from { opacity: 0.38; transform: scaleY(1); }
+  to { opacity: 1; transform: scaleY(2.1); }
+}
 @keyframes splashStageOut {
-  from { transform: scale(1); }
-  to { transform: scale(0.64); }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @keyframes splashPieceOut {
   from { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -3368,6 +3386,13 @@ tr.series-map-row td { color: var(--text-faint); font-size: 12px; }
 }
 #splash.dissolving:not(.hide) ~ #app .signin-brief {
   animation: signinSettle var(--dur-splash) var(--ease-out) both;
+}
+#splash.dissolving:not(.hide) ~ #app.shell {
+  animation: splashShellIn var(--dur-splash) var(--ease-out) both;
+}
+@keyframes splashShellIn {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 .signin-brief {
   position: relative;

@@ -527,9 +527,10 @@ async function cloudDelete(kind, teamId, id) {
 ipcMain.handle('cci:getTeams', async () => {
   const local = await dataStore.getTeams();
   const session = await supabase.get().getState().then((s) => s?.session).catch(() => null);
-  if (local.length && (!session || cachedTeamScope)) {
+  if (local.length) {
     if (session) refreshTeamsBackground();
-    return dataStore.applyLocalLogos(await teamsForSession(await teamsWithLocal([]), { allowCache: true }));
+    const scoped = cachedTeamScope ? scopeTeams(local, cachedTeamScope) : local;
+    return dataStore.applyLocalLogos(scoped);
   }
   let remote = [];
   try {

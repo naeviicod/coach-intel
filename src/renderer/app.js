@@ -134,13 +134,13 @@ const LEGACY_TAB_ROUTES = {
   strats: (teamId) => `#/playbooks/${teamId}`,
 };
 
-const SPLASH_MIN_MS = 2100;
-const SPLASH_VEIL_MS = 220;
-const SPLASH_BAR_MS = 240;
+const SPLASH_MIN_MS = 5000;
+const SPLASH_VEIL_MS = 160;
+const SPLASH_BAR_MS = 180;
 // Keep in step with --dur-splash in styles.css.
-const SPLASH_DISSOLVE_MS = 420;
-const ART_PRELOAD_MS = 400;
-const BOOT_TIMEOUT_MS = 10000;
+const SPLASH_DISSOLVE_MS = 820;
+const ART_PRELOAD_MS = 200;
+const BOOT_TIMEOUT_MS = 8000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
 const TEAM_NAV_PAGES = new Set([
   'team-hub',
@@ -361,16 +361,22 @@ document.addEventListener('cci:org-refresh', () => {
 });
 
 async function loadShellDataBody(onProgress, { search = true } = {}) {
-  state.org = await window.cci.getOrg();
-  onProgress?.(0.48);
-  state.teams = await window.cci.getTeams();
+  const [org, teams, ruleset, appVersion] = await Promise.all([
+    window.cci.getOrg(),
+    window.cci.getTeams(),
+    window.cci.getCdlRuleset(),
+    window.cci.getAppVersion().catch(() => ''),
+  ]);
+  state.org = org;
+  state.teams = teams;
+  state.ruleset = ruleset;
+  state.appVersion = appVersion;
   onProgress?.(0.58);
-  state.ruleset = await window.cci.getCdlRuleset();
   let inviteAccent = null;
   if (!state.teams.length && window.cci.invites?.pending) {
     const pending = await Promise.race([
       window.cci.invites.pending().catch(() => null),
-      new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+      new Promise((resolve) => setTimeout(() => resolve(null), 800)),
     ]);
     inviteAccent = pending?.ok ? pending.data?.accent : null;
   }
@@ -381,9 +387,7 @@ async function loadShellDataBody(onProgress, { search = true } = {}) {
     firstLaunch: !orgIsProvisioned(state.org) && !state.teams.length,
   });
   if (state.org) state.org = { ...state.org, accent };
-  // Splash stays Intel Lime. Accent and wallpaper wait until the splash hides.
-  state.appVersion = await window.cci.getAppVersion();
-  await loadAccess();
+  await loadAccess({ wait: search });
   onProgress?.(0.68);
   if (search) await buildSearchIndex();
   else {
@@ -393,7 +397,7 @@ async function loadShellDataBody(onProgress, { search = true } = {}) {
   onProgress?.(0.8);
 }
 
-async function loadAccess() {
+async function loadAccess({ wait = true } = {}) {
   try {
     const auth = await window.cci.auth.getState();
     state.online = Boolean(auth?.configured && auth.session);
@@ -402,11 +406,29 @@ async function loadAccess() {
       applyAccessChrome();
       return;
     }
-    const listed = await window.cci.auth.listProfiles();
-    const me = listed?.ok ? listed.data?.me : null;
-    const teamIds = listed?.ok ? listed.data?.teamIds : [];
-    const linkedNames = listed?.ok ? listed.data?.linkedNames : [];
-    state.access = accessFromProfile(me, { local: !me, teamIds, linkedNames });
+    const applyListed = (listed) => {
+      const me = listed?.ok ? listed.data?.me : null;
+      const teamIds = listed?.ok ? listed.data?.teamIds : [];
+      const linkedNames = listed?.ok ? listed.data?.linkedNames : [];
+      state.access = accessFromProfile(me, { local: !me, teamIds, linkedNames });
+      state.online = true;
+    };
+    if (!wait) {
+      window.cci.auth.listProfiles()
+        .then((listed) => {
+          applyListed(listed);
+          applyAccessChrome();
+          if (booted) {
+            renderSidebar();
+            renderTopbar();
+            renderStatusBar();
+          }
+        })
+        .catch((err) => console.warn('[renderer] access load failed', err));
+      applyAccessChrome();
+      return;
+    }
+    applyListed(await window.cci.auth.listProfiles());
   } catch (err) {
     console.warn('[renderer] access load failed', err);
     state.access = localStaffAccess();
@@ -522,6 +544,7 @@ function revealApp() {
 }
 
 function finishSplash(splash) {
+  document.documentElement.classList.remove('booting-splash');
   if (!splash) {
     applySavedLook();
     signalSplashDone();
@@ -579,42 +602,70 @@ function splashBarFill() {
   return document.querySelector('#splash .splash-bar-fill');
 }
 
+function splashBarTrack() {
+  return document.querySelector('#splash .splash-bar');
+}
+
+function runSplashBarPulse() {
+  const track = splashBarTrack();
+  if (!track?.animate || prefersReducedMotion()) return null;
+  track.style.animation = 'none';
+  return track.animate(
+    [
+      { opacity: 0.38, transform: 'scaleY(1)' },
+      { opacity: 1, transform: 'scaleY(2.1)' },
+    ],
+    {
+      duration: 800,
+      easing: 'ease-in-out',
+      direction: 'alternate',
+      iterations: Infinity,
+    }
+  );
+}
+
 function runSplashBar() {
   const bar = splashBarFill();
   if (!bar) return Promise.resolve(null);
   bar.style.transform = 'scaleX(0)';
-  if (!bar.animate) return Promise.resolve(null);
+  const pulse = runSplashBarPulse();
+  if (!bar.animate) return Promise.resolve(pulse);
   return wait(SPLASH_VEIL_MS).then(() => {
     const current = splashBarFill();
-    if (!current?.animate) return null;
-    return current.animate(
-      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(0.92)' }],
+    if (!current?.animate) return pulse;
+    current.animate(
+      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(0.97)' }],
       {
         duration: Math.max(1, SPLASH_MIN_MS - SPLASH_VEIL_MS - SPLASH_BAR_MS),
-        easing: 'cubic-bezier(0.15, 0.82, 0.22, 1)',
+        easing: 'linear',
         fill: 'forwards',
       }
     );
+    return pulse;
   });
 }
 
 async function completeSplashBar(animOrPromise) {
-  const anim = animOrPromise && typeof animOrPromise.then === 'function'
-    ? await animOrPromise
-    : animOrPromise;
   const bar = splashBarFill();
+  const track = splashBarTrack();
   document.getElementById('splash')?.classList.add('loaded');
-  try { anim?.commitStyles(); anim?.cancel(); } catch { /* ignore */ }
-  if (!bar) return;
-  if (bar.animate) {
-    const fin = bar.animate(
-      [{ transform: 'scaleX(0.92)' }, { transform: 'scaleX(1)' }],
-      { duration: SPLASH_BAR_MS, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' }
-    );
-    await fin.finished.catch(() => {});
-    try { fin.commitStyles(); fin.cancel(); } catch { /* ignore */ }
+  try {
+    if (animOrPromise && typeof animOrPromise.then === 'function') {
+      await Promise.race([animOrPromise, wait(SPLASH_VEIL_MS + 80)]);
+    }
+  } catch { /* ignore */ }
+  try { track?.getAnimations?.().forEach((a) => a.cancel()); } catch { /* ignore */ }
+  try {
+    bar?.getAnimations?.().forEach((a) => {
+      try { a.commitStyles(); } catch { /* ignore */ }
+      a.cancel();
+    });
+  } catch { /* ignore */ }
+  if (bar) bar.style.transform = 'scaleX(1)';
+  if (track) {
+    track.style.opacity = '1';
+    track.style.transform = 'none';
   }
-  bar.style.transform = 'scaleX(1)';
 }
 
 function stopFades(node) {
@@ -746,6 +797,7 @@ function paintSplashVersion() {
 
 async function boot() {
   if (/Mac/i.test(navigator.platform || '')) document.documentElement.classList.add('is-mac');
+  document.documentElement.classList.add('booting-splash');
   applyAccent(DEFAULT_ACCENT);
   applyBackground(DEFAULT_BACKGROUND);
   const artReady = preloadBackground(DEFAULT_BACKGROUND);
@@ -776,7 +828,7 @@ async function boot() {
   await minTime;
   await raceTimeout(artReady, ART_PRELOAD_MS, null).catch(() => {});
   applySavedLook();
-  await completeSplashBar(barAnim);
+  await raceTimeout(completeSplashBar(barAnim), SPLASH_BAR_MS + 120, null).catch(() => {});
   revealFromSplash(showFn);
   window.addEventListener('resize', applyResponsiveNav);
 }

@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -74,13 +75,20 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
   const signIn = fs.readFileSync(path.join(renderer, 'pages', 'signIn.js'), 'utf8');
 
-  assert.match(styles, /#splash\.dissolving \{[\s\S]{0,140}opacity:\s*0/);
-  assert.match(styles, /#splash \{[\s\S]{0,360}transition:\s*opacity var\(--dur-splash\) var\(--ease-out\)/);
+  assert.match(styles, /#splash\.dissolving \{[\s\S]{0,180}opacity:\s*0/);
+  assert.match(styles, /#splash\.dissolving \{[\s\S]{0,220}filter:\s*blur\(12px\)/);
+  assert.match(styles, /#splash \{[\s\S]{0,420}transition:\s*opacity var\(--dur-splash\) var\(--ease-out\), filter var\(--dur-splash\) var\(--ease-out\)/);
   assert.match(styles, /@keyframes splashBarSweep/);
+  assert.match(styles, /@keyframes splashBarPulse/);
   assert.match(styles, /@keyframes splashStageOut/);
   assert.match(styles, /@keyframes splashPieceOut/);
   assert.match(styles, /#splash\.dissolving \.splash-stage/);
-  assert.match(styles, /transform:\s*scale\(0\.64\)/);
+  assert.match(styles, /\.splash-bar \{[\s\S]{0,520}splashBarPulse/);
+  assert.match(styles, /#splash\.loaded \.splash-bar[\s\S]{0,120}animation:\s*none/);
+  assert.match(app, /function runSplashBarPulse/);
+  assert.match(app, /scaleY\(2\.1\)/);
+  assert.doesNotMatch(styles, /transform:\s*scale\(0\.64\)/);
+  assert.doesNotMatch(styles, /@keyframes splashStageOut \{[\s\S]{0,160}scale\(/);
   assert.doesNotMatch(styles, /#splash\.handoff/);
   assert.doesNotMatch(styles, /#splash\.landed/);
   assert.doesNotMatch(styles, /splashLockupExit/);
@@ -88,15 +96,39 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   const fade = Number(app.match(/const SPLASH_DISSOLVE_MS = (\d+)/)[1]);
   const dur = Number(styles.match(/--dur-splash:\s*(\d+)ms/)[1]);
   assert.equal(fade, dur, 'the JS timeout must match the CSS dissolve');
-  assert.equal(fade, 420);
-  assert.match(app, /const SPLASH_MIN_MS = 2100/);
-  assert.match(app, /const SPLASH_VEIL_MS = 220/);
+  assert.equal(fade, 820);
+  assert.match(app, /const SPLASH_MIN_MS = 5000/);
+  assert.match(app, /const SPLASH_VEIL_MS = 160/);
   assert.match(app, /prepareApp\(\{ fast: true \}\)/);
   assert.match(app, /transform: 'scaleX\(0\)'/);
-  assert.match(styles, /\.splash-bar \{[\s\S]{0,220}width:\s*min\(560px, 58vw\)/);
-  assert.match(styles, /\.splash-bar \{[\s\S]{0,220}height:\s*2px/);
+  assert.match(app, /easing: 'linear'/);
+  assert.doesNotMatch(app, /cubic-bezier\(0\.15, 0\.82, 0\.22, 1\)/);
+  assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,280}linear-gradient\(90deg, #b6f542/);
+  assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,400}#ffffff/);
+  assert.match(styles, /html\.booting-splash\.accent-tinted #atmosphere\.art-bg \.arena-art-tint \{[\s\S]{0,80}opacity:\s*0/);
+  assert.match(app, /classList\.add\('booting-splash'\)/);
+  assert.match(app, /classList\.remove\('booting-splash'\)/);
+  assert.match(styles, /\.splash-bar \{[\s\S]{0,280}height:\s*5px/);
+  assert.match(styles, /\.splash-meta \{[\s\S]{0,280}margin-top:\s*clamp\(24px, 3vw, 34px\)/);
+  assert.doesNotMatch(styles, /\.splash-meta \{[\s\S]{0,280}bottom:\s*clamp/);
+  assert.match(app, /raceTimeout\(completeSplashBar/);
   assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,220}transform:\s*scaleX\(0\)/);
+  assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,220}overflow:\s*hidden/);
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
+});
+
+test('splash holds five seconds then signs in or opens the dashboard once', () => {
+  const html = fs.readFileSync(index, 'utf8');
+  const app = fs.readFileSync(path.join(renderer, 'app.js'), 'utf8');
+
+  assert.match(html, /class="splash-bar-fill">\s*<span class="splash-bar-sheen"/);
+  assert.match(app, /const BOOT_TIMEOUT_MS = 8000/);
+  assert.match(app, /onComplete: \(\) => enterApp\(\)/);
+  assert.doesNotMatch(app, /signIn\.render\(content, \{ onComplete: \(\) => window\.location\.reload/);
+  const enterApp = app.slice(app.indexOf('async function enterApp()'), app.indexOf('function renderOnboarding()'));
+  assert.doesNotMatch(enterApp, /\bboot\(\)/);
+  assert.doesNotMatch(enterApp, /location\.reload/);
+  assert.doesNotMatch(enterApp, /finishSplash/);
 });
 
 test('pages swap immediately instead of fading the content pane', () => {
@@ -117,9 +149,11 @@ test('the finished screen fades in under the dissolving splash', () => {
   assert.match(styles, /#app\.booting \{[\s\S]{0,220}will-change:\s*opacity/);
   assert.doesNotMatch(styles, /#app\.booting \{[\s\S]{0,260}transform:/);
   assert.match(styles, /#app \{[\s\S]{0,220}opacity var\(--dur-app-reveal\)/);
-  assert.match(styles, /--dur-app-reveal:\s*420ms/);
+  assert.match(styles, /--dur-app-reveal:\s*820ms/);
   assert.match(styles, /@keyframes signinSettle/);
   assert.match(styles, /#splash\.dissolving:not\(\.hide\) ~ #app \.signin-brief/);
+  assert.match(styles, /#splash\.dissolving:not\(\.hide\) ~ #app\.shell/);
+  assert.match(styles, /@keyframes splashShellIn/);
   assert.doesNotMatch(styles, /\.signin-screen \{[\s\S]{0,300}transition:/);
   assert.doesNotMatch(styles, /\.signin-discord \{[\s\S]{0,300}transition:/);
   assert.match(app, /function revealApp\(\)/);
@@ -161,8 +195,8 @@ test('splash sits on the app pit with no pulse HUD', () => {
   assert.doesNotMatch(html, /arena-scan/);
   assert.doesNotMatch(html, /splash-glow/);
   assert.doesNotMatch(html, /class="splash-background"/);
-  assert.doesNotMatch(styles, /splashBarPulse/);
   assert.doesNotMatch(styles, /splashSheen/);
+  assert.match(styles, /@keyframes splashBarPulse/);
   assert.match(styles, /#splash \{[\s\S]{0,280}background:\s*transparent/);
   assert.match(styles, /#splash\.dissolving/);
 });
@@ -207,4 +241,34 @@ test('the About lockup paints the accent rather than filtering towards it', () =
   assert.match(about, /https:\/\/coach\.championshipseries\.eu\//);
   assert.equal(about.includes("class: 'brand-tint'"), false, 'the hue-rotate approximation is gone');
   assert.match(styles, /\.ci-lockup-accent[^}]*background: var\(--accent\)/);
+});
+
+test('renderer modules parse so a syntax error cannot trap the splash', () => {
+  const files = [];
+  const walk = (dir) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const next = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(next);
+      else if (ent.name.endsWith('.js')) files.push(next);
+    }
+  };
+  walk(renderer);
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--experimental-vm-modules',
+      '--eval',
+      `import vm from 'node:vm';
+       import fs from 'node:fs';
+       const files = ${JSON.stringify(files)};
+       const failed = [];
+       for (const file of files) {
+         try { new vm.SourceTextModule(fs.readFileSync(file, 'utf8')); }
+         catch (err) { failed.push(file + ': ' + String(err.message).split('\\n')[0]); }
+       }
+       if (failed.length) { console.error(failed.join('\\n')); process.exit(1); }`,
+    ],
+    { encoding: 'utf8' }
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 });
