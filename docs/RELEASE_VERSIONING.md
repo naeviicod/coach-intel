@@ -2,7 +2,7 @@
 
 The root `package.json` is authoritative for Electron releases. `web/package.json`
 must match it; run `npm run verify:version` before building a release. Current
-version: **3.9.0**.
+version: **3.9.1**.
 
 Use the following release increments:
 

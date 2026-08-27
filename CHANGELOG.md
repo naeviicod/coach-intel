@@ -1,6 +1,10 @@
 # Changelog
 
-## Current Version: 3.9.0
+## Current Version: 3.9.1
+
+## 3.9.1 — 2026-08-27
+
+- Added a personalized Welcome page to the Windows installer: it greets whoever is installing by their actual Windows account name and carries Coach Intel branding in the wizard sidebar, instead of jumping straight to the installation-options screen.
 
 ## 3.9.0 — 2026-08-27
 
