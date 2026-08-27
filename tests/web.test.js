@@ -163,6 +163,9 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('lib/workspace.js'), /loadCachedDocs\(teamId/);
   assert.doesNotMatch(read('app/(shell)/layout.js'), /getSessionUser/);
   assert.match(read('app/(shell)/loading.js'), /aria-busy="true"/);
+  assert.match(read('app/(shell)/loading.js'), /page-loader-ring/);
+  assert.match(read('app/desktop-ui.css'), /pageLoaderGlow/);
+  assert.match(read('app/(shell)/vod-library/page.js'), /kinds:\s*\['vod', 'ruleset'\]/);
   assert.match(hub, /hub-rail/);
   assert.match(hub, /Overview/);
   assert.match(hub, /Roster/);
@@ -198,8 +201,9 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/players/page.js'), /row-action-slot/);
   assert.match(read('app/(shell)/players/page.js'), /roster-tags/);
   assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /function actionSlot/);
-  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /if \(!child\) return null/);
-  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /row-action-slot:not\(:empty\) ~ \.row-action-slot:not\(:empty\)::before/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /child \? \[child\] : \[\]/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /grid-template-columns:\s*repeat\(5,/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /row-action-slot:empty \{ display: none/);
   assert.match(read('app/(shell)/players/page.js'), /canManageTeam/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-grid/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-mark/);

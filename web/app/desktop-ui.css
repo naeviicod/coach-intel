@@ -1825,10 +1825,11 @@ body.access-readonly .roster-manage .edit-only { display: flex !important; }
   flex-wrap: nowrap;
   gap: 6px;
   align-items: center;
-  justify-content: flex-end;
-  min-width: 9rem;
+  justify-content: flex-start;
+  width: 16rem;
+  min-width: 16rem;
   max-width: 16rem;
-  flex-shrink: 1;
+  flex-shrink: 0;
   overflow: hidden;
 }
 .roster-kd {
@@ -1855,25 +1856,31 @@ body.access-readonly .roster-manage .edit-only { display: flex !important; }
 }
 .roster-tags .role-badge-name { display: none; }
 .roster-row .row-actions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(5, 5.15rem);
+  column-gap: 14px;
   flex-shrink: 0;
   margin-left: auto;
   align-items: center;
 }
 .roster-row .row-action-slot {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   min-width: 0;
+  min-height: 28px;
 }
-.roster-row .row-action-slot:empty { display: none; }
-.roster-row .row-action-slot:not(:empty) ~ .row-action-slot:not(:empty)::before {
+.roster-row .row-action-slot:not(:first-child)::before {
   content: '|';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-faint);
   opacity: 0.45;
-  margin-right: 6px;
   font-weight: 500;
+  pointer-events: none;
 }
 .roster-row .row-actions .btn,
 .roster-row .row-actions select {
@@ -2938,6 +2945,31 @@ tr.clickable-row:hover td { background: #ffffff06; }
 .field-label {
   display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .07em;
   text-transform: uppercase; color: var(--text-faint); margin-bottom: 5px;
+}
+
+.page-loader {
+  min-height: min(46vh, 380px);
+  display: grid;
+  place-items: center;
+}
+.page-loader-ring {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.4);
+  animation: pageLoaderSpin 0.9s linear infinite, pageLoaderGlow 1.8s ease-in-out infinite;
+}
+@keyframes pageLoaderSpin { to { transform: rotate(360deg); } }
+@keyframes pageLoaderGlow {
+  0%, 100% { opacity: 0.62; box-shadow: 0 0 6px rgba(255, 255, 255, 0.05); }
+  50% { opacity: 1; box-shadow: 0 0 12px rgba(255, 255, 255, 0.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-ring {
+    animation: pageLoaderGlow 1.8s ease-in-out infinite;
+    border-top-color: rgba(255, 255, 255, 0.28);
+  }
 }
 
 /* KPI row */

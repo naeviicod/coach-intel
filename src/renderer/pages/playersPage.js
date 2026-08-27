@@ -231,8 +231,7 @@ function appendGroup(card, title, members, team, matches, ctx, { empty, manage, 
 }
 
 function actionSlot(child) {
-  if (!child) return null;
-  return el('span', { class: 'row-action-slot' }, [child]);
+  return el('span', { class: 'row-action-slot' }, child ? [child] : []);
 }
 
 function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {

@@ -85,15 +85,17 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
         <>
           <span className="roster-pipe" aria-hidden="true">|</span>
           <div className="row-actions edit-only">
-            {canEdit && !staff && !fa ? (
-              <span className="row-action-slot"><RosterSlotButton member={row} canEdit={canEdit} /></span>
-            ) : null}
-            {canEdit ? <span className="row-action-slot"><EditMember member={row} canEdit={canEdit} /></span> : null}
-            {canTransfer ? (
-              <span className="row-action-slot"><TransferMember member={row} teams={teams} canTransfer={canTransfer} /></span>
-            ) : null}
-            {showInvite && !memberDiscordVerified(member) ? (
-              <span className="row-action-slot">
+            <span className="row-action-slot">
+              {canEdit && !staff && !fa ? <RosterSlotButton member={row} canEdit={canEdit} /> : null}
+            </span>
+            <span className="row-action-slot">
+              {canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}
+            </span>
+            <span className="row-action-slot">
+              {canTransfer ? <TransferMember member={row} teams={teams} canTransfer={canTransfer} /> : null}
+            </span>
+            <span className="row-action-slot">
+              {showInvite && !memberDiscordVerified(member) ? (
                 <CopyInvite
                   teamId={teamId}
                   memberId={member.id}
@@ -101,11 +103,13 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
                   accessRole={suggestedAccessRole(member)}
                   linked={false}
                 />
-              </span>
-            ) : null}
-            {canEdit && !isNaevii(member.gamertag) && !isNaevii(member.name) ? (
-              <span className="row-action-slot"><RemoveMember member={row} canEdit={canEdit} /></span>
-            ) : null}
+              ) : null}
+            </span>
+            <span className="row-action-slot">
+              {canEdit && !isNaevii(member.gamertag) && !isNaevii(member.name) ? (
+                <RemoveMember member={row} canEdit={canEdit} />
+              ) : null}
+            </span>
           </div>
         </>
       ) : null}
