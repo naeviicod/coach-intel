@@ -76,6 +76,23 @@ test('a developer title does not kick a starter off the playing roster', async (
   assert.equal(split.staff.map((m) => m.id).join(','), 's');
 });
 
+test('disabled members leave the starting lineup until they are enabled again', async () => {
+  const { splitRoster, isMemberDisabled, isStarter, defaultSlot } = await import(libUrl('roster.js'));
+  const off = { id: 'x', gamertag: 'Parked', slot: 'starter', handles: { _disabled: '1' } };
+  assert.equal(isMemberDisabled(off), true);
+  assert.equal(isStarter(off), false);
+  const split = splitRoster([
+    { id: '1', slot: 'starter' },
+    { id: '2', slot: 'starter' },
+    { id: '3', slot: 'starter' },
+    { id: '4', slot: 'starter' },
+    off,
+  ]);
+  assert.equal(split.starters.length, 4);
+  assert.equal(split.disabled.length, 1);
+  assert.equal(defaultSlot([...split.starters, off]), 'bench');
+});
+
 test('Naevii on a staff slot still lists with the starters', async () => {
   const { splitRoster, isStaffMember } = await import(libUrl('roster.js'));
   const naevii = { id: 'n', gamertag: 'NaeviiSZN', title: 'Developer', slot: 'staff' };

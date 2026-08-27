@@ -194,7 +194,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(settings, /updateMyProfile/);
   assert.match(settings, /uploadMyPhoto/);
   assert.match(read('lib/docs.js'), /update_my_photo/);
-  assert.match(read('components/add-records.js'), /\+ Add Member/);
+  assert.match(read('components/member-edit.js'), /\+ Add Member/);
   assert.match(read('components/add-records.js'), /Entire org/);
   assert.match(settings, /accent-swatch/);
   assert.match(read('components/roster-slot-button.js'), /nextLineupSlot|slot === 'bench'/);
@@ -350,9 +350,14 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/desktop-web.css'), /#app\.shell \.btn\.refresh-btn/);
   assert.match(read('app/desktop-web.css'), /height: 24px/);
   assert.match(read('app/desktop-ui.css'), /var\(--accent\) 11%/);
-  assert.match(read('components/member-edit.js'), /createPortal/);
+  assert.match(read('components/workspace.js'), /createPortal/);
+  assert.match(read('components/workspace.js'), /modal-overlay/);
   assert.match(read('components/member-edit.js'), /Change photo/);
   assert.match(read('components/member-edit.js'), /uploadMemberPhoto/);
+  assert.match(read('components/member-edit.js'), /Member is enabled/);
+  assert.match(read('components/member-edit.js'), /Activision ID/);
+  assert.match(read('components/member-edit.js'), /Checkmate Gaming/);
+  assert.doesNotMatch(read('components/add-records.js'), /title="Add member"/);
   assert.match(read('lib/docs.js'), /export async function uploadMemberPhoto/);
   assert.match(read('lib/docs.js'), /export async function uploadMyPhoto/);
   assert.match(read('components/roster-slot-button.js'), /setSlot\(next\)/);
@@ -361,6 +366,10 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/players/page.js'), /MemberPhotoButton/);
   assert.match(read('app/desktop-ui.css'), /\.member-edit-id/);
   assert.match(read('app/desktop-ui.css'), /\.avatar-action/);
+  assert.match(read('app/desktop-ui.css'), /\.pill\[hidden\]/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /\.pill\[hidden\]/);
+  assert.match(read('app/(shell)/players/page.js'), /isMemberDisabled/);
+  assert.doesNotMatch(read('app/(shell)/players/page.js'), /hidden=\{member\.slot !== 'bench'\}/);
   assert.match(read('components/strat-board.js'), /board-roster-add/);
   assert.match(read('lib/strat-pieces.js'), /export function nextUsSlot/);
   assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /function toggleSlot/);

@@ -137,6 +137,22 @@ test('saveMember keeps a bench slot and stamps updated_at', async () => {
   await store.deleteTeam(team.id);
 });
 
+test('saveMember can disable a player without deleting them', async () => {
+  await store.ensureDirectories();
+  const team = await store.saveTeam({ name: 'QA_Disable_Team', tag: 'QDT' });
+  const player = await store.saveMember(team.id, { gamertag: 'QA_Disable_Player', role: 'Flex', slot: 'starter' });
+  const parked = await store.saveMember(team.id, { ...player, disabled: true });
+  assert.equal(parked.disabled, true);
+  assert.equal(parked.handles._disabled, '1');
+  const loaded = await store.getMember(team.id, player.id);
+  assert.equal(loaded.disabled, true);
+  const on = await store.saveMember(team.id, { ...loaded, disabled: false, handles: { activision: 'QA#1' } });
+  assert.equal(on.disabled, false);
+  assert.equal(on.handles._disabled, undefined);
+  assert.equal(on.handles.activision, 'QA#1');
+  await store.deleteTeam(team.id);
+});
+
 test('transfer finishes a half-done move when the player file is already on the destination', async () => {
   await store.ensureDirectories();
   const alpha = await store.saveTeam({ name: 'QA_Stuck_Alpha', tag: 'QSA' });

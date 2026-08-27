@@ -28,8 +28,14 @@ export function isFreeAgent(member) {
   return normalizeMember(member)?.slot === 'fa';
 }
 
+export function isMemberDisabled(member) {
+  if (!member) return false;
+  if (member.disabled === true) return true;
+  return String(member.handles?._disabled || '') === '1';
+}
+
 export function isPlayingMember(member) {
-  return !isStaffMember(member) && !isFreeAgent(member);
+  return !isMemberDisabled(member) && !isStaffMember(member) && !isFreeAgent(member);
 }
 
 export function showsCompetitiveStats(member) {
@@ -51,11 +57,13 @@ export function isStarter(member) {
 
 export function splitRoster(members) {
   const list = (members || []).map(normalizeMember);
+  const active = list.filter((m) => !isMemberDisabled(m));
   return {
-    starters: list.filter(isStarter),
-    bench: list.filter(isBench),
-    staff: list.filter(isStaffMember),
-    freeAgents: list.filter(isFreeAgent),
+    starters: active.filter(isStarter),
+    bench: active.filter(isBench),
+    staff: active.filter(isStaffMember),
+    freeAgents: active.filter(isFreeAgent),
+    disabled: list.filter(isMemberDisabled),
   };
 }
 

@@ -42,7 +42,7 @@ async function attachProfileFaces(supabase, rows) {
 export async function listMembers(supabase, teamId) {
   const { data, error } = await supabase
     .from('members')
-    .select('id, gamertag, name, role, slot, title, user_id, photo, aliases')
+    .select('id, gamertag, name, role, slot, title, user_id, photo, aliases, handles')
     .eq('team_id', teamId)
     .order('gamertag', { ascending: true });
   if (error) throw error;
@@ -71,7 +71,7 @@ export async function ensureProfile(supabase) {
 export async function listAllMembers(supabase) {
   const { data, error } = await supabase
     .from('members')
-    .select('id, team_id, gamertag, name, role, slot, title, user_id, photo, aliases');
+    .select('id, team_id, gamertag, name, role, slot, title, user_id, photo, aliases, handles');
   if (error) throw error;
   return attachProfileFaces(supabase, data || []);
 }

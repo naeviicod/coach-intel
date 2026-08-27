@@ -104,6 +104,12 @@ export function orgTitles(member) {
   return [...new Set(raw.split(/[,/|&]+/).map((s) => s.trim()).filter(Boolean))];
 }
 
+export function isMemberDisabled(member) {
+  if (!member) return false;
+  if (member.disabled === true) return true;
+  return String(member.handles?._disabled || '') === '1';
+}
+
 export function splitRoster(members) {
   const list = (members || []).map((member) => {
     if (member?.slot === 'staff' && (isNaevii(member.gamertag) || isNaevii(member.name))) {
@@ -111,12 +117,18 @@ export function splitRoster(members) {
     }
     return member;
   });
+  const active = list.filter((m) => !isMemberDisabled(m));
   return {
-    starters: list.filter((m) => m?.slot !== 'bench' && m?.slot !== 'staff' && m?.slot !== 'fa'),
-    bench: list.filter((m) => m?.slot === 'bench'),
-    staff: list.filter((m) => m?.slot === 'staff'),
-    freeAgents: list.filter((m) => m?.slot === 'fa'),
+    starters: active.filter((m) => m?.slot !== 'bench' && m?.slot !== 'staff' && m?.slot !== 'fa'),
+    bench: active.filter((m) => m?.slot === 'bench'),
+    staff: active.filter((m) => m?.slot === 'staff'),
+    freeAgents: active.filter((m) => m?.slot === 'fa'),
+    disabled: list.filter(isMemberDisabled),
   };
+}
+
+export function defaultSlot(members) {
+  return splitRoster(members).starters.length >= 4 ? 'bench' : 'starter';
 }
 
 export function memberOrgGroup(member) {

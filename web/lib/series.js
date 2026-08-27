@@ -90,7 +90,7 @@ export function nextUnfiledGame(matches, { teamId, date }) {
 }
 
 export function playingRoster(members = []) {
-  return members.filter((m) => m && m.slot !== 'staff' && m.slot !== 'fa');
+  return members.filter((m) => m && m.slot !== 'staff' && m.slot !== 'fa' && m.disabled !== true && String(m.handles?._disabled || '') !== '1');
 }
 
 export const MODE_SCORE = {

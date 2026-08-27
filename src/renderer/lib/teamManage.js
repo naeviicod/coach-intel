@@ -1,7 +1,7 @@
 import { el, faceMark, comboInput } from '../utils.js';
 import { openModal, toast } from '../components/modal.js';
 import { HANDLE_FIELDS, TITLE_SUGGESTIONS, memberStaffTitle, normalizeHandles } from './profile.js';
-import { defaultSlot, isStaffMember, normalizeSlot } from './roster.js';
+import { defaultSlot, isStaffMember, normalizeSlot, isMemberDisabled } from './roster.js';
 
 export const ROLES = ['IGL', 'AR', 'SMG', 'Sniper', 'Flex', 'Main Sub', 'Main AR'];
 
@@ -214,6 +214,15 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
       el('input', { type: 'text', id: 'member-aliases', value: (member?.aliases || []).join(', ') }),
       el('div', { class: 'field-hint' }, 'Common OCR misreads of this gamertag, so stats still attribute correctly.'),
     ]),
+    el('label', { class: 'check-row', style: 'margin-top:14px;' }, [
+      el('input', {
+        type: 'checkbox',
+        id: 'member-enabled',
+        checked: isMemberDisabled(member) ? null : 'checked',
+      }),
+      el('span', {}, 'Member is enabled'),
+    ]),
+    el('div', { class: 'field-hint' }, 'Turn this off to hide them from the roster without deleting. You can enable them again later.'),
     el('div', { class: 'modal-section-title' }, 'Socials & Gaming IDs'),
     el(
       'div',
@@ -249,6 +258,9 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
           for (const { key } of HANDLE_FIELDS) {
             collected[key] = body.querySelector(`#member-handle-${key}`)?.value || '';
           }
+          const enabled = body.querySelector('#member-enabled')?.checked !== false;
+          const handles = normalizeHandles(collected);
+          if (!enabled) handles._disabled = '1';
           const id = member?.id || memberSlug(gamertag);
           const saveTeamId = teamChoices ? body.querySelector('#member-team').value : teamId;
           if (pendingSrc && id) {
@@ -269,7 +281,8 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
                 .map((a) => a.trim())
                 .filter(Boolean),
               photo: photoRel,
-              handles: normalizeHandles(collected),
+              disabled: !enabled,
+              handles,
             });
             overlay.remove();
             if (onSaved) onSaved(saved);

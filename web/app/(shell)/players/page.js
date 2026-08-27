@@ -5,7 +5,7 @@ import { Icon } from '../../../components/icon';
 import { RosterSlotButton } from '../../../components/roster-slot-button';
 import { TransferBar, RosterCheck, TransferMember } from '../../../components/roster-transfer';
 import { PageHeader, EmptyState } from '../../../components/page-header';
-import { RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified, isNaevii } from '../../../lib/marks';
+import { RoleBadge, TeamMark, orgTitles, splitRoster, defaultSlot, memberOrgGroup, VerifiedMark, memberDiscordVerified, isNaevii, isMemberDisabled } from '../../../lib/marks';
 import { suggestedAccessRole } from '../../../lib/invite';
 import { loadWorkspace } from '../../../lib/workspace';
 import { aggregate, statsForMember } from '../../../lib/stats';
@@ -52,11 +52,12 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
   const staff = member.slot === 'staff';
   const fa = member.slot === 'fa';
+  const disabled = isMemberDisabled(member);
   const row = { ...member, team_id: teamId };
   const totals = aggregate(statsForMember(matches, member.id));
   return (
     <div className="roster-block">
-    <div className="roster-row">
+    <div className={`roster-row${disabled ? ' is-disabled' : ''}`}>
       <RosterCheck member={row} canTransfer={canTransfer} />
       <MemberPhotoButton member={row} canEdit={canEdit} />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -74,10 +75,11 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
             {t}
           </span>
         ))}
-        {staff || fa ? null : <RoleBadge role={member.role} />}
-        {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : (
-          <span className="pill" data-slot-pill="1" hidden={member.slot !== 'bench'}>Bench</span>
-        )}
+        {disabled ? <span className="pill nomatch">Disabled</span> : null}
+        {staff || fa || disabled ? null : <RoleBadge role={member.role} />}
+        {disabled ? null : staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : member.slot === 'bench' ? (
+          <span className="pill" data-slot-pill="1">Bench</span>
+        ) : null}
       </div>
       <span className="roster-pipe" aria-hidden="true">|</span>
       <div className="crow-meta roster-kd">{totals.matches ? `${totals.kd} K/D` : '—'}</div>
@@ -86,7 +88,7 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
           <span className="roster-pipe" aria-hidden="true">|</span>
           <div className="row-actions edit-only">
             <span className="row-action-slot">
-              {canEdit && !staff && !fa ? <RosterSlotButton member={row} canEdit={canEdit} /> : null}
+              {canEdit && !staff && !fa && !disabled ? <RosterSlotButton member={row} canEdit={canEdit} /> : null}
             </span>
             <span className="row-action-slot">
               {canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}
@@ -218,7 +220,7 @@ export default async function PlayersPage({ searchParams }) {
             return <EmptyState title="Team not found" body="That roster is gone. Pick another group." />;
           }
           const roster = members.filter((m) => m.team_id === team.id);
-          const { starters, bench, staff, freeAgents } = splitRoster(roster);
+          const { starters, bench, staff, freeAgents, disabled } = splitRoster(roster);
           const manage = canManageTeam(team.id);
           const transfer = Boolean(canTransfer);
           return (
@@ -234,7 +236,7 @@ export default async function PlayersPage({ searchParams }) {
                   <div className="team-meta">{lineupMeta(starters.length, bench.length, staff.length, freeAgents.length)}</div>
                 </div>
                 <div className="edit-only roster-header-actions">
-                  <AddPlayer teams={teams} canEdit={manage} teamId={team.id} />
+                  <AddPlayer teams={teams} canEdit={manage} teamId={team.id} slot={defaultSlot(roster)} />
                   {transfer ? <TransferBar compact teamId={team.id} teams={teams} members={roster} /> : null}
                 </div>
               </div>
@@ -246,6 +248,7 @@ export default async function PlayersPage({ searchParams }) {
                   <RosterGroup title="Backup / Bench" rows={bench} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
                   <RosterGroup title="Staff & Org" rows={staff} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
                   <RosterGroup title="Free Agents" rows={freeAgents} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} />
+                  {disabled.length ? <RosterGroup title="Disabled" rows={disabled} teamId={team.id} teams={teams} matches={matches} showInvite={manage} canEdit={manage} canTransfer={transfer} /> : null}
                 </>
               )}
             </div>

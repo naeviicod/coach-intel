@@ -1,6 +1,6 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark } from '../../../utils.js';
 import { uploadTeamLogo } from '../../../lib/teamManage.js';
-import { splitRoster, isStaffMember } from '../../../lib/roster.js';
+import { splitRoster, isStaffMember, isMemberDisabled } from '../../../lib/roster.js';
 import { memberStaffTitle, orgTitles, memberDiscordVerified } from '../../../lib/profile.js';
 import { miniEmpty } from '../parts.js';
 
@@ -25,11 +25,12 @@ export async function render(root, hub) {
     return;
   }
 
-  const { starters, bench, staff } = splitRoster(members);
+  const { starters, bench, staff, disabled } = splitRoster(members);
 
   root.append(group(hub, 'Starting lineup', starters, matches, 'No starters yet. Add players from the Players page.'));
   root.append(group(hub, 'Backup / Bench', bench, matches, starters.length >= 4 ? 'No bench players. Add backups when the starting 4 is full.' : null));
   if (staff.length) root.append(group(hub, 'Staff', staff, matches));
+  if (disabled.length) root.append(group(hub, 'Disabled', disabled, matches));
 }
 
 function logoSection(hub, memberCount) {
@@ -83,7 +84,7 @@ function group(hub, title, members, matches, empty) {
       el(
         'div',
         {
-          class: 'crow',
+          class: `crow${isMemberDisabled(member) ? ' is-disabled' : ''}`,
           role: 'button',
           tabindex: '0',
           'aria-label': `Open ${member.gamertag}, ${member.role || 'player'}`,
@@ -114,7 +115,7 @@ function group(hub, title, members, matches, empty) {
               .filter((t) => !/^player$/i.test(t))
               .map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
             isStaffMember(member) ? null : roleBadge(member.role),
-            member.slot === 'bench' ? el('span', { class: 'pill' }, 'Bench') : null,
+            isMemberDisabled(member) ? el('span', { class: 'pill nomatch' }, 'Disabled') : member.slot === 'bench' ? el('span', { class: 'pill' }, 'Bench') : null,
           ]),
           stats
             ? el('div', { class: 'crow-meta' }, `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}`)

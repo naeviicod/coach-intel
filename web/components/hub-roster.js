@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { MiniEmpty } from './hub-parts';
-import { orgTitles, PlayerAvatar, RoleBadge, splitRoster, TeamMark, VerifiedMark, memberDiscordVerified } from '../lib/marks';
+import { orgTitles, PlayerAvatar, RoleBadge, splitRoster, TeamMark, VerifiedMark, memberDiscordVerified, isMemberDisabled } from '../lib/marks';
 import { aggregate, statsForMember } from '../lib/stats';
 
 export function HubRoster({ team, members, matches, ctxToggle }) {
-  const { starters, bench, staff } = splitRoster(members);
+  const { starters, bench, staff, disabled } = splitRoster(members);
   return (
     <>
       <div className="card compact" style={{ marginBottom: 14 }}>
@@ -42,6 +42,7 @@ export function HubRoster({ team, members, matches, ctxToggle }) {
             empty={starters.length >= 4 ? 'No bench players. Add backups when the starting 4 is full.' : null}
           />
           {staff.length ? <Group title="Staff" rows={staff} matches={matches} /> : null}
+          {disabled.length ? <Group title="Disabled" rows={disabled} matches={matches} /> : null}
         </>
       )}
     </>
@@ -62,9 +63,10 @@ function Group({ title, rows, matches, empty }) {
         rows.map((member) => {
           const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
           const staff = member.slot === 'staff';
+          const disabled = isMemberDisabled(member);
           const stats = playerStats(member, matches);
           return (
-            <div key={member.id} className="crow">
+            <div key={member.id} className={`crow${disabled ? ' is-disabled' : ''}`}>
               <PlayerAvatar member={member} />
               <div className="crow-main">
                 <div className="crow-title">
@@ -78,7 +80,7 @@ function Group({ title, rows, matches, empty }) {
                   <span key={t} className={`role-badge org ${String(t).replace(/\s+/g, '-')}`}>{t}</span>
                 ))}
                 {staff ? null : <RoleBadge role={member.role} />}
-                {member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+                {disabled ? <span className="pill nomatch">Disabled</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
               </div>
               <div className="crow-meta">{stats ? `${stats.kd} K/D · ${stats.maps} match${stats.maps === 1 ? '' : 'es'}` : 'No match data'}</div>
             </div>

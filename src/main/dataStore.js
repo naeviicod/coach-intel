@@ -262,14 +262,20 @@ function memberTitle(title, member) {
 
 const HANDLE_KEYS = ['activision', 'checkmate', 'discord', 'twitch', 'twitter', 'youtube', 'instagram', 'other'];
 
-function memberHandles(raw) {
-  if (!raw || typeof raw !== 'object') return {};
+function memberHandles(raw, disabled) {
+  if (!raw || typeof raw !== 'object') raw = {};
   const out = {};
   for (const key of HANDLE_KEYS) {
     const value = String(raw[key] || '').trim().slice(0, 120);
     if (value) out[key] = value;
   }
+  if (disabled) out._disabled = '1';
   return out;
+}
+
+function memberDisabledFlag(member) {
+  if (member?.disabled === false) return false;
+  return Boolean(member?.disabled) || String(member?.handles?._disabled || '') === '1';
 }
 
 async function saveMember(teamId, member) {
@@ -286,7 +292,8 @@ async function saveMember(teamId, member) {
     photo: member.photo || null,
     slot: member.slot === 'bench' || member.slot === 'staff' || member.slot === 'fa' ? member.slot : 'starter',
     title: memberTitle(member.title, member),
-    handles: memberHandles(member.handles),
+    handles: memberHandles(member.handles, memberDisabledFlag(member)),
+    disabled: memberDisabledFlag(member),
     updated_at: member.updated_at || new Date().toISOString(),
   };
   if (userId) record.user_id = userId;

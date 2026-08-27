@@ -44,6 +44,14 @@ function rlsBlocked(error) {
   return code === '42501' || /row-level security/i.test(msg);
 }
 
+function persistHandles(member) {
+  const handles = member?.handles && typeof member.handles === 'object' ? { ...member.handles } : {};
+  if (member?.disabled === true) handles._disabled = '1';
+  else if (member?.disabled === false) delete handles._disabled;
+  else if (String(handles._disabled || '') !== '1') delete handles._disabled;
+  return handles;
+}
+
 async function withTimeout(promise, ms, label) {
   let timer;
   try {
@@ -199,7 +207,7 @@ function createTeamsService({ client }) {
       photo: member.photo ?? null,
       slot: member.slot === 'bench' || member.slot === 'staff' || member.slot === 'fa' ? member.slot : 'starter',
       title: member.title || null,
-      handles: member.handles && typeof member.handles === 'object' ? member.handles : {},
+      handles: persistHandles(member),
       updated_at: new Date().toISOString(),
     };
     const userId = member.user_id !== undefined ? member.user_id : existing?.user_id || null;

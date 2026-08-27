@@ -98,7 +98,11 @@ export async function saveMember(member) {
   if (member.user_id) row.user_id = member.user_id;
   if (member.photo) row.photo = member.photo;
   if (Array.isArray(member.aliases)) row.aliases = member.aliases;
-  if (member.handles && typeof member.handles === 'object') row.handles = member.handles;
+  const handles = member.handles && typeof member.handles === 'object' ? { ...member.handles } : {};
+  if (member.disabled === true) handles._disabled = '1';
+  else if (member.disabled === false) delete handles._disabled;
+  else if (String(handles._disabled || '') !== '1') delete handles._disabled;
+  if (Object.keys(handles).length || member.handles) row.handles = handles;
   const { error } = await supabase.from('members').upsert(row);
   if (error) throw error;
   return row;

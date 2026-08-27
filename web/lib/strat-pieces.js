@@ -53,7 +53,7 @@ export function nextOpponentSlot(existing, layout) {
 }
 
 function playingMembers(members) {
-  return (members || []).filter((m) => m && m.slot !== 'bench' && m.slot !== 'staff' && m.slot !== 'fa');
+  return (members || []).filter((m) => m && m.slot !== 'bench' && m.slot !== 'staff' && m.slot !== 'fa' && m.disabled !== true && String(m.handles?._disabled || '') !== '1');
 }
 
 export function nextUsSlot(existing, memberId, layout) {

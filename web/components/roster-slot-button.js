@@ -13,10 +13,22 @@ function groupTitle(slot) {
 }
 
 function paintSlot(row, onBench) {
-  const pill = row?.querySelector('[data-slot-pill]');
-  if (!pill) return;
-  pill.hidden = !onBench;
-  pill.textContent = onBench ? 'Bench' : '';
+  let pill = row?.querySelector('[data-slot-pill]');
+  const tags = row?.querySelector('.roster-tags');
+  if (onBench) {
+    if (!pill && tags) {
+      pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.setAttribute('data-slot-pill', '1');
+      tags.appendChild(pill);
+    }
+    if (pill) {
+      pill.hidden = false;
+      pill.textContent = 'Bench';
+    }
+  } else if (pill) {
+    pill.remove();
+  }
 }
 
 function bumpMeta(card, fromSlot, toSlot) {

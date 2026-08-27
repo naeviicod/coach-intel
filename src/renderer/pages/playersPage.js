@@ -1,6 +1,6 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark, icon } from '../utils.js';
 import { openMemberModal, openTransferModal, changeMemberPhoto } from '../lib/teamManage.js';
-import { defaultSlot, isStaffMember, isFreeAgent, nextLineupSlot, splitRoster, memberOrgGroup } from '../lib/roster.js';
+import { defaultSlot, isStaffMember, isFreeAgent, isMemberDisabled, nextLineupSlot, splitRoster, memberOrgGroup } from '../lib/roster.js';
 import { isNaevii, memberStaffTitle, orgTitles, memberDiscordVerified } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
 import { toast } from '../components/modal.js';
@@ -133,7 +133,7 @@ function groupTile(ctx, key, kicker, title, meta, count, team, iconName) {
 }
 
 function rosterCard(team, members, matches, ctx, teams) {
-  const { starters, bench, staff, freeAgents } = splitRoster(members);
+  const { starters, bench, staff, freeAgents, disabled } = splitRoster(members);
   const playing = starters.length + bench.length;
   const manage = ctx.canEditTeam ? ctx.canEditTeam(team.id) : ctx.canEdit;
   const canTransfer = Boolean(ctx.canTransfer);
@@ -198,6 +198,7 @@ function rosterCard(team, members, matches, ctx, teams) {
     manage,
     canTransfer,
   });
+  appendGroup(card, 'Disabled', disabled, team, matches, ctx, { manage, canTransfer });
 
   return card;
 }
@@ -254,11 +255,12 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
   }
   const onBench = member.slot === 'bench';
   const staff = isStaffMember(member);
+  const disabled = isMemberDisabled(member);
   const orgRole = memberStaffTitle(member);
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
   const protectedPerson = isNaevii(member.gamertag) || isNaevii(member.name);
   return el('div', { class: 'roster-block' }, [
-    el('div', { class: 'roster-row' }, [
+    el('div', { class: `roster-row${disabled ? ' is-disabled' : ''}` }, [
     manage
       ? el('input', {
           type: 'checkbox',
@@ -285,14 +287,15 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
     ]),
     el('div', { class: 'roster-tags' }, [
       ...titles.map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
-      staff ? null : roleBadge(member.role),
-      staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : el('span', { class: 'pill', 'data-slot-pill': '1', hidden: onBench ? null : 'hidden' }, 'Bench'),
+      disabled ? el('span', { class: 'pill nomatch' }, 'Disabled') : null,
+      staff || disabled ? null : roleBadge(member.role),
+      disabled ? null : staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : onBench ? el('span', { class: 'pill', 'data-slot-pill': '1' }, 'Bench') : null,
     ]),
     el('span', { class: 'roster-pipe', 'aria-hidden': 'true' }, '|'),
     el('div', { class: 'crow-meta roster-kd' }, totals.matches ? `${totals.kd} K/D` : '—'),
     el('span', { class: 'roster-pipe', 'aria-hidden': 'true' }, '|'),
     el('div', { class: 'row-actions edit-only' }, [
-      actionSlot(staff || isFreeAgent(member) ? null : el('button', {
+      actionSlot(staff || isFreeAgent(member) || disabled ? null : el('button', {
         class: 'btn sm',
         'data-slot-toggle': '1',
         onclick: (e) => toggleSlot(ctx, team.id, member, e.currentTarget.closest('.roster-row')),
@@ -337,10 +340,18 @@ function applyRowSlot(row, member) {
   const onBench = member.slot === 'bench';
   const btn = row.querySelector('[data-slot-toggle]');
   if (btn) btn.textContent = onBench ? 'Start' : 'Bench';
-  const pill = row.querySelector('[data-slot-pill]');
-  if (pill) {
-    pill.hidden = !onBench;
-    pill.textContent = onBench ? 'Bench' : '';
+  let pill = row.querySelector('[data-slot-pill]');
+  const tags = row.querySelector('.roster-tags');
+  if (onBench) {
+    if (!pill && tags) {
+      pill = el('span', { class: 'pill', 'data-slot-pill': '1' }, 'Bench');
+      tags.append(pill);
+    } else if (pill) {
+      pill.hidden = false;
+      pill.textContent = 'Bench';
+    }
+  } else if (pill) {
+    pill.remove();
   }
 }
 

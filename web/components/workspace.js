@@ -1,6 +1,42 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+// A real centered dialog, portaled to <body> so it can never get trapped
+// inside a card's overflow/stacking context or collide with another panel
+// mid-page. Mirrors the desktop app's openModal (same CSS classes, same
+// press-and-release-on-backdrop dismissal so a drag-select doesn't close it).
+export function Modal({ children, onClose, width }) {
+  const pressedOnBackdrop = useRef(false);
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose?.();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      className="modal-overlay"
+      onPointerDown={(e) => {
+        pressedOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onPointerUp={(e) => {
+        const close = pressedOnBackdrop.current && e.target === e.currentTarget;
+        pressedOnBackdrop.current = false;
+        if (close) onClose?.();
+      }}
+    >
+      <div className="modal" style={width ? { width } : undefined} role="dialog" aria-modal="true">
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export function pickTeam(teams, teamId) {
   return teams.find((t) => t.id === teamId) || teams[0] || null;
