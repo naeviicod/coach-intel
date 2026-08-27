@@ -1,0 +1,11 @@
+dist
+node_modules
+web/node_modules
+.git
+.worktrees
+data/org
+**/*.dmg
+**/*.zip
+**/*.exe
+**/*.app
+**/*.blockmap

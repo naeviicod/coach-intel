@@ -13,5 +13,6 @@ data/org/
 
 .env
 .env.local
+.vercel/
 
 npm-debug.log*
