@@ -86,7 +86,9 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   assert.match(styles, /\.splash-bar \{[\s\S]{0,520}splashBarPulse/);
   assert.match(styles, /#splash\.loaded \.splash-bar[\s\S]{0,120}animation:\s*none/);
   assert.match(app, /function runSplashBarPulse/);
-  assert.match(app, /scaleY\(2\.1\)/);
+  assert.doesNotMatch(app, /scaleY\(2\.1\)/, 'the bar pulse must brighten in place, not grow and shrink');
+  assert.match(app, /\{ opacity: 0\.38 \}/);
+  assert.match(app, /\{ opacity: 1 \}/);
   assert.doesNotMatch(styles, /transform:\s*scale\(0\.64\)/);
   assert.doesNotMatch(styles, /@keyframes splashStageOut \{[\s\S]{0,160}scale\(/);
   assert.doesNotMatch(styles, /#splash\.handoff/);

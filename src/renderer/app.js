@@ -613,8 +613,8 @@ function runSplashBarPulse() {
   track.style.animation = 'none';
   return track.animate(
     [
-      { opacity: 0.38, transform: 'scaleY(1)' },
-      { opacity: 1, transform: 'scaleY(2.1)' },
+      { opacity: 0.38 },
+      { opacity: 1 },
     ],
     {
       duration: 800,
