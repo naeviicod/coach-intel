@@ -276,6 +276,8 @@ async function saveMember(teamId, member) {
   const id = member.id || slugify(member.gamertag);
   const dir = teamDirFor(teamId);
   const filePath = path.join(dir, 'members', `${id}.json`);
+  const existing = await getMember(teamId, id);
+  const userId = member.user_id !== undefined ? member.user_id : existing?.user_id || null;
   const record = {
     name: member.name || member.gamertag,
     gamertag: member.gamertag,
@@ -287,6 +289,7 @@ async function saveMember(teamId, member) {
     handles: memberHandles(member.handles),
     updated_at: member.updated_at || new Date().toISOString(),
   };
+  if (userId) record.user_id = userId;
   await writeJson(filePath, record);
 
   // keep team-profile.json's member list in sync
@@ -401,6 +404,16 @@ function mergeCounters(fields, incoming, existing) {
   return any ? out : null;
 }
 
+function clampModeScore(mode, score) {
+  const cap = { Hardpoint: 250, 'Search & Destroy': 6, Overload: 8 }[mode];
+  const m = String(score || '').match(/^\s*(-?\d+)\s*-\s*(-?\d+)\s*$/);
+  if (!m) return String(score || '').trim();
+  const us = Math.max(0, Number(m[1]));
+  const them = Math.max(0, Number(m[2]));
+  if (!Number.isFinite(cap)) return `${us}-${them}`;
+  return `${Math.min(cap, us)}-${Math.min(cap, them)}`;
+}
+
 async function saveMatch(teamId, match) {
   const dir = matchesDirFor(teamId);
   await ensureDir(dir);
@@ -410,16 +423,18 @@ async function saveMatch(teamId, match) {
     'match id'
   );
   const existing = match.match_id ? await readJson(path.join(dir, `${id}.json`)) : null;
+  const mode = match.mode !== undefined ? match.mode : existing?.mode || '';
+  const score = clampModeScore(mode, match.score !== undefined ? match.score : existing?.score || '');
 
   const record = {
     match_id: id,
     team_id: teamId,
     date: match.date || existing?.date || todayIso(),
     opponent: match.opponent !== undefined ? match.opponent : existing?.opponent || '',
-    mode: match.mode !== undefined ? match.mode : existing?.mode || '',
+    mode,
     map: match.map !== undefined ? match.map : existing?.map || '',
     side: match.side !== undefined ? match.side : existing?.side || '',
-    score: match.score !== undefined ? match.score : existing?.score || '',
+    score,
     result: match.result !== undefined ? match.result : existing?.result || '',
     series_id: match.series_id !== undefined ? match.series_id : existing?.series_id || '',
     game: match.game !== undefined ? match.game : existing?.game || null,

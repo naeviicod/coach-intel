@@ -181,7 +181,7 @@ function createStore({ dataRoot, secretStore }) {
       if (!source) continue;
       next[event.id] = {
         enabled: Boolean(source.enabled),
-        purpose: source.purpose || event.purpose,
+        purpose: event.purpose,
       };
     }
     return saveIntegration({ preferences: next });

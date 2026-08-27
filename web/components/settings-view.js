@@ -198,7 +198,7 @@ export function AccountCard() {
       <div className="list-item-row">
         <div>
           <div className="settings-row-title">Signed in with Discord</div>
-          <div className="field-hint">Sign out of Coach Intel on this browser. This is the only place to sign out.</div>
+          <div className="field-hint">Sign out of Coach Intel on this browser. The top bar also has Sign out.</div>
         </div>
         <form action="/auth/sign-out" method="post">
           <button type="submit" className="btn subtle danger">Sign out</button>

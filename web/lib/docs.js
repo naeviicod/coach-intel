@@ -125,6 +125,24 @@ export async function updateMyProfile({ displayName, title }) {
 
 const PHOTO_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
 
+export async function uploadMemberPhoto(teamId, memberId, file) {
+  const supabase = createBrowserSupabase();
+  const ext = PHOTO_TYPES[file?.type] || String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+  const safeExt = ext === 'jpeg' ? 'jpg' : ext;
+  if (!['png', 'jpg', 'webp'].includes(safeExt)) throw new Error('Choose a PNG, JPG, or WebP image.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Keep photos under 5 MB.');
+  const team = String(teamId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  const id = String(memberId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!team || !id) throw new Error('Missing player.');
+  const key = `org/members/${team}/${id}.${safeExt}`;
+  const { error: upError } = await supabase.storage.from('org-assets').upload(key, file, {
+    contentType: file.type || `image/${safeExt}`,
+    upsert: true,
+  });
+  if (upError) throw upError;
+  return key;
+}
+
 export async function uploadMyPhoto(file) {
   const supabase = createBrowserSupabase();
   const { data: sessionData, error: sessionError } = await supabase.auth.getUser();

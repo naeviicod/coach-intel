@@ -1,6 +1,6 @@
-import { el, playerAvatar, roleBadge, fmtDate, statsForMember, aggregate, sparkline } from '../utils.js';
+import { el, extraStatLine, playerAvatar, roleBadge, fmtDate, statsForMember, aggregate, sparkline } from '../utils.js';
 import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
-import { HANDLE_FIELDS, orgTitles } from '../lib/profile.js';
+import { HANDLE_FIELDS, orgTitles, memberDiscordVerified } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
 
 export async function render(container, ctx) {
@@ -43,12 +43,12 @@ export async function render(container, ctx) {
         ]),
       ]),
       el('div', { class: 'edit-only', style: 'display:flex;gap:8px;flex-wrap:wrap;' }, [
-        el('button', {
+        memberDiscordVerified(member) ? null : el('button', {
           class: 'btn',
           onclick: () => openInviteModal(ctx, teamId, member, {
             onDone: () => ctx.navigate('member', `${teamId}/${memberId}`),
           }),
-        }, member.linked ? 'Invite / Linked' : 'Invite'),
+        }, 'Invite'),
         el('button', {
           class: 'btn',
           onclick: () => openMemberModal(ctx, teamId, member, {
@@ -128,6 +128,7 @@ export async function render(container, ctx) {
               el('th', {}, 'A'),
               el('th', {}, 'DMG'),
               el('th', {}, 'K/D'),
+              el('th', {}, 'Extra'),
               el('th', {}, 'Result'),
             ]),
           ]),
@@ -145,6 +146,7 @@ export async function render(container, ctx) {
                   el('td', {}, player.assists),
                   el('td', {}, player.damage),
                   el('td', {}, player.kd ?? (player.deaths ? round1(player.kills / player.deaths) : player.kills)),
+                  el('td', {}, extraStatLine(match, player)),
                   el('td', {}, el('span', { class: `pill ${match.result === 'Win' ? 'win' : 'loss'}` }, match.result)),
                 ])
               )

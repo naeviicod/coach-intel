@@ -90,4 +90,5 @@ test('a Discord-linked member is confirmed', async () => {
   assert.equal(memberDiscordVerified({ gamertag: 'NaeviiSZN' }), true);
   assert.equal(memberDiscordVerified({ gamertag: 'NaeviiSZN', user_id: 'u-1' }), true);
   assert.equal(memberDiscordVerified({ gamertag: 'vxlt', linked: { id: 'u-2', discord_username: 'vxlt' } }), true);
+  assert.equal(memberDiscordVerified({ gamertag: 'vxlt', user_id: 'u-2' }), true);
 });

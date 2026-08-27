@@ -298,3 +298,15 @@ test('match log: calendar maps and scrim maps show up without a separate log', a
   assert.equal(filters.maps.includes('Colossus'), true);
   assert.equal(filters.maps.includes('Gridlock'), true);
 });
+
+test('match log groups one league series onto a single line', async () => {
+  const { groupMatchLogRows } = await import(libUrl('matchLog.js'));
+  const groups = groupMatchLogRows([
+    { teamId: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Scar', mode: 'Hardpoint' },
+    { teamId: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Den', mode: 'Hardpoint' },
+    { teamId: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Hacienda', mode: 'Hardpoint' },
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].maps.length, 3);
+  assert.equal(groups[0].seriesScore, '');
+});

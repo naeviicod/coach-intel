@@ -13,6 +13,7 @@ export function LookSync({ accent, background }) {
     } catch {
       /* ignore */
     }
+    if (id === 'pit') id = DEFAULT_BACKGROUND;
     applyBackground(id);
   }, [accent, background]);
   return null;

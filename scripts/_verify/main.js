@@ -424,7 +424,7 @@ async function run(win) {
     ['/organization', ['Identity', 'Org Name', 'Logo', 'Highlight Color'], '19a-settings-organization'],
     ['/game-rules', ['Game & Season', 'Add Map'], '19b-settings-game-rules'],
     ['/integrations', ['Connected Services', 'Discord', 'Not Connected', 'Set Up', 'External Data'], '19c-settings-integrations'],
-    ['/data', ['Storage', 'On-device only', 'Danger Zone', 'Delete All Data'], '19d-settings-data'],
+    ['/data', ['Storage', 'Org cloud', 'Danger Zone', 'Delete All Data'], '19d-settings-data'],
     ['/feedback', ['Feedback', 'Category', 'Subject', 'Send Feedback'], '19f-settings-feedback'],
     ['/about', ['Coach Intel', 'Version', 'Ruleset'], '19e-settings-about'],
   ];

@@ -5,11 +5,15 @@ import { saveDoc } from '../lib/docs';
 import {
   applyScoreboardToRoster,
   bo5Modes,
+  clampModeScore,
   emptyPlayerLine,
+  extraPlayerField,
   findSeriesMatch,
   guessMapFromName,
   nextUnfiledGame,
   playingRoster,
+  resultFromScore,
+  scorePlaceholder,
 } from '../lib/series';
 import { deleteScoreboard, readScoreboardText, scoreboardAssetUrl } from '../lib/scoreboards';
 import { Err, Field, FormCard } from './workspace';
@@ -71,11 +75,10 @@ export function ScoreboardRead({
   const [players, setPlayers] = useState(() => roster.map(emptyPlayerLine));
   const [paste, setPaste] = useState('');
   const mode = bo5[Number(form.game) - 1] || bo5[0] || 'Hardpoint';
-  const hp = mode === 'Hardpoint';
-  const rounds = mode === 'Search & Destroy' || mode === 'Overload';
+  const extra = extraPlayerField(mode);
 
   function applyBoard(text) {
-    const next = applyScoreboardToRoster(text, roster, { matchedOnly: true });
+    const next = applyScoreboardToRoster(text, roster, { matchedOnly: true, mode });
     setPlayers(next.length ? next : roster.map(emptyPlayerLine));
   }
 
@@ -93,6 +96,10 @@ export function ScoreboardRead({
     })();
     return () => { cancelled = true; };
   }, [item.path, roster]);
+
+  useEffect(() => {
+    if (paste) applyBoard(paste);
+  }, [mode]);
 
   function patchPlayer(memberId, patch) {
     setPlayers((rows) => rows.map((row) => (row.member_id === memberId ? { ...row, ...patch } : row)));
@@ -113,9 +120,12 @@ export function ScoreboardRead({
         assists: num(p.assists),
         damage: num(p.damage),
         hill_time: num(p.hill_time),
+        plants: num(p.plants),
+        overloads: num(p.overloads),
         rounds_won: num(p.rounds_won),
         rounds_lost: num(p.rounds_lost),
       }));
+      const score = clampModeScore(mode, form.score);
       await saveDoc({
         kind: 'match',
         teamId: team.id,
@@ -131,8 +141,8 @@ export function ScoreboardRead({
           date: form.date,
           map: form.map,
           mode,
-          result: form.result,
-          score: form.score,
+          result: form.result || resultFromScore(score),
+          score,
           players: playerRows,
           scoreboard_path: item.path,
         },
@@ -205,15 +215,17 @@ export function ScoreboardRead({
               </select>
             </Field>
             <Field label="Points">
-              <input value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} placeholder={hp ? '250-180' : '6-4'} />
+              <input value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} placeholder={scorePlaceholder(mode)} />
             </Field>
           </div>
           <div className="field-hint" style={{ margin: '8px 0' }}>
             {reading
               ? 'Reading names from this board and matching them to the roster…'
-              : hp
-                ? 'Roster names are matched to this board. Hill time is the extra HP stat.'
-                : 'Roster names are matched to this board. Rounds won/lost are the extra SnD and Overload stat.'}
+              : mode === 'Hardpoint'
+                ? 'Extra HP stat is hill time (1:49). Score like 250-249.'
+                : mode === 'Search & Destroy'
+                  ? 'Extra SnD stat is plants. Rounds max 6-5.'
+                  : 'Extra Overload stat is overloads. Score max 8-7.'}
           </div>
           {roster.length ? (
             <table className="sb-stat-table">
@@ -222,9 +234,7 @@ export function ScoreboardRead({
                   <th>Player</th>
                   <th>K</th>
                   <th>D</th>
-                  {hp ? <th>Time</th> : null}
-                  {rounds ? <th>Rnd W</th> : null}
-                  {rounds ? <th>Rnd L</th> : null}
+                  {extra ? <th>{extra.label}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -233,19 +243,22 @@ export function ScoreboardRead({
                     <td>{row.gamertag}</td>
                     <td><input type="number" min="0" value={row.kills} onChange={(e) => patchPlayer(row.member_id, { kills: e.target.value })} /></td>
                     <td><input type="number" min="0" value={row.deaths} onChange={(e) => patchPlayer(row.member_id, { deaths: e.target.value })} /></td>
-                    {hp ? (
+                    {extra?.clock ? (
                       <td>
                         <input
                           value={clockValue(row.hill_time)}
                           onChange={(e) => patchPlayer(row.member_id, { hill_time: parseClockInput(e.target.value) })}
                         />
                       </td>
-                    ) : null}
-                    {rounds ? (
-                      <td><input type="number" min="0" value={row.rounds_won} onChange={(e) => patchPlayer(row.member_id, { rounds_won: e.target.value })} /></td>
-                    ) : null}
-                    {rounds ? (
-                      <td><input type="number" min="0" value={row.rounds_lost} onChange={(e) => patchPlayer(row.member_id, { rounds_lost: e.target.value })} /></td>
+                    ) : extra ? (
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row[extra.key] || 0}
+                          onChange={(e) => patchPlayer(row.member_id, { [extra.key]: e.target.value })}
+                        />
+                      </td>
                     ) : null}
                   </tr>
                 ))}
@@ -262,7 +275,13 @@ export function ScoreboardRead({
                 setPaste(e.target.value);
                 applyBoard(e.target.value);
               }}
-              placeholder={hp ? 'NaeviiSZN 27/23 1:49' : 'NaeviiSZN 8/6 3-2'}
+              placeholder={
+                mode === 'Hardpoint'
+                  ? 'NaeviiSZN 27/23 1:49'
+                  : mode === 'Search & Destroy'
+                    ? 'NaeviiSZN 8/6 2'
+                    : 'NaeviiSZN 22/14 3'
+              }
             />
           </Field>
           <Err error={error} />

@@ -73,3 +73,82 @@ test('desktop series helper matches the web BO5 order', async () => {
   const series = await import(libUrl('series.js'));
   assert.deepEqual(series.bo5Modes(['Hardpoint', 'Search & Destroy', 'Overload'])[2], 'Overload');
 });
+
+test('slash K/D leftover is plants on SnD and overloads on Overload', async () => {
+  const series = await import(webUrl('series.js'));
+  const snd = series.parsePlayerLine('NaeviiSZN 8/6 2', 'Search & Destroy');
+  assert.equal(snd.plants, 2);
+  assert.equal(snd.kills, 8);
+  const ol = series.parsePlayerLine('vxlt 22/14 3', 'Overload');
+  assert.equal(ol.overloads, 3);
+  const legacy = series.parsePlayerLine('vxlt 8/6 3-2');
+  assert.equal(legacy.rounds_won, 3);
+  assert.equal(legacy.rounds_lost, 2);
+  assert.equal(series.clampModeScore('Search & Destroy', '7-5'), '6-5');
+  assert.equal(series.clampModeScore('Overload', '9-4'), '8-4');
+  assert.equal(series.clampModeScore('Hardpoint', '260-249'), '250-249');
+});
+
+test('capped scores still fill Win/Loss from the clamped line', async () => {
+  const series = await import(webUrl('series.js'));
+  const maps = series.emptyBo5(['Hardpoint', 'Search & Destroy', 'Overload']);
+  maps[0].map = 'Raid';
+  maps[0].score = '260-249';
+  maps[1].map = 'Hacienda';
+  maps[1].score = '7-5';
+  const records = series.seriesMatchRecords({
+    teamId: 'rome',
+    opponent: 'Optic',
+    date: '2026-08-26',
+    maps,
+  });
+  assert.equal(records[0].payload.score, '250-249');
+  assert.equal(records[0].payload.result, 'Win');
+  assert.equal(records[1].payload.score, '6-5');
+  assert.equal(records[1].payload.result, 'Win');
+});
+
+test('extra stat line is K/D | hill | score Won for HP, plants/overloads for the others', async () => {
+  const { extraStatLine } = await import(webUrl('stats.js'));
+  assert.equal(
+    extraStatLine(
+      { mode: 'Hardpoint', score: '250-249', result: 'Win' },
+      { kills: 27, deaths: 23, hill_time: 109 }
+    ),
+    '1.17 K/D | 1:49 | 250-249 Won'
+  );
+  assert.equal(
+    extraStatLine(
+      { mode: 'Search & Destroy', score: '6-5', result: 'Loss' },
+      { kills: 8, deaths: 6, plants: 2 }
+    ),
+    '2 plants | 6-5 Lost'
+  );
+  assert.equal(
+    extraStatLine(
+      { mode: 'Overload', score: '8-7', result: 'Win' },
+      { kills: 22, deaths: 14, overloads: 3 }
+    ),
+    '3 overloads | 8-7 Won'
+  );
+  assert.equal(extraStatLine({ mode: 'Hardpoint', score: '250-249', result: 'Win' }, {}), '250-249 Won');
+});
+
+test('desktop series parses extra stats the same way', async () => {
+  const series = await import(libUrl('series.js'));
+  assert.equal(series.parsePlayerLine('NaeviiSZN 8/6 2', 'Search & Destroy').plants, 2);
+  assert.equal(series.parsePlayerLine('vxlt 22/14 3', 'Overload').overloads, 3);
+  assert.equal(series.clampModeScore('Overload', '9-4'), '8-4');
+});
+
+test('same-day maps vs one opponent collapse into a single series', async () => {
+  const series = await import(webUrl('series.js'));
+  const groups = series.groupSeries([
+    { team_id: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Scar', mode: 'Hardpoint' },
+    { team_id: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Den', mode: 'Hardpoint' },
+    { team_id: 'rome', date: '2026-08-26', opponent: 'DMT', map: 'Hacienda', mode: 'Hardpoint' },
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].maps.length, 3);
+  assert.equal(groups[0].standalone, false);
+});

@@ -1,3 +1,4 @@
+import { extraStatLine } from '../../../lib/stats';
 import { AddMatch } from '../../../components/add-records';
 import { PageHeader, EmptyState } from '../../../components/page-header';
 import { fmtDate, teamWinRate } from '../../../lib/marks';
@@ -29,18 +30,22 @@ export default async function MatchesPage() {
             const wins = group.maps.filter((m) => String(m.result || '').toLowerCase() === 'win').length;
             const losses = group.maps.filter((m) => String(m.result || '').toLowerCase() === 'loss').length;
             return (
-              <div key={group.key} className="series-block">
-                <div className="crow">
+              <details key={group.key} className="series-block">
+                <summary className="crow">
                   <div className="crow-main">
                     <div className="crow-title">{head.opponent ? `vs ${head.opponent}` : 'Match'}</div>
                     <div className="crow-sub">
-                      {[teamName(head.team_id), group.standalone ? null : `${wins}-${losses}`, group.standalone ? null : 'BO5']
+                      {[
+                        teamName(head.team_id),
+                        group.standalone ? null : `${wins}-${losses}`,
+                        group.standalone ? null : `${group.maps.length} maps`,
+                      ]
                         .filter(Boolean)
                         .join(' · ')}
                     </div>
                   </div>
                   <div className="crow-meta">{head.date ? fmtDate(String(head.date).slice(0, 10)) : '—'}</div>
-                </div>
+                </summary>
                 {group.maps.map((match) => (
                   <div key={match.id || match.match_id} className="crow series-map">
                     <div className="crow-main">
@@ -48,14 +53,17 @@ export default async function MatchesPage() {
                         {match.game ? `G${match.game}` : ''} {match.mode || 'Map'} {match.map ? `· ${match.map}` : ''}
                       </div>
                       <div className="crow-sub">
-                        {[match.result, match.score, (match.players || []).length ? `${match.players.length} player stats` : 'No player stats yet']
+                        {[
+                          extraStatLine(match, (match.players || [])[0] || {}),
+                          (match.players || []).length ? `${match.players.length} player stats` : 'No player stats yet',
+                        ]
                           .filter(Boolean)
                           .join(' · ')}
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
+              </details>
             );
           })}
           <div className="field-hint" style={{ padding: '8px 4px 4px' }}>

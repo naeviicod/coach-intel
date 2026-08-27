@@ -656,7 +656,7 @@ function refreshMembersBackground(teamId) {
   memberRefreshInflight.add(teamId);
   (async () => {
     const local = await dataStore.getMembers(teamId);
-    const before = rosterFingerprint(local, ['id', 'gamertag', 'slot', 'role']);
+    const before = rosterFingerprint(local, ['id', 'gamertag', 'slot', 'role', 'user_id']);
     let remote = [];
     try {
       remote = await withTimeout(supabase.get().getMembers(teamId), 2500, 'Loading roster');
@@ -665,7 +665,7 @@ function refreshMembersBackground(teamId) {
       return;
     }
     const merged = mergeMemberLists(local, remote);
-    if (before === rosterFingerprint(merged, ['id', 'gamertag', 'slot', 'role'])) return;
+    if (before === rosterFingerprint(merged, ['id', 'gamertag', 'slot', 'role', 'user_id'])) return;
     for (const member of merged) await dataStore.saveMember(teamId, member).catch(() => null);
     notifyDataChanged('members');
   })()

@@ -7,7 +7,7 @@ import { mapNames, modeNames } from '../lib/ruleset';
 import { DRAW_COLOR, hitDrawingIndex, paintDrawings, paintOne } from '../lib/strat-draw';
 import {
   DEFAULT_PIECE_SCALE, MAX_PER_TEAM, cleanPositions, clampPieceScale, normalizePos,
-  spawnPositions, nextOpponentForMap, looksLikeLegacyCorners,
+  spawnPositions, nextOpponentForMap, nextUsForMap, looksLikeLegacyCorners,
 } from '../lib/strat-pieces';
 import mapObjectives from '@knowledge/map-objectives.json';
 import { Icon } from './icon';
@@ -342,10 +342,21 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
                     <div className="gamertag board-roster-name">{`${i + 1}  ${member?.gamertag || 'Player'}`}</div>
                     <span className="board-roster-on">On map</span>
                   </div>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      className="btn subtle sm board-roster-del"
+                      aria-label={`Remove ${member?.gamertag || 'player'}`}
+                      title="Remove from board"
+                      onClick={() => setPositions((list) => list.filter((p) => p.member_id !== pos.member_id))}
+                    >
+                      <Icon name="trash" size={12} />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
-            {roster.filter((m) => !placed.has(m.id)).map((member) => (
+            {roster.filter((m) => !placed.has(m.id) && m.slot !== 'staff' && m.slot !== 'fa').map((member) => (
               <div
                 key={member.id}
                 className="roster-row board-roster-row"
@@ -357,6 +368,20 @@ export function StratBoard({ team, members, strat, ruleset, canEdit, onClose, on
                   <div className="gamertag board-roster-name">{member.gamertag}</div>
                   <span className="board-roster-on">Bench</span>
                 </div>
+                {!readOnly && us.length < MAX_PER_TEAM ? (
+                  <button
+                    type="button"
+                    className="btn subtle sm board-roster-add"
+                    aria-label={`Add ${member.gamertag} to the map`}
+                    title="Add to map"
+                    onClick={() => {
+                      const slot = nextUsForMap(positions, member.id, map, mode, mapObjectives);
+                      if (slot) setPositions((list) => [...list, slot]);
+                    }}
+                  >
+                    <Icon name="plus" size={12} />
+                  </button>
+                ) : null}
               </div>
             ))}
             <div className="board-roster-kicker">{`Opponent · ${them.length}/${MAX_PER_TEAM}`}</div>

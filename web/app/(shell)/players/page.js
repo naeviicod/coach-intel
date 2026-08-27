@@ -1,10 +1,11 @@
 import { AddPlayer, EditMember, RemoveMember } from '../../../components/add-records';
+import { MemberPhotoButton } from '../../../components/member-edit';
 import { CopyInvite } from '../../../components/copy-invite';
 import { Icon } from '../../../components/icon';
 import { RosterSlotButton } from '../../../components/roster-slot-button';
 import { TransferBar, RosterCheck, TransferMember } from '../../../components/roster-transfer';
 import { PageHeader, EmptyState } from '../../../components/page-header';
-import { PlayerAvatar, RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified } from '../../../lib/marks';
+import { RoleBadge, TeamMark, orgTitles, splitRoster, memberOrgGroup, VerifiedMark, memberDiscordVerified, isNaevii } from '../../../lib/marks';
 import { suggestedAccessRole } from '../../../lib/invite';
 import { loadWorkspace } from '../../../lib/workspace';
 import { aggregate, statsForMember } from '../../../lib/stats';
@@ -54,9 +55,10 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
   const row = { ...member, team_id: teamId };
   const totals = aggregate(statsForMember(matches, member.id));
   return (
+    <div className="roster-block">
     <div className="roster-row">
       <RosterCheck member={row} canTransfer={canTransfer} />
-      <PlayerAvatar member={member} />
+      <MemberPhotoButton member={row} canEdit={canEdit} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="gamertag">
           {member.gamertag || member.name}
@@ -73,7 +75,9 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
           </span>
         ))}
         {staff || fa ? null : <RoleBadge role={member.role} />}
-        {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : member.slot === 'bench' ? <span className="pill">Bench</span> : null}
+        {staff ? <span className="pill">Staff</span> : fa ? <span className="pill">F/A</span> : (
+          <span className="pill" data-slot-pill="1" hidden={member.slot !== 'bench'}>Bench</span>
+        )}
       </div>
       <span className="roster-pipe" aria-hidden="true">|</span>
       <div className="crow-meta roster-kd">{totals.matches ? `${totals.kd} K/D` : '—'}</div>
@@ -81,24 +85,31 @@ function MemberRow({ member, teamId, teams, matches = [], showInvite, canEdit, c
         <>
           <span className="roster-pipe" aria-hidden="true">|</span>
           <div className="row-actions edit-only">
-            <span className="row-action-slot"><RosterSlotButton member={row} canEdit={canEdit} /></span>
-            <span className="row-action-slot">{canEdit ? <EditMember member={row} canEdit={canEdit} /> : null}</span>
-            <span className="row-action-slot"><TransferMember member={row} teams={teams} canTransfer={canTransfer} /></span>
-            <span className="row-action-slot">
-              {showInvite ? (
+            {canEdit && !staff && !fa ? (
+              <span className="row-action-slot"><RosterSlotButton member={row} canEdit={canEdit} /></span>
+            ) : null}
+            {canEdit ? <span className="row-action-slot"><EditMember member={row} canEdit={canEdit} /></span> : null}
+            {canTransfer ? (
+              <span className="row-action-slot"><TransferMember member={row} teams={teams} canTransfer={canTransfer} /></span>
+            ) : null}
+            {showInvite && !memberDiscordVerified(member) ? (
+              <span className="row-action-slot">
                 <CopyInvite
                   teamId={teamId}
                   memberId={member.id}
                   gamertag={member.gamertag}
                   accessRole={suggestedAccessRole(member)}
-                  linked={Boolean(member.user_id)}
+                  linked={false}
                 />
-              ) : null}
-            </span>
-            <span className="row-action-slot">{canEdit ? <RemoveMember member={row} canEdit={canEdit} /> : null}</span>
+              </span>
+            ) : null}
+            {canEdit && !isNaevii(member.gamertag) && !isNaevii(member.name) ? (
+              <span className="row-action-slot"><RemoveMember member={row} canEdit={canEdit} /></span>
+            ) : null}
           </div>
         </>
       ) : null}
+    </div>
     </div>
   );
 }

@@ -1,20 +1,22 @@
 import { el } from '../../../utils.js';
 import { openModal } from '../../../components/modal.js';
 
-export async function render(panel) {
+export async function render(panel, ctx) {
   panel.append(
     el('div', { class: 'card section' }, [
       el('div', { class: 'section-title' }, 'Storage'),
       el('div', { class: 'list-item-row' }, [
         el('div', {}, [
-          el('div', { class: 'settings-row-title' }, 'On-device only'),
+          el('div', { class: 'settings-row-title' }, ctx?.online ? 'Org cloud + this Mac' : 'Org cloud, cached on this Mac'),
           el(
             'div',
             { class: 'field-hint', style: 'max-width:560px;line-height:1.5;' },
-            'Every team, roster, match, note and strat is stored as plain JSON on this Mac. Nothing is uploaded, and the app works with the network off.'
+            ctx?.online
+              ? 'Teams, roster, matches, notes and strats live in the org database. This Mac keeps a local JSON copy so the app still works if the network drops.'
+              : 'Teams, roster, matches, notes and strats sync to the org database when you sign in. This Mac keeps a local JSON copy in the meantime.'
           ),
         ]),
-        el('span', { class: 'pill win' }, 'Local'),
+        el('span', { class: 'pill win' }, ctx?.online ? 'Cloud' : 'Local'),
       ]),
       el('div', { class: 'list-item-row' }, [
         el('div', {}, [

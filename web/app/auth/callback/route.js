@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeAuthNext } from '../../../lib/auth-next';
+import { ensureProfile } from '../../../lib/data';
 import { createServerSupabase } from '../../../lib/supabase/server';
 
 export async function GET(request) {
@@ -11,6 +12,7 @@ export async function GET(request) {
     const supabase = await createServerSupabase();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      await ensureProfile(supabase).catch(() => null);
       const done = NextResponse.redirect(new URL(next, origin));
       done.cookies.set('ci-auth-next', '', { path: '/', maxAge: 0 });
       return done;

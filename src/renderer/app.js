@@ -134,12 +134,12 @@ const LEGACY_TAB_ROUTES = {
   strats: (teamId) => `#/playbooks/${teamId}`,
 };
 
-const SPLASH_MIN_MS = 7000;
-const SPLASH_VEIL_MS = 1000;
-const SPLASH_BAR_MS = 280;
+const SPLASH_MIN_MS = 2100;
+const SPLASH_VEIL_MS = 220;
+const SPLASH_BAR_MS = 240;
 // Keep in step with --dur-splash in styles.css.
 const SPLASH_DISSOLVE_MS = 420;
-const ART_PRELOAD_MS = 1500;
+const ART_PRELOAD_MS = 400;
 const BOOT_TIMEOUT_MS = 10000;
 const NAV_AUTO_COLLAPSE_PX = 1024;
 const TEAM_NAV_PAGES = new Set([
@@ -475,7 +475,8 @@ function markNotificationSeen(id) {
 
 async function loadNotifications() {
   const rows = [];
-  for (const team of state.teams) {
+  const teams = [...state.teams, { id: 'org', name: state.org?.name || 'Org' }];
+  for (const team of teams) {
     const items = await window.cci.getNotifications(team.id).catch(() => []);
     for (const n of items) rows.push({ ...n, teamName: team.name });
   }
@@ -497,7 +498,12 @@ let entering = false;
 function applySavedLook() {
   lookApplied = true;
   applyAccent(state.org?.accent || DEFAULT_ACCENT);
-  applyBackground(getPref('background', DEFAULT_BACKGROUND));
+  let id = getPref('background', DEFAULT_BACKGROUND);
+  if (id === 'pit') {
+    id = DEFAULT_BACKGROUND;
+    setPref('background', id);
+  }
+  applyBackground(id);
 }
 
 function signalSplashDone() {
@@ -742,14 +748,13 @@ async function boot() {
   if (/Mac/i.test(navigator.platform || '')) document.documentElement.classList.add('is-mac');
   applyAccent(DEFAULT_ACCENT);
   applyBackground(DEFAULT_BACKGROUND);
-  // Starts decoding now; the splash has seconds of runway to spend on it.
-  const artReady = preloadBackground(getPref('background', DEFAULT_BACKGROUND));
+  const artReady = preloadBackground(DEFAULT_BACKGROUND);
   paintSplashVersion();
   wait(SPLASH_VEIL_MS).then(() => document.getElementById('splash')?.classList.add('risen'));
   const barAnim = runSplashBar();
   const minTime = wait(SPLASH_MIN_MS - SPLASH_BAR_MS);
   let showFn = renderSignIn;
-  const prepared = prepareApp();
+  const prepared = prepareApp({ fast: true });
   try {
     const first = await Promise.race([
       prepared.then((fn) => ({ kind: 'ready', fn })),
@@ -1231,6 +1236,17 @@ function renderTopbar() {
   topbar.append(statusPill());
 
   topbar.append(notificationBell());
+  if (state.online) {
+    topbar.append(el('button', {
+      type: 'button',
+      class: 'btn sm subtle topbar-signout',
+      title: 'Sign out',
+      onclick: async () => {
+        await window.cci.auth.signOut();
+        window.location.reload();
+      },
+    }, 'Sign out'));
+  }
   topbar.append(el('div', { class: 'topbar-divider' }));
 
   const chip = chipIdentity(state.org, state.access);
@@ -1295,7 +1311,7 @@ function renderStatusBar() {
 
   const sources = [];
   if (showRuleset) sources.push(rs.label || 'Ruleset');
-  sources.push('On-device Match Log');
+  sources.push(state.online ? 'Org cloud' : 'On-device');
   bar.append(
     el('div', { class: 'sbar-group sources' }, [
       el('span', { class: 'sbar-label' }, state.appVersion ? `v${state.appVersion}` : 'Data sources'),
@@ -1320,6 +1336,7 @@ function pageCtx() {
     org: state.org,
     teams: state.teams,
     access: state.access,
+    online: state.online,
     canEdit: Boolean(state.access?.canEdit),
     canEditTeam: (teamId) => canEditTeam(state.access?.role, teamId, state.access),
     canTransfer: canTransferMembers(state.access?.role, state.access),

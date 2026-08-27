@@ -79,13 +79,20 @@ function control(field, value) {
     }
     return box;
   }
+  if (field.type === 'checkbox') {
+    const on = value === true || value === 'true' || value === 1;
+    return el('label', { class: 'check-row', for: `pf-${field.key}` }, [
+      el('input', { type: 'checkbox', id: `pf-${field.key}`, name: field.key, checked: on ? 'checked' : null }),
+      el('span', {}, field.label || ''),
+    ]);
+  }
   const type = ['date', 'time', 'number'].includes(field.type) ? field.type : 'text';
   return el('input', { ...attrs, type, value: value != null ? String(value) : '' });
 }
 
 function fieldBlock(field, controlNode) {
   return el('div', { class: 'field', style: 'margin-bottom:0;' }, [
-    field.label ? el('label', { for: `pf-${field.key}` }, field.label) : null,
+    field.label && field.type !== 'checkbox' ? el('label', { for: `pf-${field.key}` }, field.label) : null,
     controlNode,
     field.hint ? el('div', { class: 'field-hint' }, field.hint) : null,
   ]);
@@ -121,6 +128,10 @@ export function openForm({ title, submitLabel = 'Save', fields, values = {}, wid
     for (const [key, { field, node }] of Object.entries(controls)) {
       if (field.type === 'checks') {
         out[key] = [...node.querySelectorAll('input:checked')].map((i) => i.value);
+        continue;
+      }
+      if (field.type === 'checkbox') {
+        out[key] = Boolean(node.querySelector('input[type="checkbox"]')?.checked);
         continue;
       }
       let value = node.value;

@@ -174,8 +174,8 @@ export function preferencesCard({ integration, catalog, actor, onSaved }) {
     );
     for (const event of catalog.events.filter((e) => e.group === group)) {
       const pref = draft[event.id] || { enabled: event.defaultEnabled, purpose: event.purpose };
-      const purpose = catalog.purposes.find((p) => p.id === (pref.purpose || event.purpose));
-      const routed = enabledChannels.has(pref.purpose || event.purpose);
+      const purpose = catalog.purposes.find((p) => p.id === event.purpose);
+      const routed = enabledChannels.has(event.purpose);
 
       const checkbox = el('input', {
         type: 'checkbox',

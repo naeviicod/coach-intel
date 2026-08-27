@@ -1,5 +1,5 @@
 import { el, playerAvatar, roleBadge, statsForMember, aggregate, teamMark, verifiedMark, icon } from '../utils.js';
-import { openMemberModal, openTransferModal } from '../lib/teamManage.js';
+import { openMemberModal, openTransferModal, changeMemberPhoto } from '../lib/teamManage.js';
 import { defaultSlot, isStaffMember, isFreeAgent, nextLineupSlot, splitRoster, memberOrgGroup } from '../lib/roster.js';
 import { isNaevii, memberStaffTitle, orgTitles, memberDiscordVerified } from '../lib/profile.js';
 import { openInviteModal } from '../lib/invite.js';
@@ -231,17 +231,35 @@ function appendGroup(card, title, members, team, matches, ctx, { empty, manage, 
 }
 
 function actionSlot(child) {
-  return el('span', { class: 'row-action-slot' }, child ? [child] : []);
+  if (!child) return null;
+  return el('span', { class: 'row-action-slot' }, [child]);
 }
 
 function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
   const totals = aggregate(statsForMember(matches, member.id));
+  const av = playerAvatar(member);
+  if (manage) {
+    av.classList.add('avatar-action');
+    av.title = `Change ${member.gamertag || 'player'} photo`;
+    av.setAttribute('role', 'button');
+    av.tabIndex = 0;
+    av.addEventListener('click', (e) => {
+      e.stopPropagation();
+      changeMemberPhoto(ctx, team.id, member, av);
+    });
+    av.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      changeMemberPhoto(ctx, team.id, member, av);
+    });
+  }
   const onBench = member.slot === 'bench';
   const staff = isStaffMember(member);
   const orgRole = memberStaffTitle(member);
   const titles = orgTitles(member).filter((t) => !/^player$/i.test(t));
   const protectedPerson = isNaevii(member.gamertag) || isNaevii(member.name);
-  return el('div', { class: 'roster-row' }, [
+  return el('div', { class: 'roster-block' }, [
+    el('div', { class: 'roster-row' }, [
     manage
       ? el('input', {
           type: 'checkbox',
@@ -250,7 +268,7 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
           title: `Select ${member.gamertag}`,
         })
       : null,
-    playerAvatar(member),
+    av,
     el('div', {
       style: 'flex:1;min-width:0;cursor:pointer;',
       onclick: () => ctx.navigate('member', `${team.id}/${member.id}`),
@@ -269,7 +287,7 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
     el('div', { class: 'roster-tags' }, [
       ...titles.map((t) => el('span', { class: `role-badge org ${String(t).replace(/\s+/g, '-')}` }, t)),
       staff ? null : roleBadge(member.role),
-      staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : onBench ? el('span', { class: 'pill' }, 'Bench') : null,
+      staff || isFreeAgent(member) ? el('span', { class: 'pill' }, staff ? 'Staff' : 'F/A') : el('span', { class: 'pill', 'data-slot-pill': '1', hidden: onBench ? null : 'hidden' }, 'Bench'),
     ]),
     el('span', { class: 'roster-pipe', 'aria-hidden': 'true' }, '|'),
     el('div', { class: 'crow-meta roster-kd' }, totals.matches ? `${totals.kd} K/D` : '—'),
@@ -277,7 +295,8 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
     el('div', { class: 'row-actions edit-only' }, [
       actionSlot(staff || isFreeAgent(member) ? null : el('button', {
         class: 'btn sm',
-        onclick: () => toggleSlot(ctx, team.id, member),
+        'data-slot-toggle': '1',
+        onclick: (e) => toggleSlot(ctx, team.id, member, e.currentTarget.closest('.roster-row')),
       }, onBench ? 'Start' : 'Bench')),
       actionSlot(el('button', { class: 'btn sm', onclick: () => openMemberModal(ctx, team.id, member) }, 'Edit')),
       actionSlot(canTransfer
@@ -286,10 +305,12 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
           onclick: () => openTransferModal(ctx, team, member),
         }, 'Transfer')
         : null),
-      actionSlot(el('button', {
+      actionSlot(memberDiscordVerified(member)
+        ? null
+        : el('button', {
         class: 'btn sm',
         onclick: () => openInviteModal(ctx, team.id, member),
-      }, member.linked ? 'Linked' : 'Invite')),
+      }, 'Invite')),
       actionSlot(protectedPerson
         ? null
         : el('button', {
@@ -304,21 +325,77 @@ function memberRow(member, team, matches, ctx, { manage, canTransfer } = {}) {
             }
           },
         }, 'Remove')),
+    ].filter(Boolean)),
     ]),
   ]);
 }
 
-async function toggleSlot(ctx, teamId, member) {
-  try {
-    await window.cci.saveMember(teamId, {
-      ...member,
-      linked: undefined,
-      slot: nextLineupSlot(member.slot),
-    });
-  } catch (err) {
-    toast(err?.message || 'Could not update lineup.', 'error');
+function groupTitle(slot) {
+  return slot === 'bench' ? 'Backup / Bench' : 'Starting lineup';
+}
+
+function applyRowSlot(row, member) {
+  const onBench = member.slot === 'bench';
+  const btn = row.querySelector('[data-slot-toggle]');
+  if (btn) btn.textContent = onBench ? 'Start' : 'Bench';
+  const pill = row.querySelector('[data-slot-pill]');
+  if (pill) {
+    pill.hidden = !onBench;
+    pill.textContent = onBench ? 'Bench' : '';
   }
-  ctx.navigate('players');
+}
+
+function bumpGroupMeta(card, fromSlot, toSlot) {
+  const titles = [...(card?.querySelectorAll('.card-head .card-title') || [])];
+  const bump = (title, delta) => {
+    const meta = titles.find((node) => node.textContent === title)?.closest('.card-head')?.querySelector('.card-meta');
+    if (!meta) return;
+    meta.textContent = String(Math.max(0, Number(meta.textContent || 0) + delta));
+  };
+  bump(groupTitle(fromSlot), -1);
+  bump(groupTitle(toSlot), 1);
+}
+
+function moveRowToGroup(row, slot) {
+  const block = row.closest('.roster-block') || row;
+  const card = block.closest('.card');
+  if (!card) return;
+  const head = [...card.querySelectorAll('.card-head .card-title')]
+    .find((node) => node.textContent === groupTitle(slot))
+    ?.closest('.card-head');
+  if (!head) return;
+  let insertAfter = head;
+  let next = head.nextElementSibling;
+  if (next?.classList.contains('field-hint')) {
+    next.hidden = true;
+    next = next.nextElementSibling;
+  }
+  while (next && (next.classList.contains('roster-row') || next.classList.contains('roster-block'))) {
+    insertAfter = next;
+    next = next.nextElementSibling;
+  }
+  insertAfter.after(block);
+}
+
+function toggleSlot(ctx, teamId, member, row) {
+  const previous = member.slot;
+  const next = nextLineupSlot(previous);
+  const card = row?.closest('.card');
+  member.slot = next;
+  applyRowSlot(row, member);
+  moveRowToGroup(row, next);
+  bumpGroupMeta(card, previous, next);
+  window.cci.saveMember(teamId, {
+    ...member,
+    linked: undefined,
+    slot: next,
+  }).catch((err) => {
+    member.slot = previous;
+    applyRowSlot(row, member);
+    moveRowToGroup(row, previous);
+    bumpGroupMeta(card, next, previous);
+    toast(err?.message || 'Could not update lineup.', 'error');
+  });
 }
 
 async function repairPlayingNaevii(teamId, members, canEdit) {

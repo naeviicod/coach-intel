@@ -79,7 +79,7 @@ class DiscordProvider {
     const preference = integration.preferences?.[eventId];
     if (!preference || !preference.enabled) return { skip: SKIP_REASON.DISABLED, integration };
 
-    const purpose = preference.purpose || event.purpose;
+    const purpose = event.purpose;
     const mapping = (integration.channels || []).find((c) => c.purpose === purpose);
     if (!mapping || !mapping.enabled || !mapping.discord_channel_id) {
       return { skip: SKIP_REASON.NO_CHANNEL, integration };
@@ -223,8 +223,8 @@ class InAppProvider {
   async deliver(eventId, payload = {}) {
     const event = EVENTS_BY_ID.get(eventId);
     if (!event) return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: SKIP_REASON.UNKNOWN_EVENT };
-    const teamId = payload.team?.id;
-    if (!this.store || !teamId) {
+    const teamId = payload.team?.id || 'org';
+    if (!this.store) {
       return { outcome: OUTCOME.SKIPPED, provider: this.id, reason: 'No notification store or team' };
     }
     try {

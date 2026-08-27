@@ -56,6 +56,7 @@ const SENSITIVITY_LABELS = {
 
 const CHANNEL_PURPOSES = [
   { id: 'general', label: 'General Intel', example: '#coach-intel', defaultSensitivity: 'PUBLIC_TEAM' },
+  { id: 'schedule', label: 'Schedule', example: '#Schedule', defaultSensitivity: 'PUBLIC_TEAM' },
   { id: 'match_reports', label: 'Match Reports', example: '#match-reports', defaultSensitivity: 'PUBLIC_TEAM' },
   { id: 'scrims', label: 'Scrim Scheduling', example: '#scrims', defaultSensitivity: 'PUBLIC_TEAM' },
   { id: 'training', label: 'Training & Practice', example: '#training', defaultSensitivity: 'PUBLIC_TEAM' },
@@ -99,10 +100,10 @@ const EVENTS = [
   { id: 'review.overdue', group: 'Review', label: 'Review overdue', purpose: 'alerts', sensitivity: 'COACHING_STAFF', defaultEnabled: false },
   { id: 'review.resolved', group: 'Review', label: 'Review resolved', purpose: 'vod_review', sensitivity: 'COACHING_STAFF', defaultEnabled: false },
 
-  // Calendar
-  { id: 'calendar.scrim_scheduled', group: 'Calendar', label: 'Scrim booked', purpose: 'scrims', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
-  { id: 'calendar.training_scheduled', group: 'Calendar', label: 'Training/meeting/VOD review scheduled', purpose: 'training', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
-  { id: 'calendar.match_scheduled', group: 'Calendar', label: 'Match added to calendar', purpose: 'match_reports', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
+  // Calendar — all land in #Schedule when the coach hits Notify players.
+  { id: 'calendar.scrim_scheduled', group: 'Calendar', label: 'Scrim booked', purpose: 'schedule', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
+  { id: 'calendar.training_scheduled', group: 'Calendar', label: 'Training/meeting/VOD review scheduled', purpose: 'schedule', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
+  { id: 'calendar.match_scheduled', group: 'Calendar', label: 'Match added to calendar', purpose: 'schedule', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true, auto: true },
 
   // Match
   { id: 'match.pre_match_ready', group: 'Match', label: 'Pre-match pack ready', purpose: 'match_reports', sensitivity: 'PUBLIC_TEAM', defaultEnabled: true },

@@ -3,11 +3,15 @@ import { openModal, modalActions, toast } from '../components/modal.js';
 import {
   applyScoreboardToRoster,
   bo5Modes,
+  clampModeScore,
   emptyPlayerLine,
+  extraPlayerField,
   findSeriesMatch,
   guessMapFromName,
   nextUnfiledGame,
   playingRoster,
+  resultFromScore,
+  scorePlaceholder,
 } from '../lib/series.js';
 
 const MODE_SHORT = {
@@ -45,7 +49,7 @@ export async function openFileScoreboard({ item, team, onSaved }) {
   );
   const mapSel = el('select', {}, [el('option', { value: '' }, '—'), ...maps.map((m) => el('option', { value: m, selected: m === guessMapFromName(item.filename || item.name, maps) ? 'selected' : null }, m))]);
   const resultSel = el('select', {}, [el('option', {}, 'Win'), el('option', {}, 'Loss')]);
-  const score = el('input', { placeholder: '250-180' });
+  const score = el('input', { placeholder: scorePlaceholder(bo5[game - 1] || 'Hardpoint') });
   const paste = el('textarea', { rows: 4, placeholder: 'NaeviiSZN 27/23 1:49' });
 
   const playerState = roster.map(emptyPlayerLine);
@@ -53,7 +57,14 @@ export async function openFileScoreboard({ item, team, onSaved }) {
   function modeForGame() {
     return bo5[Number(gameSel.value) - 1] || bo5[0] || 'Hardpoint';
   }
-  gameSel.addEventListener('change', () => redrawTable(table, playerState, modeForGame()));
+  gameSel.addEventListener('change', () => {
+    const mode = modeForGame();
+    score.placeholder = scorePlaceholder(mode);
+    paste.placeholder = mode === 'Hardpoint' ? 'NaeviiSZN 27/23 1:49' : mode === 'Search & Destroy' ? 'NaeviiSZN 8/6 2' : 'NaeviiSZN 22/14 3';
+    const next = applyScoreboardToRoster(paste.value, roster, { matchedOnly: true, mode });
+    playerState.splice(0, playerState.length, ...(next.length ? next : roster.map(emptyPlayerLine)));
+    redrawTable(table, playerState, mode);
+  });
 
   const body = el('div', {});
   const overlay = openModal(body, { width: '860px' });
@@ -72,14 +83,14 @@ export async function openFileScoreboard({ item, team, onSaved }) {
           field('Result', resultSel),
           field('Points', score),
         ]),
-        el('div', { class: 'field-hint', style: 'margin:8px 0;' }, 'Names are matched to this roster from the board. HP uses hill time; SnD and Overload use rounds won/lost.'),
+        el('div', { class: 'field-hint', style: 'margin:8px 0;' }, 'Names are matched to this roster. HP extra is hill time (1:49). SnD extra is plants (rounds max 6-5). Overload extra is overloads (score max 8-7).'),
         table,
         field('Board lines (paste to match this roster)', paste),
         el('button', {
           type: 'button',
           class: 'btn sm',
           onclick: () => {
-            const next = applyScoreboardToRoster(paste.value, roster, { matchedOnly: true });
+            const next = applyScoreboardToRoster(paste.value, roster, { matchedOnly: true, mode: modeForGame() });
             playerState.splice(0, playerState.length, ...(next.length ? next : roster.map(emptyPlayerLine)));
             redrawTable(table, playerState, modeForGame());
           },
@@ -106,6 +117,7 @@ export async function openFileScoreboard({ item, team, onSaved }) {
           const gameNum = Number(gameSel.value) || 1;
           const mode = bo5[gameNum - 1] || bo5[0];
           const hit = findSeriesMatch(matches, { teamId: team.id, date: dateInput.value, game: gameNum, mode, map: mapSel.value });
+          const points = clampModeScore(mode, score.value.trim());
           await window.cci.saveMatch(team.id, {
             ...(hit || {}),
             match_id: hit?.match_id || `series-${dateInput.value}-${team.id}-g${gameNum}`,
@@ -116,8 +128,8 @@ export async function openFileScoreboard({ item, team, onSaved }) {
             opponent: opponent.value.trim(),
             map: mapSel.value,
             mode,
-            result: resultSel.value,
-            score: score.value.trim(),
+            result: resultSel.value || resultFromScore(points),
+            score: points,
             players: readPlayerInputs(table, playerState, mode),
             scoreboard_path: item.key || item.relative || '',
           });
@@ -153,17 +165,14 @@ function playerTable(rows, mode) {
 }
 
 function redrawTable(table, rows, mode) {
-  const hp = mode === 'Hardpoint';
-  const rounds = mode === 'Search & Destroy' || mode === 'Overload';
+  const extra = extraPlayerField(mode);
   table.innerHTML = '';
   table.append(
     el('thead', {}, [el('tr', {}, [
       el('th', {}, 'Player'),
       el('th', {}, 'K'),
       el('th', {}, 'D'),
-      hp ? el('th', {}, 'Time') : null,
-      rounds ? el('th', {}, 'Rnd W') : null,
-      rounds ? el('th', {}, 'Rnd L') : null,
+      extra ? el('th', {}, extra.label) : null,
     ])]),
     el(
       'tbody',
@@ -173,9 +182,11 @@ function redrawTable(table, rows, mode) {
           el('td', {}, row.gamertag),
           el('td', {}, el('input', { type: 'number', min: '0', value: String(row.kills || 0) })),
           el('td', {}, el('input', { type: 'number', min: '0', value: String(row.deaths || 0) })),
-          hp ? el('td', {}, el('input', { value: clockValue(row.hill_time) })) : null,
-          rounds ? el('td', {}, el('input', { type: 'number', min: '0', value: String(row.rounds_won || 0) })) : null,
-          rounds ? el('td', {}, el('input', { type: 'number', min: '0', value: String(row.rounds_lost || 0) })) : null,
+          extra?.clock
+            ? el('td', {}, el('input', { value: clockValue(row.hill_time) }))
+            : extra
+              ? el('td', {}, el('input', { type: 'number', min: '0', value: String(row[extra.key] || 0) }))
+              : null,
         ])
       )
     )
@@ -183,8 +194,7 @@ function redrawTable(table, rows, mode) {
 }
 
 function readPlayerInputs(table, fallback, mode) {
-  const hp = mode === 'Hardpoint';
-  const rounds = mode === 'Search & Destroy' || mode === 'Overload';
+  const extra = extraPlayerField(mode);
   return [...table.querySelectorAll('tbody tr')].map((tr, i) => {
     const inputs = [...tr.querySelectorAll('input')];
     const row = {
@@ -194,9 +204,11 @@ function readPlayerInputs(table, fallback, mode) {
       deaths: Number(inputs[1]?.value) || 0,
       assists: fallback[i]?.assists || 0,
       damage: fallback[i]?.damage || 0,
-      hill_time: hp ? parseClockInput(inputs[2]?.value) : fallback[i]?.hill_time || 0,
-      rounds_won: rounds ? Number(inputs[2]?.value) || 0 : fallback[i]?.rounds_won || 0,
-      rounds_lost: rounds ? Number(inputs[3]?.value) || 0 : fallback[i]?.rounds_lost || 0,
+      hill_time: extra?.clock ? parseClockInput(inputs[2]?.value) : fallback[i]?.hill_time || 0,
+      plants: extra?.key === 'plants' ? Number(inputs[2]?.value) || 0 : fallback[i]?.plants || 0,
+      overloads: extra?.key === 'overloads' ? Number(inputs[2]?.value) || 0 : fallback[i]?.overloads || 0,
+      rounds_won: fallback[i]?.rounds_won || 0,
+      rounds_lost: fallback[i]?.rounds_lost || 0,
     };
     return row;
   });

@@ -25,13 +25,13 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
       />
       <LookSync accent={org?.accent} background={org?.background} />
       <OrgLiveSync />
-      <div id="atmosphere" className="splash-atmosphere arena settled" data-background="pit" aria-hidden="true">
+      <div id="atmosphere" className="splash-atmosphere arena settled art-bg" data-background="orbit" style={{ '--art-zoom': 1.14 }} aria-hidden="true">
         <span className="arena-field arena-field-soft" />
         <span className="arena-field" />
         <span className="arena-hex" />
         <span className="arena-grain" />
         <span className="arena-art">
-          <img className="arena-art-img" alt="" draggable="false" />
+          <img className="arena-art-img" src="/assets/backgrounds/orbit.png" alt="" draggable="false" />
           <span className="arena-art-tint" aria-hidden="true" />
         </span>
       </div>
@@ -62,9 +62,9 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
               <span>Ruleset checked {RULESET.last_checked}</span>
             </div>
             <div className="sbar-group sources">
-              <span className="sbar-label">v2.5.0</span>
+              <span className="sbar-label">v3.5.0</span>
               <span className="sbar-src">{RULESET.label}</span>
-              <span className="sbar-src">On-device Match Log</span>
+              <span className="sbar-src">Org cloud</span>
             </div>
           </footer>
         </div>

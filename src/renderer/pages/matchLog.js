@@ -1,8 +1,9 @@
-import { el, fmtDate, playerAvatar, OBJ_STATS, fmtObj } from '../utils.js';
+import { el, extraStatLine, fmtDate, playerAvatar, OBJ_STATS, fmtObj } from '../utils.js';
 import { pageHeader, emptyState, openForm, confirmModal, toast } from './planningShared.js';
 import { openModal, modalActions } from '../components/modal.js';
-import { collectMatchLogRows, rulesetFilterOptions } from '../lib/matchLog.js';
+import { collectMatchLogRows, groupMatchLogRows, rulesetFilterOptions, advancedStatsFields } from '../lib/matchLog.js';
 import { canAccessPage } from '../lib/access.js';
+import { clampModeScore, parseClockToSeconds, resultFromScore } from '../lib/series.js';
 import { openLogSeries } from './logSeries.js';
 
 const RESULTS = ['Win', 'Loss'];
@@ -68,6 +69,7 @@ export async function render(container, ctx) {
 
   const tableWrap = el('div', { class: 'card' });
   container.append(tableWrap);
+  const expanded = new Set();
 
   function draw() {
     const teamVal = filterBar.querySelector('#team-filter').value;
@@ -104,8 +106,6 @@ export async function render(container, ctx) {
         return;
       }
       if (m.source === 'scrim') ctx.navigate('scrim-hub', m.teamId);
-      // The org calendar is staff-only, so anyone else lands on the same event
-      // in that team's Planner rather than being bounced to their home page.
       else if (canAccessPage(ctx.access?.role, 'calendar')) ctx.navigate('calendar', m.teamId);
       else ctx.navigate('team-hub', `${m.teamId}/practice`);
     }
@@ -116,6 +116,13 @@ export async function render(container, ctx) {
       return el('span', { class: cls ? `pill ${cls}` : 'pill' }, m.result);
     }
 
+    function seriesResult(group) {
+      if (!group.seriesScore) return '—';
+      const cls = group.wins > group.losses ? 'win' : group.losses > group.wins ? 'loss' : '';
+      return el('span', { class: cls ? `pill ${cls}` : 'pill' }, group.seriesScore);
+    }
+
+    const groups = groupMatchLogRows(filtered);
     tableWrap.append(
       el('table', {}, [
         el('thead', {}, [
@@ -123,32 +130,43 @@ export async function render(container, ctx) {
             el('th', {}, 'Date'),
             el('th', {}, 'Team'),
             el('th', {}, 'Opponent'),
-            el('th', {}, 'Mode'),
-            el('th', {}, 'Map'),
+            el('th', {}, 'Series'),
+            el('th', {}, 'Maps'),
             el('th', {}, 'Score'),
             el('th', {}, 'Result'),
-            el('th', {}, 'Top Performer'),
             el('th', { class: 'edit-only' }, ''),
           ]),
         ]),
         el(
           'tbody',
           {},
-          filtered.map((m) => {
-            const top = [...(m.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0))[0];
-            const canDelete = m.source === 'match' && m.match_id;
-            return el(
+          groups.flatMap((group) => {
+            const head = group.head;
+            const many = group.maps.length > 1;
+            const open = !many || expanded.has(group.key);
+            const canDelete = group.maps.some((m) => m.source === 'match' && m.match_id);
+            const headRow = el(
               'tr',
-              { class: 'clickable-row', onclick: () => openRow(m) },
+              {
+                class: 'clickable-row',
+                onclick: () => {
+                  if (!many) {
+                    openRow(head);
+                    return;
+                  }
+                  if (expanded.has(group.key)) expanded.delete(group.key);
+                  else expanded.add(group.key);
+                  draw();
+                },
+              },
               [
-                el('td', {}, fmtDate(m.date)),
-                el('td', {}, m.teamName),
-                el('td', {}, m.opponent || '—'),
-                el('td', { class: 'mode-tag' }, m.mode || '—'),
-                el('td', {}, m.map || '—'),
-                el('td', {}, m.score || '—'),
-                el('td', {}, resultCell(m)),
-                el('td', {}, top ? `${top.member_id} (${top.kills || 0}K)` : '—'),
+                el('td', {}, fmtDate(head.date)),
+                el('td', {}, head.teamName),
+                el('td', {}, head.opponent || '—'),
+                el('td', {}, many ? `BO${group.maps.length}` : head.mode || '—'),
+                el('td', {}, group.maps.map((m) => m.map).filter(Boolean).join(' · ') || '—'),
+                el('td', {}, group.seriesScore || '—'),
+                el('td', {}, seriesResult(group)),
                 el('td', { class: 'edit-only' }, canDelete
                   ? el(
                       'button',
@@ -156,7 +174,8 @@ export async function render(container, ctx) {
                         class: 'btn subtle sm danger',
                         onclick: (e) => {
                           e.stopPropagation();
-                          deleteMatch(m, reload);
+                          const logged = group.maps.find((m) => m.source === 'match' && m.match_id);
+                          if (logged) deleteMatch(logged, reload);
                         },
                       },
                       'Delete'
@@ -164,6 +183,22 @@ export async function render(container, ctx) {
                   : null),
               ]
             );
+            if (!many || !open) return [headRow];
+            return [
+              headRow,
+              ...group.maps.map((m) =>
+                el('tr', { class: 'clickable-row series-map-row', onclick: () => openRow(m) }, [
+                  el('td', {}, ''),
+                  el('td', {}, m.game ? `G${m.game}` : ''),
+                  el('td', {}, ''),
+                  el('td', { class: 'mode-tag' }, m.mode || '—'),
+                  el('td', {}, m.map || '—'),
+                  el('td', {}, m.score || '—'),
+                  el('td', {}, resultCell(m)),
+                  el('td', { class: 'edit-only' }, ''),
+                ])
+              ),
+            ];
           })
         ),
       ])
@@ -217,75 +252,6 @@ function matchFormFields(ruleset, { includeTeam, teams } = {}) {
   return fields;
 }
 
-function advancedStatsFields(mode) {
-  if (mode === 'Hardpoint') {
-    return {
-      key: 'hp',
-      fields: [
-        [
-          { key: 'holds_won', label: 'Holds Won', type: 'number', placeholder: '0' },
-          { key: 'holds_attempted', label: 'Holds Attempted', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'breaks_won', label: 'Breaks Won', type: 'number', placeholder: '0' },
-          { key: 'breaks_attempted', label: 'Breaks Attempted', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'rotations_won', label: 'Rotations Won', type: 'number', placeholder: '0' },
-          { key: 'rotations_attempted', label: 'Rotations Attempted', type: 'number', placeholder: '0' },
-        ],
-      ],
-    };
-  }
-  if (mode === 'Search & Destroy') {
-    return {
-      key: 'snd',
-      fields: [
-        [
-          { key: 'offense_rounds', label: 'Offense Rounds', type: 'number', placeholder: '0' },
-          { key: 'offense_round_wins', label: 'Offense Rounds Won', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'defense_rounds', label: 'Defense Rounds', type: 'number', placeholder: '0' },
-          { key: 'defense_round_wins', label: 'Defense Rounds Won', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'first_bloods', label: 'First Bloods', type: 'number', placeholder: '0' },
-          { key: 'first_blood_wins', label: 'First Blood → Round Won', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'first_deaths', label: 'First Deaths', type: 'number', placeholder: '0' },
-          { key: 'first_death_wins', label: 'First Death → Round Won', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'post_plant_rounds', label: 'Rounds Planted', type: 'number', placeholder: '0' },
-          { key: 'post_plant_wins', label: 'Post-Plant Wins', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'retake_rounds', label: 'Retake Rounds', type: 'number', placeholder: '0' },
-          { key: 'retake_wins', label: 'Retakes Won', type: 'number', placeholder: '0' },
-        ],
-      ],
-    };
-  }
-  if (mode === 'Overload') {
-    return {
-      key: 'overload',
-      fields: [
-        [
-          { key: 'scoring_attempts', label: 'Scoring Attempts', type: 'number', placeholder: '0' },
-          { key: 'scoring_wins', label: 'Scores Landed', type: 'number', placeholder: '0' },
-        ],
-        [
-          { key: 'defensive_attempts', label: 'Defensive Attempts', type: 'number', placeholder: '0' },
-          { key: 'defensive_stops', label: 'Defensive Stops', type: 'number', placeholder: '0' },
-        ],
-      ],
-    };
-  }
-  return null;
-}
-
 function advancedStatsSummary(data, adv) {
   if (!data) return el('div', { class: 'field-hint', style: 'padding:6px 2px;' }, 'No advanced stats recorded yet.');
   const flat = adv.fields.flatMap((row) => (Array.isArray(row) ? row : [row]));
@@ -325,8 +291,13 @@ function editMatch(match, team, reload) {
       values: { ...match, us, them },
       onSubmit: async (values) => {
         const { us: nUs, them: nThem, ...rest } = values;
-        const score = combineScore(nUs, nThem, match.score);
-        const updated = await window.cci.saveMatch(team.id, { ...match, ...rest, score });
+        const score = clampModeScore(rest.mode || match.mode, combineScore(nUs, nThem, match.score));
+        const updated = await window.cci.saveMatch(team.id, {
+          ...match,
+          ...rest,
+          score,
+          result: rest.result || resultFromScore(score, match.result),
+        });
         toast('Match updated', 'ok');
         reload();
         matchDetail(updated, team, reload);
@@ -342,7 +313,6 @@ function matchDetail(match, team, reload) {
   async function draw() {
     body.innerHTML = '';
     const members = team ? await window.cci.getMembers(team.id) : [];
-    const objStats = OBJ_STATS[match.mode] || [];
 
     body.append(
       el('h3', {}, `${match.map || 'Match'} · ${match.mode || ''}`),
@@ -368,7 +338,6 @@ function matchDetail(match, team, reload) {
     }
     for (const p of match.players || []) {
       const member = members.find((m) => m.id === p.member_id);
-      const objBits = objStats.map((s) => `${s.short}: ${fmtObj(s, p[s.key])}`);
       statsCard.append(
         el('div', { class: 'crow' }, [
           member ? playerAvatar(member) : null,
@@ -377,7 +346,7 @@ function matchDetail(match, team, reload) {
             el(
               'div',
               { class: 'crow-sub' },
-              [`${p.kills || 0}K ${p.deaths || 0}D ${p.assists || 0}A · ${p.damage || 0} dmg`, ...objBits].join(' · ')
+              extraStatLine(match, p) || `${p.kills || 0}K ${p.deaths || 0}D ${p.assists || 0}A · ${p.damage || 0} dmg`
             ),
           ]),
           el('div', { class: 'crow-actions edit-only' }, [
@@ -471,20 +440,31 @@ function playerStatForm(match, team, members, existing, onDone) {
       { key: 'assists', label: 'Assists', type: 'number', placeholder: '0' },
       { key: 'damage', label: 'Damage', type: 'number', placeholder: '0' },
     ],
-    ...objStats.map((s) => ({
-      key: s.key,
-      label: s.duration ? `${s.label} (seconds)` : s.label,
-      type: 'number',
-      placeholder: '0',
-    })),
+    ...objStats.map((s) => (s.duration
+      ? { key: s.key, label: s.label, placeholder: '1:49', hint: 'Minutes:seconds' }
+      : { key: s.key, label: s.label, type: 'number', placeholder: '0' })),
   ];
+  const values = existing
+    ? {
+        ...existing,
+        ...Object.fromEntries(
+          objStats
+            .filter((s) => s.duration)
+            .map((s) => [s.key, fmtObj(s, existing[s.key])])
+        ),
+      }
+    : {};
   openForm({
     title: existing ? 'Edit Player Stats' : 'Add Player Stats',
     fields,
-    values: existing || {},
+    values,
     onSubmit: async (values) => {
-      const players = (match.players || []).filter((p) => p.member_id !== values.member_id);
-      players.push(values);
+      const row = { ...values };
+      for (const s of objStats) {
+        if (s.duration) row[s.key] = parseClockToSeconds(row[s.key]) ?? Number(row[s.key]) || 0;
+      }
+      const players = (match.players || []).filter((p) => p.member_id !== row.member_id);
+      players.push(row);
       match.players = players;
       await window.cci.saveMatch(team.id, match);
       toast('Player stats saved', 'ok');

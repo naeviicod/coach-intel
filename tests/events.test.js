@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const events = require('../src/main/events');
-const { EVENTS_BY_ID } = require('../src/main/discord/constants');
+const { EVENTS_BY_ID, CHANNEL_PURPOSES } = require('../src/main/discord/constants');
 
 const TEAM = { id: 'team-naevii', name: 'Team Naevii' };
 
@@ -203,12 +203,63 @@ test('unsubscribing stops delivery', async () => {
 // ---------- Catalog agreement ----------
 
 test('every event the app emits exists in the Discord catalog and is marked automatic', () => {
-  const emitted = ['strategy.review_requested', 'strategy.approved', 'strategy.changed', 'strategy.match_ready.updated', 'cdl.ruleset_change_detected'];
+  const emitted = [
+    'strategy.review_requested',
+    'strategy.approved',
+    'strategy.changed',
+    'strategy.match_ready.updated',
+    'cdl.ruleset_change_detected',
+    'calendar.scrim_scheduled',
+    'calendar.training_scheduled',
+    'calendar.match_scheduled',
+  ];
   for (const id of emitted) {
     const event = EVENTS_BY_ID.get(id);
     assert.ok(event, `${id} is missing from the event catalog`);
     assert.equal(event.auto, true, `${id} should be marked as automatically emitted`);
   }
+});
+
+test('calendar notifications route to Discord #Schedule', () => {
+  assert.ok(CHANNEL_PURPOSES.some((p) => p.id === 'schedule' && p.example === '#Schedule'));
+  for (const id of ['calendar.scrim_scheduled', 'calendar.training_scheduled', 'calendar.match_scheduled']) {
+    assert.equal(EVENTS_BY_ID.get(id).purpose, 'schedule');
+  }
+});
+
+test('saving a calendar event is silent unless the coach asks to notify players', async () => {
+  const seen = collector();
+  const store = {
+    async saveEvent(_teamId, event) {
+      return { ...event, event_id: event.event_id || 'e1', date: event.date || '2026-08-26', time: event.time || '21:00' };
+    },
+    async getTeam() {
+      return TEAM;
+    },
+    async getMembers() {
+      return [];
+    },
+  };
+
+  await events.saveEventAndAnnounce(store, TEAM.id, {
+    type: 'league-match',
+    title: 'vs DMT',
+    date: '2026-08-26',
+    time: '21:00',
+  });
+  assert.deepEqual(seen, []);
+
+  await events.saveEventAndAnnounce(store, TEAM.id, {
+    event_id: 'e1',
+    type: 'league-match',
+    title: 'vs DMT',
+    date: '2026-08-26',
+    time: '21:00',
+    notify_players: true,
+  });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].eventId, 'calendar.match_scheduled');
+  assert.equal(seen[0].payload.dedupeId, 'e1:2026-08-26:21:00');
 });
 
 test('catalog events without a producer are not advertised as automatic', () => {

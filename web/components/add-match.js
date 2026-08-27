@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { newId, saveDoc } from '../lib/docs';
-import { emptyBo5, seriesMatchRecords } from '../lib/series';
+import { emptyBo5, scorePlaceholder, seriesMatchRecords } from '../lib/series';
 import { Err, Field, FormCard } from './workspace';
 
 const MODE_SHORT = {
@@ -104,7 +104,7 @@ export function AddMatch({ teams, canEdit, maps = [], modes = [] }) {
                     <input
                       value={slot.score}
                       onChange={(e) => patchGame(slot.index, { score: e.target.value })}
-                      placeholder={slot.mode === 'Search & Destroy' ? '6-4' : '250-180'}
+                      placeholder={scorePlaceholder(slot.mode)}
                     />
                   </Field>
                 </div>

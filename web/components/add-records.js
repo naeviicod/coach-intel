@@ -87,55 +87,7 @@ export function AddPlayer({ teams, canEdit, teamId }) {
   );
 }
 
-export function EditMember({ member, canEdit }) {
-  const [open, setOpen] = useState(false);
-  const [error, setError] = useState('');
-  const [form, setForm] = useState({
-    gamertag: member.gamertag || '',
-    name: member.name || '',
-    role: member.role || 'Flex',
-    slot: member.slot || 'starter',
-    title: member.title || '',
-  });
-  if (!canEdit || !member?.id) return null;
-  const formId = `edit-member-${member.id}`;
-  async function save(e) {
-    e.preventDefault();
-    setError('');
-    try {
-      await saveMember({ ...member, ...form });
-      window.location.reload();
-    } catch (err) {
-      setError(err.message || 'Could not save member.');
-    }
-  }
-  return (
-    <>
-      <button type="button" className="btn sm" onClick={() => setOpen(true)}>Edit</button>
-      {open ? (
-        <div style={{ flexBasis: '100%' }}>
-          <FormCard title={`Edit ${member.gamertag || 'member'}`} onClose={() => setOpen(false)} actions={<button type="submit" form={formId} className="btn primary">Save</button>}>
-            <form id={formId} onSubmit={save} className="inline-fields">
-              <Field label="Gamertag"><input value={form.gamertag} onChange={(e) => setForm({ ...form, gamertag: e.target.value })} required /></Field>
-              <Field label="Name"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-              <Field label="Role"><input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Field>
-              <Field label="Title"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Team Leader, Coach, F/A…" /></Field>
-              <Field label="Slot">
-                <select value={form.slot} onChange={(e) => setForm({ ...form, slot: e.target.value })}>
-                  <option value="starter">Starter</option>
-                  <option value="bench">Bench</option>
-                  <option value="fa">Free Agent</option>
-                  <option value="staff">Staff</option>
-                </select>
-              </Field>
-            </form>
-            <Err error={error} />
-          </FormCard>
-        </div>
-      ) : null}
-    </>
-  );
-}
+export { EditMember } from './member-edit';
 
 export function RemoveMember({ member, canEdit }) {
   const [busy, setBusy] = useState(false);

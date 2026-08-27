@@ -100,6 +100,9 @@ export function DesktopTopbar({ userLabel, role, title, avatarUrl, org, teams, m
         ) : null}
       </div>
       <div className="topbar-divider" />
+      <form action="/auth/sign-out" method="post">
+        <button type="submit" className="btn sm subtle topbar-signout">Sign out</button>
+      </form>
       <Link href="/settings" className="topbar-profile" title="Edit your profile">
         <div>
           <div className="topbar-profile-name">

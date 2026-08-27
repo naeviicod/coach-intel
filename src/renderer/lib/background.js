@@ -1,6 +1,7 @@
 import { asset } from './assets.js';
 
-export const DEFAULT_BACKGROUND = 'pit';
+export const DEFAULT_BACKGROUND = 'orbit';
+export const SPLASH_BACKGROUND = 'orbit';
 const ART_CACHE = '20260821-1k';
 
 // `zoom` scales the art inside the viewport. Both wallpapers are frame art —
@@ -10,8 +11,6 @@ const ART_CACHE = '20260821-1k';
 export const BACKGROUND_OPTIONS = [
   { id: 'pit', name: 'Pit', src: null, zoom: 1, hint: 'Soft honeycomb wash in the gutters' },
   { id: 'hex', name: 'Hex', src: 'backgrounds/hex.png', zoom: 1.08, hint: 'Hex grid and topography' },
-  { id: 'lattice', name: 'Lattice', src: 'backgrounds/lattice.png', zoom: 1.32, hint: 'Crystal lattice on the sides' },
-  { id: 'sector', name: 'Sector', src: 'backgrounds/sector.png', zoom: 1.16, hint: 'Honeycomb command perimeter' },
   { id: 'focus', name: 'Focus', src: 'backgrounds/focus.png', zoom: 1.14, hint: 'Angular formation around a quiet center' },
   { id: 'command-ring', name: 'Command Ring', src: 'backgrounds/command-ring.png', zoom: 1.16, hint: 'Tactical rings and a quiet center' },
   { id: 'blackout', name: 'Blackout', src: 'backgrounds/blackout.png', zoom: 1.14, hint: 'Dark steel with lime edge light' },
@@ -22,10 +21,12 @@ export const BACKGROUND_OPTIONS = [
   { id: 'orbit', name: 'Orbit', src: 'backgrounds/orbit.png', zoom: 1.14, hint: 'Network constellation frame' },
 ];
 
+const BACKGROUND_ALIASES = { frame: 'hex', lattice: 'hex', sector: 'hex' };
+
 export function resolveBackground(id) {
   const raw = String(id || '').trim();
-  if (raw === 'frame') return 'hex';
-  return BACKGROUND_OPTIONS.some((opt) => opt.id === raw) ? raw : DEFAULT_BACKGROUND;
+  const mapped = BACKGROUND_ALIASES[raw] || raw;
+  return BACKGROUND_OPTIONS.some((opt) => opt.id === mapped) ? mapped : DEFAULT_BACKGROUND;
 }
 
 export function backgroundOption(id) {

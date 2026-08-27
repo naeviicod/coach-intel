@@ -129,15 +129,19 @@ export function AboutCard() {
     <div className="card section">
       <div className="section-title">Coach Intel</div>
       <div className="field-hint" style={{ marginBottom: 12 }}>Know More. Win More.</div>
-      <div className="list-item-row">
+      <div className="list-item-row about-row">
         <div className="settings-row-title">Version</div>
-        <div className="about-value">v2.5.0</div>
+        <div className="about-value">v3.5.0</div>
       </div>
-      <div className="list-item-row">
+      <div className="list-item-row about-row">
         <div className="settings-row-title">Website</div>
         <a className="about-link" href="https://coach.championshipseries.eu/">coach.championshipseries.eu</a>
       </div>
-      <div className="list-item-row">
+      <div className="list-item-row about-row">
+        <div className="settings-row-title">Mode</div>
+        <div className="about-value">Cloud · Signed in</div>
+      </div>
+      <div className="list-item-row about-row">
         <div className="settings-row-title">Ruleset</div>
         <div className="about-value">{RULESET.game} · Season {RULESET.season} · v{RULESET.version}</div>
       </div>

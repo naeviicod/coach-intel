@@ -89,10 +89,11 @@ function imageExt(sourcePath) {
 
 function memberHeading(isEdit, member, slot) {
   if (isEdit) return `Edit ${member.gamertag}`;
-  if (slot === 'staff') return 'Add Org Member';
-  if (slot === 'fa') return 'Add Free Agent';
-  if (slot === 'bench') return 'Add Bench Player';
-  return 'Add Member';
+  return { staff: 'Add Org Member', fa: 'Add Free Agent', bench: 'Add Bench Player' }[slot] || 'Add Member';
+}
+
+function slotStatus(slot) {
+  return { bench: 'Bench', fa: 'Free agent', staff: 'Staff' }[slot] || 'Starter';
 }
 
 export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = {}) {
@@ -101,17 +102,48 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
   const teamChoices = !isEdit && Array.isArray(teams) && teams.length > 1 ? teams : null;
   let photoRel = member?.photo || null;
   let pendingSrc = null;
-  const previewHost = el('div', {});
+  const previewHost = el('div', {
+    class: 'avatar-action',
+    title: 'Change photo',
+    role: 'button',
+    tabindex: 0,
+    onclick: () => body.querySelector('[data-photo-pick]')?.click(),
+  });
   const paintPreview = () => {
-    previewHost.replaceChildren(
-      faceMark({ photo: photoRel, name: member?.gamertag || member?.name || 'Player', size: 52 })
-    );
+    previewHost.replaceChildren(faceMark({ photo: photoRel, name: member?.gamertag || member?.name || 'Player', size: 40 }));
   };
   paintPreview();
 
+  const photoPick = {
+    class: 'btn subtle sm',
+    type: 'button',
+    'data-photo-pick': '1',
+    onclick: async () => {
+      const src = await window.cci.pickImage();
+      if (!src) return;
+      pendingSrc = src;
+      const id = member?.id || memberSlug(body.querySelector('#member-gamertag').value) || 'player';
+      const rel = await window.cci.copyImage(src, `org/members/${teamId}/${id}.${imageExt(src)}`);
+      if (!rel) return;
+      photoRel = rel;
+      paintPreview();
+      const pick = body.querySelector('[data-photo-pick]');
+      if (pick) pick.textContent = 'Change photo';
+    },
+  };
+
   const handles = member?.handles || {};
   const body = el('div', {}, [
-    el('h3', {}, memberHeading(isEdit, member, initialSlot)),
+    isEdit
+      ? el('div', { class: 'member-edit-id' }, [
+          previewHost,
+          el('div', { class: 'member-edit-copy' }, [
+            el('div', { class: 'gamertag', id: 'member-heading-tag' }, member?.gamertag || 'Player'),
+            el('span', { class: 'board-roster-on', id: 'member-heading-slot' }, slotStatus(initialSlot)),
+            el('button', photoPick, photoRel ? 'Change photo' : 'Add photo'),
+          ]),
+        ])
+      : el('h3', {}, memberHeading(isEdit, member, initialSlot)),
     teamChoices
       ? el('div', { class: 'field' }, [
           el('label', { for: 'member-team' }, 'Team'),
@@ -124,27 +156,16 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
           ),
         ])
       : null,
-    el('div', { class: 'profile-photo-row' }, [
-      previewHost,
-      el('div', { style: 'flex:1;' }, [
-        el('div', { class: 'settings-row-title' }, 'Player photo'),
-        el('div', { class: 'field-hint' }, 'Optional. Shown on the roster and player profile.'),
-      ]),
-      el('button', {
-        class: 'btn',
-        type: 'button',
-        onclick: async () => {
-          const src = await window.cci.pickImage();
-          if (!src) return;
-          pendingSrc = src;
-          const id = member?.id || memberSlug(body.querySelector('#member-gamertag').value) || 'player';
-          const rel = await window.cci.copyImage(src, `org/members/${teamId}/${id}.${imageExt(src)}`);
-          if (!rel) return;
-          photoRel = rel;
-          paintPreview();
-        },
-      }, photoRel ? 'Change Photo' : 'Upload Photo'),
-    ]),
+    isEdit
+      ? null
+      : el('div', { class: 'profile-photo-row' }, [
+          previewHost,
+          el('div', { style: 'flex:1;' }, [
+            el('div', { class: 'settings-row-title' }, 'Player photo'),
+            el('div', { class: 'field-hint' }, 'Optional. Shown on the roster and player profile.'),
+          ]),
+          el('button', photoPick, photoRel ? 'Change photo' : 'Add photo'),
+        ]),
     el('div', { class: 'inline-fields' }, [
       el('div', { class: 'field' }, [
         el('label', { for: 'member-gamertag' }, 'Gamertag'),
@@ -265,6 +286,23 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
       }, 'Save'),
     ])
   );
+}
+
+export async function changeMemberPhoto(ctx, teamId, member, mark) {
+  if (!member?.id) return;
+  const src = await window.cci.pickImage();
+  if (!src) return;
+  const previous = [...mark.childNodes];
+  try {
+    const rel = await window.cci.copyImage(src, `org/members/${teamId}/${member.id}.${imageExt(src)}`);
+    if (!rel) throw new Error('Could not copy the photo.');
+    const url = window.cci.dataUrlForPath ? await window.cci.dataUrlForPath(rel) : null;
+    if (url) mark.replaceChildren(el('img', { src: url, alt: member.gamertag || '' }));
+    await window.cci.saveMember(teamId, { ...member, linked: undefined, photo: rel });
+  } catch (err) {
+    mark.replaceChildren(...previous);
+    toast(err?.message || 'Could not save the photo.');
+  }
 }
 
 function toFileUrl(rawPath) {

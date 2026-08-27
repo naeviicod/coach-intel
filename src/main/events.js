@@ -117,9 +117,9 @@ async function cdlRulesetChanged({ change, mapName, mapId, detail, stamp, actor 
 
 // ---------- Calendar events & scrims ----------
 //
-// A calendar event's `type` decides which Discord channel purpose it belongs
-// to. Only creation is announced — editing an existing event/scrim would
-// otherwise re-post on every small correction.
+// A calendar event's `type` decides which Discord #Schedule event it is.
+// Players are notified only when the coach checks Notify players — saving
+// a match must not also spawn a duplicate bell card.
 
 const CALENDAR_TYPE_EVENT = {
   scrim: 'calendar.scrim_scheduled',
@@ -138,8 +138,8 @@ function attendeeNamesFor(event, members) {
   return ids.map((id) => members.find((m) => m.id === id)?.gamertag).filter(Boolean);
 }
 
-async function calendarEventSaved({ isNew, event, team, members, actor }) {
-  if (!isNew) return null;
+async function calendarEventSaved({ notify, event, team, members, actor }) {
+  if (!notify) return null;
   const eventId = CALENDAR_TYPE_EVENT[event.type];
   if (!eventId) return null;
 
@@ -147,33 +147,34 @@ async function calendarEventSaved({ isNew, event, team, members, actor }) {
 
   await emit(eventId, {
     title: event.title || 'Event',
-    subtitle: [event.date, event.time].filter(Boolean).join(' · ') || null,
+    subtitle: [team?.name, event.date, event.time].filter(Boolean).join(' · ') || null,
     summary: event.notes || null,
     fields: attendeeNames.length ? [{ name: 'Attendees', value: attendeeNames.join(', ') }] : [],
-    team,
+    team: team?.id ? team : { id: 'org', name: team?.name || 'Org' },
     actor,
     targetId: event.event_id,
-    dedupeId: event.event_id,
+    dedupeId: `${event.event_id}:${event.date}:${event.time || ''}`,
     recipientMemberIds: event.attendee_ids || [],
   });
   return eventId;
 }
 
 /**
- * Saves a calendar event and announces it if it's brand new.
- *
- * "New" has to be judged from the *incoming* payload, before the store fills
- * in a generated id — planningStore has no singular getEvent to diff against.
+ * Saves a calendar event. Players are notified only when the coach checks
+ * Notify players — saving a match should not also spawn a bell card for it.
  */
 async function saveEventAndAnnounce(store, teamId, event) {
-  const isNew = !event.event_id;
-  const saved = await store.saveEvent(teamId, event);
+  const notify = Boolean(event.notify_players);
+  const rest = { ...event };
+  delete rest.notify_players;
+  const saved = await store.saveEvent(teamId, rest);
+  if (!notify) return saved;
   const orgWide = !teamId;
   const [team, members] = await Promise.all([
     orgWide ? { id: '', name: 'Org' } : store.getTeam(teamId),
     orgWide ? [] : store.getMembers(teamId).catch(() => []),
   ]);
-  await calendarEventSaved({ isNew, event: saved, team, members, actor: 'Coach' });
+  await calendarEventSaved({ notify, event: saved, team, members, actor: 'Coach' });
   return saved;
 }
 

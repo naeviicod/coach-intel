@@ -3,7 +3,7 @@ import { shareButton } from '../components/discordShare.js';
 import { openModal } from '../components/modal.js';
 import { resolveMapLayout, modeLayoutKey } from '../lib/maps.js';
 import { paintDrawings, paintOne, hitDrawingIndex, DRAW_COLOR } from './stratBoard/draw.js';
-import { defaultPositions, normalizePos, nextOpponentSlot, renderPiece, clampPieceScale, MAX_PER_TEAM, DEFAULT_PIECE_SCALE, looksLikeLegacyCorners } from './stratBoard/pieces.js';
+import { defaultPositions, normalizePos, nextOpponentSlot, nextUsSlot, renderPiece, clampPieceScale, MAX_PER_TEAM, DEFAULT_PIECE_SCALE, looksLikeLegacyCorners } from './stratBoard/pieces.js';
 import { toolRail, bindShortcuts } from './stratBoard/tools.js';
 import { paintKeys, spawnLayoutFromObjectives, objectivesSummary } from './stratBoard/objectives.js';
 
@@ -306,10 +306,20 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
         onDelete: readOnly ? null : () => removePos(pos),
       }));
     });
-    for (const member of members.filter((m) => !placed.has(m.id))) {
+    function addMemberToMap(memberId) {
+      const slot = nextUsSlot(state.player_positions, memberId, spawnLayout);
+      if (!slot) return;
+      state.player_positions.push(slot);
+      dirty = true;
+      redrawMarkers();
+      renderBench();
+    }
+
+    for (const member of members.filter((m) => !placed.has(m.id) && m.slot !== 'staff' && m.slot !== 'fa')) {
       bench.append(rosterRow(member.gamertag, {
         draggable: !readOnly,
         onDrag: readOnly ? null : (e) => e.dataTransfer.setData('text/member-id', member.id),
+        onAdd: readOnly || us.length >= MAX_PER_TEAM ? null : () => addMemberToMap(member.id),
       }));
     }
 
@@ -688,7 +698,7 @@ async function showBoard(root, teamId, team, members, ruleset, ctx, stratId) {
   }
 }
 
-function rosterRow(name, { onBoard, opponent, draggable, onDrag, onDelete } = {}) {
+function rosterRow(name, { onBoard, opponent, draggable, onDrag, onDelete, onAdd } = {}) {
   return el('div', {
     class: `roster-row board-roster-row${opponent ? ' opponent' : ''}`,
     draggable: draggable ? 'true' : null,
@@ -699,6 +709,16 @@ function rosterRow(name, { onBoard, opponent, draggable, onDrag, onDelete } = {}
       el('div', { class: 'gamertag board-roster-name', title: name }, name),
       onBoard ? el('span', { class: 'board-roster-on' }, 'On map') : el('span', { class: 'board-roster-on' }, 'Bench'),
     ]),
+    onAdd
+      ? el('button', {
+          type: 'button',
+          class: 'btn subtle sm board-roster-add',
+          'aria-label': `Add ${name} to the map`,
+          title: 'Add to map',
+          html: icon('plus', 12),
+          onclick: (e) => { e.stopPropagation(); onAdd(); },
+        })
+      : null,
     onDelete
       ? el('button', {
           type: 'button',

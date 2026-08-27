@@ -1,7 +1,7 @@
 import { el } from '../../../utils.js';
 import { asset } from '../../../lib/assets.js';
 
-export async function render(panel) {
+export async function render(panel, ctx) {
   const version = await window.cci.getAppVersion();
   const ruleset = await window.cci.getCdlRuleset();
 
@@ -15,9 +15,9 @@ export async function render(panel) {
         ]),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
-      aboutRow('Version', `v${version || '2.5.0'}`),
+      aboutRow('Version', `v${version || '3.5.0'}`),
       aboutLinkRow('Website', 'coach.championshipseries.eu', 'https://coach.championshipseries.eu/'),
-      aboutRow('Mode', 'Offline · On-device only'),
+      aboutRow('Mode', ctx?.online ? 'Online · Synced' : 'Offline · local cache'),
       ruleset ? aboutRow('Ruleset', `${ruleset.game} · Season ${ruleset.season} · v${ruleset.version}`) : null,
       ruleset ? aboutRow('Ruleset checked', ruleset.last_checked) : null,
     ])
@@ -25,14 +25,14 @@ export async function render(panel) {
 }
 
 function aboutRow(label, value) {
-  return el('div', { class: 'list-item-row' }, [
+  return el('div', { class: 'list-item-row about-row' }, [
     el('div', { class: 'settings-row-title' }, label),
     el('div', { class: 'about-value' }, value),
   ]);
 }
 
 function aboutLinkRow(label, text, href) {
-  return el('div', { class: 'list-item-row' }, [
+  return el('div', { class: 'list-item-row about-row' }, [
     el('div', { class: 'settings-row-title' }, label),
     el('button', {
       type: 'button',

@@ -82,13 +82,21 @@ export function calendarItems({ teams, events, tasks, matches, members, scrims, 
     if (!id) return org?.name || org?.tag || 'Org';
     return teams.find((t) => t.id === id)?.name || 'Team';
   };
+  const matchKey = (teamId, date, opponent) =>
+    `${teamId || ''}|${String(date || '').slice(0, 10)}|${String(opponent || '').trim().toLowerCase()}`;
   const items = [];
+  const seenMatch = new Set();
+  const seenScrim = new Set();
+
   for (const event of events || []) {
     if (!event?.date) continue;
+    const type = event.type || 'other';
+    if (type === 'league-match' || type === 'match') seenMatch.add(matchKey(event.team_id, event.date, event.opponent));
+    if (type === 'scrim' || type === 'scrim-block') seenScrim.add(matchKey(event.team_id, event.date, event.opponent));
     items.push({
       date: String(event.date).slice(0, 10),
       time: event.time || '',
-      type: event.type || 'other',
+      type,
       title: event.title || event.type || 'Event',
       teamName: teamName(event.team_id),
       teamId: event.team_id,
@@ -96,6 +104,9 @@ export function calendarItems({ teams, events, tasks, matches, members, scrims, 
   }
   for (const scrim of scrims || []) {
     if (!scrim?.date) continue;
+    const key = matchKey(scrim.team_id, scrim.date, scrim.opponent);
+    if (seenScrim.has(key)) continue;
+    seenScrim.add(key);
     items.push({
       date: String(scrim.date).slice(0, 10),
       time: scrim.time || '',
@@ -108,6 +119,9 @@ export function calendarItems({ teams, events, tasks, matches, members, scrims, 
   for (const match of matches || []) {
     const date = match.date || match.match_date;
     if (!date) continue;
+    const key = matchKey(match.team_id, date, match.opponent);
+    if (seenMatch.has(key)) continue;
+    seenMatch.add(key);
     items.push({
       date: String(date).slice(0, 10),
       type: 'match',

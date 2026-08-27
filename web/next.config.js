@@ -5,6 +5,10 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   experimental: {
     externalDir: true,
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   webpack: (config) => {
     config.resolve.alias = {

@@ -35,6 +35,7 @@ function emptyForm(date, teamId) {
     date: date || todayIso(),
     time: '',
     notes: '',
+    notify_players: false,
   };
 }
 
@@ -75,13 +76,14 @@ export function OrgCalendar({ items, teams, canEdit }) {
       const title =
         draft.title.trim() ||
         (type === 'league-match' ? `vs ${draft.opponent || 'TBD'}` : 'Event');
+      const teamId = draft.team_id || '';
       await saveDoc({
         kind: 'event',
-        teamId: draft.team_id || '',
+        teamId,
         id,
         payload: {
           event_id: id,
-          team_id: draft.team_id || '',
+          team_id: teamId,
           title,
           type,
           opponent: draft.opponent || '',
@@ -91,6 +93,28 @@ export function OrgCalendar({ items, teams, canEdit }) {
           notes: draft.notes || '',
         },
       });
+      if (draft.notify_players) {
+        const notifId = newId('notification');
+        await saveDoc({
+          kind: 'notification',
+          teamId: teamId || 'org',
+          id: notifId,
+          payload: {
+            id: notifId,
+            team_id: teamId || 'org',
+            event_id: type === 'league-match' || type === 'match'
+              ? 'calendar.match_scheduled'
+              : type === 'scrim' || type === 'scrim-block'
+                ? 'calendar.scrim_scheduled'
+                : 'calendar.training_scheduled',
+            title,
+            subtitle: [draft.date, draft.time].filter(Boolean).join(' · ') || null,
+            route: teamId ? `calendar/${teamId}` : 'calendar',
+            recipient_member_ids: [],
+            created_at: new Date().toISOString(),
+          },
+        });
+      }
       window.location.reload();
     } catch (err) {
       setError(err.message || 'Could not add event.');
@@ -159,6 +183,17 @@ export function OrgCalendar({ items, teams, canEdit }) {
             <Field label="Notes">
               <input value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Optional details" />
             </Field>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.notify_players)}
+                onChange={(e) => setDraft({ ...draft, notify_players: e.target.checked })}
+              />
+              <span>Notify players</span>
+            </label>
+            <p className="field-hint" style={{ margin: '-4px 0 0', maxWidth: 520, lineHeight: 1.45 }}>
+              Players see this in Coach Intel. Map Discord #Schedule under Integrations to post it there too.
+            </p>
           </form>
           <Err error={error} />
         </FormCard>

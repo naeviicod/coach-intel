@@ -89,9 +89,12 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   const dur = Number(styles.match(/--dur-splash:\s*(\d+)ms/)[1]);
   assert.equal(fade, dur, 'the JS timeout must match the CSS dissolve');
   assert.equal(fade, 420);
-  assert.match(app, /const SPLASH_MIN_MS = 7000/);
-  assert.match(app, /const SPLASH_VEIL_MS = 1000/);
+  assert.match(app, /const SPLASH_MIN_MS = 2100/);
+  assert.match(app, /const SPLASH_VEIL_MS = 220/);
+  assert.match(app, /prepareApp\(\{ fast: true \}\)/);
   assert.match(app, /transform: 'scaleX\(0\)'/);
+  assert.match(styles, /\.splash-bar \{[\s\S]{0,220}width:\s*min\(560px, 58vw\)/);
+  assert.match(styles, /\.splash-bar \{[\s\S]{0,220}height:\s*2px/);
   assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,220}transform:\s*scaleX\(0\)/);
   assert.match(signIn, /asset\('splash-logo\.png'\)/);
 });
@@ -150,7 +153,8 @@ test('splash sits on the app pit with no pulse HUD', () => {
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const html = fs.readFileSync(index, 'utf8');
 
-  assert.match(html, /class="splash-atmosphere arena"/);
+  assert.match(html, /data-background="orbit"/);
+  assert.match(html, /backgrounds\/orbit\.png/);
   assert.doesNotMatch(html, /intel-hud/);
   assert.doesNotMatch(html, /intel-wave/);
   assert.doesNotMatch(html, /splash-flow/);

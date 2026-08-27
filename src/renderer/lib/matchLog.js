@@ -106,3 +106,63 @@ export function collectMatchLogRows({ teams = [], matchesByTeam = {}, eventsByTe
     return String(a.teamName || '').localeCompare(String(b.teamName || ''));
   });
 }
+
+export function groupMatchLogRows(rows = []) {
+  const groups = [];
+  const byKey = new Map();
+  for (const row of rows) {
+    const date = String(row.date || '').slice(0, 10);
+    const key = row.series_id || `${row.teamId || row.team_id || ''}|${date}|${row.opponent || ''}`;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, maps: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.maps.push(row);
+  }
+  for (const group of groups) {
+    group.maps.sort((a, b) => (Number(a.game) || 0) - (Number(b.game) || 0) || String(a.map || '').localeCompare(String(b.map || '')));
+    group.head = group.maps[0];
+    group.wins = group.maps.filter((m) => String(m.result || '').toLowerCase() === 'win').length;
+    group.losses = group.maps.filter((m) => String(m.result || '').toLowerCase() === 'loss').length;
+    group.seriesScore = group.wins || group.losses ? `${group.wins}-${group.losses}` : '';
+  }
+  return groups;
+}
+
+export function advancedStatsFields(mode) {
+  if (mode === 'Hardpoint') {
+    return {
+      key: 'hp',
+      fields: [
+        [{ key: 'holds_won', label: 'Holds Won', type: 'number', placeholder: '0' }, { key: 'holds_attempted', label: 'Holds Attempted', type: 'number', placeholder: '0' }],
+        [{ key: 'breaks_won', label: 'Breaks Won', type: 'number', placeholder: '0' }, { key: 'breaks_attempted', label: 'Breaks Attempted', type: 'number', placeholder: '0' }],
+        [{ key: 'rotations_won', label: 'Rotations Won', type: 'number', placeholder: '0' }, { key: 'rotations_attempted', label: 'Rotations Attempted', type: 'number', placeholder: '0' }],
+      ],
+    };
+  }
+  if (mode === 'Search & Destroy') {
+    return {
+      key: 'snd',
+      fields: [
+        [{ key: 'offense_rounds', label: 'Offense Rounds', type: 'number', placeholder: '0' }, { key: 'offense_round_wins', label: 'Offense Rounds Won', type: 'number', placeholder: '0' }],
+        [{ key: 'defense_rounds', label: 'Defense Rounds', type: 'number', placeholder: '0' }, { key: 'defense_round_wins', label: 'Defense Rounds Won', type: 'number', placeholder: '0' }],
+        [{ key: 'first_bloods', label: 'First Bloods', type: 'number', placeholder: '0' }, { key: 'first_blood_wins', label: 'First Blood → Round Won', type: 'number', placeholder: '0' }],
+        [{ key: 'first_deaths', label: 'First Deaths', type: 'number', placeholder: '0' }, { key: 'first_death_wins', label: 'First Death → Round Won', type: 'number', placeholder: '0' }],
+        [{ key: 'post_plant_rounds', label: 'Rounds Planted', type: 'number', placeholder: '0' }, { key: 'post_plant_wins', label: 'Post-Plant Wins', type: 'number', placeholder: '0' }],
+        [{ key: 'retake_rounds', label: 'Retake Rounds', type: 'number', placeholder: '0' }, { key: 'retake_wins', label: 'Retakes Won', type: 'number', placeholder: '0' }],
+      ],
+    };
+  }
+  if (mode === 'Overload') {
+    return {
+      key: 'overload',
+      fields: [
+        [{ key: 'scoring_attempts', label: 'Scoring Attempts', type: 'number', placeholder: '0' }, { key: 'scoring_wins', label: 'Scores Landed', type: 'number', placeholder: '0' }],
+        [{ key: 'defensive_attempts', label: 'Defensive Attempts', type: 'number', placeholder: '0' }, { key: 'defensive_stops', label: 'Defensive Stops', type: 'number', placeholder: '0' }],
+      ],
+    };
+  }
+  return null;
+}

@@ -77,6 +77,24 @@ test('colossus hardpoint spawns sit on the left (blue) and right (red)', async (
   assert.ok(them.every((p) => p.x > 0.65), 'red belongs on the right');
 });
 
+test('bench players stay off the map until added', async () => {
+  const { pathToFileURL } = require('node:url');
+  const { defaultPositions, nextUsSlot } = await import(
+    pathToFileURL(path.join(__dirname, '..', 'web/lib/strat-pieces.js')).href
+  );
+  const pos = defaultPositions([
+    { id: 'a', slot: 'starter' },
+    { id: 'b', slot: 'bench' },
+    { id: 'c', slot: 'staff' },
+  ]);
+  const us = pos.filter((p) => !p.opponent);
+  assert.equal(us.length, 1);
+  assert.equal(us[0].member_id, 'a');
+  const added = nextUsSlot(pos, 'b');
+  assert.equal(added.member_id, 'b');
+  assert.equal(nextUsSlot(pos, 'a'), null);
+});
+
 test('new strats default piece scale to 70 percent', async () => {
   await store.ensureDirectories();
   const team = await store.saveTeam({ name: 'Scale Team', tag: 'SCL' });

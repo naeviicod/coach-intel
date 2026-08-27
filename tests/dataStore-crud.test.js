@@ -113,6 +113,18 @@ test('transfer moves a player to another team and keeps the same id', async () =
   await store.deleteTeam(bravo.id);
 });
 
+test('saveMember keeps Discord user_id when a later edit omits it', async () => {
+  await store.ensureDirectories();
+  const team = await store.saveTeam({ name: 'QA_Link_Team', tag: 'QLT' });
+  const player = await store.saveMember(team.id, { gamertag: 'vxlt', role: 'Flex', user_id: 'discord-u-2' });
+  assert.equal(player.user_id, 'discord-u-2');
+  const benched = await store.saveMember(team.id, { ...player, user_id: undefined, slot: 'bench' });
+  assert.equal(benched.user_id, 'discord-u-2');
+  const loaded = await store.getMember(team.id, player.id);
+  assert.equal(loaded.user_id, 'discord-u-2');
+  await store.deleteTeam(team.id);
+});
+
 test('saveMember keeps a bench slot and stamps updated_at', async () => {
   await store.ensureDirectories();
   const team = await store.saveTeam({ name: 'QA_Bench_Team', tag: 'QBN' });

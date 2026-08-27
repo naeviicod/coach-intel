@@ -12,6 +12,7 @@ export function RefreshButton() {
     if (busy) return;
     setBusy(true);
     try {
+      await fetch('/api/revalidate', { method: 'POST', cache: 'no-store' }).catch(() => null);
       router.refresh();
     } finally {
       window.setTimeout(() => setBusy(false), 700);

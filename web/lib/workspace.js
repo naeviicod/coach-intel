@@ -3,6 +3,7 @@ import { canEdit, canEditTeam, canTransferMembers, canManageOrg, resolveAccessRo
 import { getOrg, getProfile, listAllMembers, listTeams, loadDocBundles } from './data';
 import { sessionIdentity } from './identity';
 import { createServerSupabase, getSessionUser } from './supabase/server';
+import { rememberDocs, rememberRoster } from './workspace-cache';
 
 const EMPTY_DOCS = {
   events: [],
@@ -21,18 +22,23 @@ const EMPTY_DOCS = {
 export const loadRosterCore = cache(async () => {
   const supabase = await createServerSupabase();
   const user = await getSessionUser();
-  const [org, teams, members, profile] = await Promise.all([
-    getOrg(supabase).catch(() => null),
-    listTeams(supabase).catch(() => []),
-    listAllMembers(supabase).catch(() => []),
+  const [bundle, profile] = await Promise.all([
+    rememberRoster(async () => {
+      const [org, teams, members] = await Promise.all([
+        getOrg(supabase).catch(() => null),
+        listTeams(supabase).catch(() => []),
+        listAllMembers(supabase).catch(() => []),
+      ]);
+      return { org, teams, members };
+    }),
     user ? getProfile(supabase, user.id) : null,
   ]);
-  return { user, org, teams, members, profile };
+  return { user, profile, ...bundle };
 });
 
 const loadCachedDocs = cache(async () => {
   const supabase = await createServerSupabase();
-  return loadDocBundles(supabase);
+  return rememberDocs(() => loadDocBundles(supabase));
 });
 
 function emptyDocs() {

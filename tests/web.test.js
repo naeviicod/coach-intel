@@ -33,6 +33,7 @@ test('the public site is a product gateway, not an Open App splash', () => {
   assert.match(gateway, /signin-lockup/);
   assert.match(gateway, /signin-mark/);
   assert.match(read('components/pit.js'), /id="atmosphere"/);
+  assert.match(read('components/pit.js'), /backgrounds\/orbit\.png/);
   assert.match(read('app/layout.js'), /desktop-ui\.css/);
   assert.doesNotMatch(gateway, /Opens Discord\. You land in the app/);
   assert.doesNotMatch(read('components/invite-gate.js'), /Opens Discord\. You land in the app/);
@@ -164,7 +165,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/teams/[id]/[[...section]]/page.js'), /hubPath/);
   assert.match(desktopNav, /item.page === 'teams'/);
   assert.match(desktopNav, /\/team-hub\//);
-  assert.doesNotMatch(topbar, /Sign out/);
+  assert.match(topbar, /Sign out/);
   assert.match(topbar, /RefreshButton/);
   assert.match(shell, /OrgLiveSync/);
   assert.doesNotMatch(read('components/page-header.js'), /RefreshButton/);
@@ -185,7 +186,8 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/players/page.js'), /row-action-slot/);
   assert.match(read('app/(shell)/players/page.js'), /roster-tags/);
   assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /function actionSlot/);
-  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /grid-template-columns:\s*repeat\(5, 5\.15rem\)/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /if \(!child\) return null/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/styles.css'), 'utf8'), /row-action-slot:not\(:empty\) ~ \.row-action-slot:not\(:empty\)::before/);
   assert.match(read('app/(shell)/players/page.js'), /canManageTeam/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-grid/);
   assert.match(read('app/(shell)/players/page.js'), /player-group-mark/);
@@ -193,8 +195,14 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/players/page.js'), /rosterOnly:\s*!group\.startsWith\('team-'\)/);
   assert.doesNotMatch(read('app/(shell)/players/page.js'), /title\.slice\(0,\s*2\)/);
   assert.match(read('lib/workspace.js'), /loadRosterCore/);
+  assert.match(read('lib/workspace.js'), /rememberRoster/);
   assert.match(read('lib/workspace.js'), /rosterOnly/);
   assert.match(read('app/(shell)/layout.js'), /loadRosterCore/);
+  assert.doesNotMatch(read('app/(shell)/layout.js'), /ensureProfile/);
+  assert.match(read('app/auth/callback/route.js'), /ensureProfile/);
+  assert.match(read('next.config.js'), /staleTimes/);
+  assert.match(read('components/org-live-sync.js'), /router.prefetch/);
+  assert.match(read('components/org-live-sync.js'), /api\/revalidate/);
   assert.match(read('lib/supabase/server.js'), /cache\(/);
   assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /Promise\.all\(teams\.map/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /title\.slice\(0,\s*2\)/);
@@ -250,11 +258,16 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('lib/settings-access.js'), /game-rules/);
   assert.match(read('components/settings-view.js'), /BackgroundCard/);
   assert.doesNotMatch(read('components/team-hub.js'), /<span>Strats & Playbooks<\/span>/);
-  assert.match(read('components/org-calendar.js'), /Add Event/);
+  assert.match(read('components/settings-sections.js'), /Cloud · Signed in/);
+  assert.doesNotMatch(read('components/settings-sections.js'), /On-device only/);
+  assert.match(read('components/org-calendar.js'), /Notify players/);
+  assert.match(read('components/org-calendar.js'), /#Schedule/);
   assert.match(read('components/org-calendar.js'), /page-header/);
   assert.match(read('app/(shell)/calendar/page.js'), /OrgCalendar/);
   assert.doesNotMatch(read('app/(shell)/calendar/page.js'), /AddEvent/);
   assert.match(read('components/desktop-shell.js'), /id="atmosphere"/);
+  assert.match(read('components/desktop-shell.js'), /Org cloud/);
+  assert.doesNotMatch(read('components/desktop-shell.js'), /On-device Match Log/);
   assert.doesNotMatch(read('components/desktop-shell.js'), /IntelHud/);
   assert.match(read('app/desktop-web.css'), /background: transparent !important/);
   assert.match(read('components/desktop-nav.js'), /sb-wordmark/);
@@ -293,6 +306,13 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('components/scoreboard-read.js'), /Save into stats/);
   assert.match(read('components/scoreboard-read.js'), /Remove scoreboard/);
   assert.match(read('components/scoreboard-read.js'), /readScoreboardText/);
+  assert.match(read('components/scoreboard-read.js'), /hill time \(1:49\)/);
+  assert.match(read('components/scoreboard-read.js'), /Extra SnD stat is plants/);
+  assert.match(read('lib/series.js'), /key: 'plants'/);
+  assert.match(read('lib/series.js'), /key: 'overloads'/);
+  assert.match(read('app/(shell)/matches/page.js'), /extraStatLine/);
+  assert.match(read('app/(shell)/matches/page.js'), /<details/);
+  assert.match(read('app/(shell)/players/page.js'), /showInvite && !memberDiscordVerified/);
   assert.doesNotMatch(read('components/scoreboard-read.js'), /onClose=\{onClose\}/);
   assert.match(read('app/(shell)/players/page.js'), /roster-pipe/);
   assert.match(read('app/(shell)/players/page.js'), /roster-header-actions/);
@@ -313,6 +333,22 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/desktop-web.css'), /#app\.shell \.btn\.refresh-btn/);
   assert.match(read('app/desktop-web.css'), /height: 24px/);
   assert.match(read('app/desktop-ui.css'), /var\(--accent\) 11%/);
+  assert.match(read('components/member-edit.js'), /createPortal/);
+  assert.match(read('components/member-edit.js'), /Change photo/);
+  assert.match(read('components/member-edit.js'), /uploadMemberPhoto/);
+  assert.match(read('lib/docs.js'), /export async function uploadMemberPhoto/);
+  assert.match(read('lib/docs.js'), /export async function uploadMyPhoto/);
+  assert.match(read('components/roster-slot-button.js'), /setSlot\(next\)/);
+  assert.match(read('components/roster-slot-button.js'), /moveRowToGroup/);
+  assert.match(read('app/(shell)/players/page.js'), /roster-block/);
+  assert.match(read('app/(shell)/players/page.js'), /MemberPhotoButton/);
+  assert.match(read('app/desktop-ui.css'), /\.member-edit-id/);
+  assert.match(read('app/desktop-ui.css'), /\.avatar-action/);
+  assert.match(read('components/strat-board.js'), /board-roster-add/);
+  assert.match(read('lib/strat-pieces.js'), /export function nextUsSlot/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /function toggleSlot/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /\.catch\(/);
+  assert.match(fs.readFileSync(path.join(root, 'src/renderer/lib/teamManage.js'), 'utf8'), /changeMemberPhoto/);
 });
 
 test('in-app pages can cache; only the public gate stays no-store', () => {
@@ -320,8 +356,23 @@ test('in-app pages can cache; only the public gate stays no-store', () => {
   assert.match(config, /source: '\/'/);
   assert.match(config, /source: '\/sign-in'/);
   assert.doesNotMatch(config, /source: '\/:path\*'/);
+  assert.match(config, /staleTimes/);
   assert.match(read('lib/data.js'), /select\('id, kind, team_id, payload, updated_at'\)/);
   assert.doesNotMatch(read('lib/data.js'), /listDocs\(supabase, 'event'\)/);
+});
+
+test('org workspace cache reuses the first load until it is cleared', async () => {
+  const { pathToFileURL } = require('node:url');
+  const mod = await import(pathToFileURL(path.join(web, 'lib/workspace-cache.js')).href);
+  mod.invalidateWorkspaceCache();
+  let n = 0;
+  const first = await mod.rememberRoster(async () => ({ n: ++n }));
+  const again = await mod.rememberRoster(async () => ({ n: ++n }));
+  assert.equal(first.n, 1);
+  assert.equal(again.n, 1);
+  mod.invalidateWorkspaceCache();
+  const fresh = await mod.rememberRoster(async () => ({ n: ++n }));
+  assert.equal(fresh.n, 2);
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {
@@ -372,4 +423,23 @@ test('map covers and layouts resolve to public assets that exist', async () => {
   assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus-hp.webp')));
   assert.ok(fs.existsSync(path.join(root, 'data/maps/colossus.jpg')));
   assert.ok(fs.existsSync(path.join(root, 'data/maps/den-hp.png')));
+});
+
+test('web calendar collapses a league match that is both an event and a logged match', async () => {
+  const { pathToFileURL } = require('node:url');
+  const { calendarItems } = await import(pathToFileURL(path.join(web, 'lib/calendar.js')).href);
+  const items = calendarItems({
+    teams: [{ id: 'rome', name: 'Rome' }],
+    events: [
+      { date: '2026-08-26', type: 'league-match', title: 'BDM vs DMT?', team_id: 'rome', opponent: 'DMT', time: '21:00' },
+      { date: '2026-08-26', type: 'scrim', title: 'Scrim vs LAT', team_id: 'rome', opponent: 'LAT' },
+    ],
+    matches: [{ date: '2026-08-26', team_id: 'rome', opponent: 'DMT' }],
+    scrims: [{ date: '2026-08-26', team_id: 'rome', opponent: 'LAT' }],
+    tasks: [],
+    members: [],
+  });
+  const day = items.filter((item) => item.date === '2026-08-26');
+  assert.equal(day.filter((item) => item.type === 'league-match' || item.type === 'match').length, 1);
+  assert.equal(day.filter((item) => item.type === 'scrim').length, 1);
 });

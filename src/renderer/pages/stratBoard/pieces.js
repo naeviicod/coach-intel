@@ -40,7 +40,7 @@ export function normalizePos(pos) {
 export function defaultPositions(members, layout) {
   const usSlots = layout?.spawns?.us || US_SLOTS;
   const themSlots = layout?.spawns?.them || THEM_SLOTS;
-  const us = (members || []).slice(0, MAX_PER_TEAM).map((m, i) =>
+  const us = playingMembers(members).slice(0, MAX_PER_TEAM).map((m, i) =>
     normalizePos({ member_id: m.id, ...(usSlots[i] || US_SLOTS[i]) })
   );
   const them = themSlots.slice(0, MAX_PER_TEAM).map((slot) => normalizePos({ opponent: true, ...slot }));
@@ -52,6 +52,18 @@ export function nextOpponentSlot(existing, layout) {
   if (used.length >= MAX_PER_TEAM) return null;
   const themSlots = layout?.spawns?.them || THEM_SLOTS;
   return normalizePos({ opponent: true, ...(themSlots[used.length] || THEM_SLOTS[used.length]) });
+}
+
+function playingMembers(members) {
+  return (members || []).filter((m) => m && m.slot !== 'bench' && m.slot !== 'staff' && m.slot !== 'fa');
+}
+
+export function nextUsSlot(existing, memberId, layout) {
+  const used = (existing || []).filter((p) => !p.opponent);
+  if (used.length >= MAX_PER_TEAM) return null;
+  if (!memberId || (existing || []).some((p) => p.member_id === memberId)) return null;
+  const usSlots = layout?.spawns?.us || US_SLOTS;
+  return normalizePos({ member_id: memberId, ...(usSlots[used.length] || US_SLOTS[used.length]) });
 }
 
 export function looksLikeLegacyCorners(positions) {

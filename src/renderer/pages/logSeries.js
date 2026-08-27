@@ -1,6 +1,6 @@
 import { el } from '../utils.js';
 import { openModal, modalActions, toast } from '../components/modal.js';
-import { emptyBo5, seriesMatchRecords } from '../lib/series.js';
+import { emptyBo5, scorePlaceholder, seriesMatchRecords } from '../lib/series.js';
 
 const MODE_SHORT = {
   Hardpoint: 'HP',
@@ -32,7 +32,7 @@ export function openLogSeries({ teams, ruleset, onSaved }) {
   const controls = games.map((slot) => {
     const mapSel = select([['', '—'], ...maps.map((m) => [m, m])]);
     const resultSel = select([['', '—'], ['Win', 'Win'], ['Loss', 'Loss']]);
-    const score = el('input', { placeholder: slot.mode === 'Search & Destroy' ? '6-4' : '250-180' });
+    const score = el('input', { placeholder: scorePlaceholder(slot.mode) });
     rows.append(
       el('div', { class: 'bo5-map' }, [
         el('div', { class: 'bo5-map-label' }, [el('span', {}, `G${slot.index + 1}`), el('strong', {}, MODE_SHORT[slot.mode] || slot.mode)]),

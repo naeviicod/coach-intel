@@ -373,10 +373,16 @@ export async function addEvent(teamId, date, reload, event = null, teams = null)
           }
         : null,
       { key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Optional details' },
+      {
+        key: 'notify_players',
+        label: 'Notify players',
+        type: 'checkbox',
+        hint: 'Players see this in the bell. Map Discord #Schedule in Integrations to post it there too.',
+      },
     ].filter(Boolean),
     values: event
-      ? { ...event, maps: formatMaps(event.maps), attendees: event.attendee_ids || [] }
-      : { type: 'meeting', date, team_id: teamId || '' },
+      ? { ...event, maps: formatMaps(event.maps), attendees: event.attendee_ids || [], notify_players: false }
+      : { type: 'meeting', date, team_id: teamId || '', notify_players: false },
     onSubmit: async (values) => {
       const id = event ? (event.team_id || '') : (values.team_id ?? teamId ?? '');
       const type = values.type || 'training';
@@ -384,7 +390,7 @@ export async function addEvent(teamId, date, reload, event = null, teams = null)
       const title =
         values.title ||
         (type === 'league-match' ? `vs ${opponent || 'TBD'}` : 'Event');
-      const { attendees, team_id: _team, ...rest } = values;
+      const { attendees, team_id: _team, notify_players, ...rest } = values;
       await window.cci.saveEvent(id, {
         ...(event || {}),
         ...rest,
@@ -393,8 +399,14 @@ export async function addEvent(teamId, date, reload, event = null, teams = null)
         opponent,
         maps: parseMaps(values.maps),
         attendee_ids: attendees || [],
+        notify_players: Boolean(notify_players),
       });
-      toast(event ? 'Event updated' : 'Event added', 'ok');
+      toast(
+        notify_players
+          ? (event ? 'Event updated — players notified' : 'Event added — players notified')
+          : (event ? 'Event updated' : 'Event added'),
+        'ok'
+      );
       reload();
     },
   });

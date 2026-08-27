@@ -294,17 +294,8 @@ export function kd(kills, deaths) {
 // surface OBJ play have to swap with the mode being looked at.
 export const OBJ_STATS = {
   Hardpoint: [{ key: 'hill_time', label: 'Hill Time', short: 'Hill', duration: true }],
-  'Search & Destroy': [
-    { key: 'rounds_won', label: 'Rounds Won', short: 'RW' },
-    { key: 'rounds_lost', label: 'Rounds Lost', short: 'RL' },
-    { key: 'plants', label: 'Plants', short: 'Plants' },
-    { key: 'defuses', label: 'Defuses', short: 'Defuses' },
-  ],
-  Overload: [
-    { key: 'rounds_won', label: 'Rounds Won', short: 'RW' },
-    { key: 'rounds_lost', label: 'Rounds Lost', short: 'RL' },
-    { key: 'drives_captured', label: 'Drives Captured', short: 'Drives' },
-  ],
+  'Search & Destroy': [{ key: 'plants', label: 'Plants', short: 'Plants' }],
+  Overload: [{ key: 'overloads', label: 'Overloads', short: 'OL' }],
 };
 
 export const OBJ_KEYS = [...new Set(Object.values(OBJ_STATS).flatMap((stats) => stats.map((s) => s.key)))];
@@ -312,10 +303,52 @@ export const OBJ_KEYS = [...new Set(Object.values(OBJ_STATS).flatMap((stats) => 
 export function fmtObj(stat, value, { precise = false } = {}) {
   const raw = value || 0;
   if (stat.duration) {
-    const n = Math.round(raw);
-    return n < 60 ? `${n}s` : `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+    const n = Math.max(0, Math.round(raw));
+    return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
   }
   return String(precise ? round(raw, 1) : Math.round(raw));
+}
+
+function outcomeLabel(result) {
+  const r = String(result || '').toLowerCase();
+  if (r === 'win') return 'Won';
+  if (r === 'loss') return 'Lost';
+  return '';
+}
+
+function hasPlayerExtra(player) {
+  return Boolean(
+    player &&
+      (player.kills ||
+        player.deaths ||
+        player.hill_time ||
+        player.plants ||
+        player.overloads ||
+        player.drives_captured ||
+        player.kd)
+  );
+}
+
+export function extraStatLine(match, player = {}) {
+  const score = String(match?.score || '').trim();
+  const scoreBit = [score, outcomeLabel(match?.result)].filter(Boolean).join(' ');
+  const showPlayer = hasPlayerExtra(player);
+  if (match?.mode === 'Hardpoint') {
+    if (!showPlayer) return scoreBit;
+    const kdVal = player.kd ?? kd(player.kills || 0, player.deaths || 0);
+    return [`${kdVal} K/D`, fmtObj({ duration: true }, player.hill_time), scoreBit].filter(Boolean).join(' | ');
+  }
+  if (match?.mode === 'Search & Destroy') {
+    if (!showPlayer) return scoreBit;
+    const n = player.plants || 0;
+    return [`${n} plant${n === 1 ? '' : 's'}`, scoreBit].filter(Boolean).join(' | ');
+  }
+  if (match?.mode === 'Overload') {
+    if (!showPlayer) return scoreBit;
+    const n = player.overloads || player.drives_captured || 0;
+    return [`${n} overload${n === 1 ? '' : 's'}`, scoreBit].filter(Boolean).join(' | ');
+  }
+  return scoreBit;
 }
 
 export function objStatsForModes(modes) {
@@ -462,7 +495,10 @@ export function aggregate(rows) {
       acc.deaths += r.player.deaths || 0;
       acc.assists += r.player.assists || 0;
       acc.damage += r.player.damage || 0;
-      for (const key of OBJ_KEYS) acc.obj[key] += r.player[key] || 0;
+      for (const key of OBJ_KEYS) {
+        if (key === 'overloads') acc.obj.overloads += r.player.overloads || r.player.drives_captured || 0;
+        else acc.obj[key] += r.player[key] || 0;
+      }
       if (r.match.result === 'Win') acc.wins += 1;
       return acc;
     },

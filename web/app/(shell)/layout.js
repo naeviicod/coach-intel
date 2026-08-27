@@ -3,17 +3,14 @@ import '../desktop-web.css';
 import { redirect } from 'next/navigation';
 import { resolveAccessRole, scopeTeams } from '../../lib/access';
 import { DesktopShell } from '../../components/desktop-shell';
-import { ensureProfile } from '../../lib/data';
 import { sessionIdentity } from '../../lib/identity';
-import { createServerSupabase, getSessionUser } from '../../lib/supabase/server';
+import { getSessionUser } from '../../lib/supabase/server';
 import { loadRosterCore } from '../../lib/workspace';
 
 export default async function ShellLayout({ children }) {
   const user = await getSessionUser();
   if (!user) redirect('/sign-in?next=/dashboard');
 
-  const supabase = await createServerSupabase();
-  await ensureProfile(supabase).catch(() => null);
   const { teams, members, profile, org } = await loadRosterCore();
   const identity = sessionIdentity({ user, profile, members, org });
   const teamIds = (members || [])

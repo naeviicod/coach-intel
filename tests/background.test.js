@@ -7,12 +7,12 @@ const { pathToFileURL } = require('node:url');
 const libUrl = pathToFileURL(path.join(__dirname, '..', 'src', 'renderer', 'lib', 'background.js')).href;
 const assets = path.join(__dirname, '..', 'src', 'renderer', 'assets');
 
-test('unknown or empty ids fall back to the pit', async () => {
+test('unknown or empty ids fall back to orbit', async () => {
   const { DEFAULT_BACKGROUND, resolveBackground } = await import(libUrl);
-  assert.equal(DEFAULT_BACKGROUND, 'pit');
-  assert.equal(resolveBackground(null), 'pit');
-  assert.equal(resolveBackground(''), 'pit');
-  assert.equal(resolveBackground('nope'), 'pit');
+  assert.equal(DEFAULT_BACKGROUND, 'orbit');
+  assert.equal(resolveBackground(null), 'orbit');
+  assert.equal(resolveBackground(''), 'orbit');
+  assert.equal(resolveBackground('nope'), 'orbit');
 });
 
 test('known background ids resolve as-is and cycle through every supplied option', async () => {
@@ -20,10 +20,10 @@ test('known background ids resolve as-is and cycle through every supplied option
   assert.equal(resolveBackground('hex'), 'hex');
   assert.equal(resolveBackground('command-ring'), 'command-ring');
   assert.equal(backgroundOption('hex').src, 'backgrounds/hex.png');
-  assert.equal(backgroundOption('lattice').name, 'Lattice');
+  assert.equal(backgroundOption('hex').name, 'Hex');
   assert.equal(backgroundOption('pit').src, null);
   assert.deepEqual(BACKGROUND_OPTIONS.map((opt) => opt.id), [
-    'pit', 'hex', 'lattice', 'sector', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit',
+    'pit', 'hex', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit',
   ]);
   assert.equal(nextBackground('pit'), 'hex');
   assert.equal(nextBackground('orbit'), 'pit');
@@ -32,12 +32,14 @@ test('known background ids resolve as-is and cycle through every supplied option
 test('the retired frame wallpaper maps onto hex', async () => {
   const { resolveBackground } = await import(libUrl);
   assert.equal(resolveBackground('frame'), 'hex');
+  assert.equal(resolveBackground('lattice'), 'hex');
+  assert.equal(resolveBackground('sector'), 'hex');
 });
 
 test('art files are real PNGs, not chat-compressed JPEGs', async () => {
   const { BACKGROUND_OPTIONS } = await import(libUrl);
   const ids = BACKGROUND_OPTIONS.map((opt) => opt.id);
-  assert.deepEqual(ids, ['pit', 'hex', 'lattice', 'sector', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit']);
+  assert.deepEqual(ids, ['pit', 'hex', 'focus', 'command-ring', 'blackout', 'prism', 'vector', 'strata', 'hex-front', 'orbit']);
   const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
   for (const opt of BACKGROUND_OPTIONS) {
     if (opt.id === 'pit') {
@@ -52,10 +54,12 @@ test('art files are real PNGs, not chat-compressed JPEGs', async () => {
   }
 });
 
-test('splash uses the pit so brand lime is never hue-rotated', async () => {
-  const { DEFAULT_BACKGROUND, applyBackground, backgroundOption } = await import(libUrl);
-  assert.equal(applyBackground(DEFAULT_BACKGROUND), 'pit');
-  assert.equal(backgroundOption('pit').src, null);
+test('splash uses orbit art', async () => {
+  const { DEFAULT_BACKGROUND, SPLASH_BACKGROUND, applyBackground, backgroundOption } = await import(libUrl);
+  assert.equal(DEFAULT_BACKGROUND, 'orbit');
+  assert.equal(SPLASH_BACKGROUND, 'orbit');
+  assert.equal(applyBackground(DEFAULT_BACKGROUND), 'orbit');
+  assert.equal(backgroundOption('orbit').src, 'backgrounds/orbit.png');
 });
 
 test('frame art is pushed past the corners so the empty middle shrinks', async () => {
@@ -70,7 +74,7 @@ test('frame art is pushed past the corners so the empty middle shrinks', async (
 test('preloading the pit needs no Image and still resolves', async () => {
   const { preloadBackground } = await import(libUrl);
   assert.equal(await preloadBackground('pit'), 'pit');
-  assert.equal(await preloadBackground('nope'), 'pit');
+  assert.equal(await preloadBackground('nope'), 'orbit');
 });
 
 test('preloading art decodes before it resolves', async () => {
@@ -87,9 +91,9 @@ test('preloading art decodes before it resolves', async () => {
     }
   };
   try {
-    assert.equal(await preloadBackground('lattice'), 'lattice');
+    assert.equal(await preloadBackground('hex'), 'hex');
     assert.equal(calls.length, 2);
-    assert.match(calls[0], /lattice\.png/);
+    assert.match(calls[0], /hex\.png/);
     assert.equal(calls[1], 'decode');
   } finally {
     delete global.Image;
