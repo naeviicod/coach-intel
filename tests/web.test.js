@@ -173,6 +173,11 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(desktopNav, /item.page === 'teams'/);
   assert.match(desktopNav, /\/team-hub\//);
   assert.match(topbar, /Sign out/);
+  assert.match(topbar, /topbar-profile[\s\S]*topbar-signout/);
+  assert.doesNotMatch(topbar, /topbar-signout[\s\S]*topbar-profile/);
+  const desktopTopbar = fs.readFileSync(path.join(root, 'src/renderer/app.js'), 'utf8');
+  assert.match(desktopTopbar, /class: 'topbar-profile'[\s\S]*topbar-signout/);
+  assert.doesNotMatch(desktopTopbar, /topbar-signout[\s\S]*class: 'topbar-profile'/);
   assert.match(topbar, /RefreshButton/);
   assert.match(shell, /OrgLiveSync/);
   assert.doesNotMatch(read('components/page-header.js'), /RefreshButton/);

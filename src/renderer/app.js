@@ -1288,17 +1288,6 @@ function renderTopbar() {
   topbar.append(statusPill());
 
   topbar.append(notificationBell());
-  if (state.online) {
-    topbar.append(el('button', {
-      type: 'button',
-      class: 'btn sm subtle topbar-signout',
-      title: 'Sign out',
-      onclick: async () => {
-        await window.cci.auth.signOut();
-        window.location.reload();
-      },
-    }, 'Sign out'));
-  }
   topbar.append(el('div', { class: 'topbar-divider' }));
 
   const chip = chipIdentity(state.org, state.access);
@@ -1328,6 +1317,17 @@ function renderTopbar() {
       faceMark({ photo: chip.photo, avatarUrl: chip.avatarUrl, name: chip.name, size: 28 }),
     ])
   );
+  if (state.online) {
+    topbar.append(el('button', {
+      type: 'button',
+      class: 'btn sm subtle topbar-signout',
+      title: 'Sign out',
+      onclick: async () => {
+        await window.cci.auth.signOut();
+        window.location.reload();
+      },
+    }, 'Sign out'));
+  }
 }
 
 // ---------- Status bar ----------
