@@ -1,10 +1,34 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { createImageCache } = require('./imageCache');
+
+// The renderer often recreates avatars, logos and map art while navigating.
+// Keep both in-flight and completed data URLs for this app session so one
+// local/cloud read serves every matching image in the open window.
+const imageUrlCache = createImageCache((relative) => ipcRenderer.invoke('cci:dataUrlForPath', relative));
+
+async function copyImage(sourcePath, destRelative) {
+  const relative = await ipcRenderer.invoke('cci:copyImage', sourcePath, destRelative);
+  imageUrlCache.invalidate(relative);
+  return relative;
+}
+
+async function setMyPhoto(sourcePath) {
+  const relative = await ipcRenderer.invoke('cci:setMyPhoto', sourcePath);
+  imageUrlCache.invalidate(relative);
+  return relative;
+}
+
+async function saveMapArt(sourcePath, mapName, layoutKey) {
+  const relative = await ipcRenderer.invoke('cci:saveMapArt', sourcePath, mapName, layoutKey);
+  imageUrlCache.invalidate(relative);
+  return relative;
+}
 
 contextBridge.exposeInMainWorld('cci', {
   getOrg: () => ipcRenderer.invoke('cci:getOrg'),
   saveOrg: (org) => ipcRenderer.invoke('cci:saveOrg', org),
   updateMyProfile: (payload) => ipcRenderer.invoke('cci:updateMyProfile', payload),
-  setMyPhoto: (sourcePath) => ipcRenderer.invoke('cci:setMyPhoto', sourcePath),
+  setMyPhoto,
 
   getTeams: () => ipcRenderer.invoke('cci:getTeams'),
   getTeam: (teamId) => ipcRenderer.invoke('cci:getTeam', teamId),
@@ -97,9 +121,9 @@ contextBridge.exposeInMainWorld('cci', {
   pickImage: () => ipcRenderer.invoke('cci:pickImage'),
   pickImageFolder: () => ipcRenderer.invoke('cci:pickImageFolder'),
   listFolderImages: (folderPath) => ipcRenderer.invoke('cci:listFolderImages', folderPath),
-  copyImage: (sourcePath, destRelative) => ipcRenderer.invoke('cci:copyImage', sourcePath, destRelative),
-  saveMapArt: (sourcePath, mapName, layoutKey) => ipcRenderer.invoke('cci:saveMapArt', sourcePath, mapName, layoutKey),
-  dataUrlForPath: (relative) => ipcRenderer.invoke('cci:dataUrlForPath', relative),
+  copyImage,
+  saveMapArt,
+  dataUrlForPath: (relative) => imageUrlCache.get(relative),
 
   // Discord integration. Every call resolves to { ok: true, data } or
   // { ok: false, code, message }; secrets are stripped in the main process.
