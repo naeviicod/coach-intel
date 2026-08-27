@@ -12,6 +12,21 @@ export const HUB_SECTIONS = [
 
 export const HUB_SECTION_KEYS = HUB_SECTIONS.map((s) => s.key);
 
+export function hubDocKinds(section) {
+  const extra = {
+    overview: ['note', 'ruleset'],
+    roster: [],
+    notes: ['note'],
+    objectives: ['task'],
+    veto: ['veto', 'opponent'],
+    statistics: ['ruleset'],
+    reports: ['scrim', 'opponent', 'ruleset'],
+    practice: ['event', 'task', 'scrim'],
+    settings: ['note', 'task'],
+  };
+  return [...new Set(['match', 'strat', ...(extra[section] || extra.overview)])];
+}
+
 export function parseHubSection(parts) {
   const list = (parts || []).filter(Boolean);
   const key = HUB_SECTION_KEYS.includes(list[0]) ? list[0] : 'overview';

@@ -156,6 +156,13 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(dash, /loadWorkspace/);
   assert.doesNotMatch(dash, /\{\.\.\.data\}/);
   assert.match(hubPage, /TeamHub/);
+  assert.match(hubPage, /hubDocKinds/);
+  assert.match(hubPage, /teamId, kinds:/);
+  assert.match(read('app/(shell)/team-hub/page.js'), /rosterOnly:\s*true/);
+  assert.match(read('lib/hub.js'), /export function hubDocKinds/);
+  assert.match(read('lib/workspace.js'), /loadCachedDocs\(teamId/);
+  assert.doesNotMatch(read('app/(shell)/layout.js'), /getSessionUser/);
+  assert.match(read('app/(shell)/loading.js'), /aria-busy="true"/);
   assert.match(hub, /hub-rail/);
   assert.match(hub, /Overview/);
   assert.match(hub, /Roster/);
@@ -288,7 +295,8 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/(shell)/layout.js'), /desktop-ui\.css/);
   assert.match(read('app/(shell)/layout.js'), /sessionIdentity/);
   assert.match(read('lib/data.js'), /display_name/);
-  assert.match(read('lib/data.js'), /select\('id, kind, team_id, payload, updated_at'\)/);
+  assert.match(read('lib/data.js'), /DOC_SELECT = 'id, kind, team_id, payload, updated_at'/);
+  assert.match(read('lib/data.js'), /\.select\(DOC_SELECT\)/);
   assert.match(read('lib/data.js'), /byKind\('strat'\)/);
   assert.match(read('lib/data.js'), /byKind\('scrim'\)/);
   assert.match(read('components/playbooks-view.js'), /playbooks-rail/);
@@ -357,7 +365,9 @@ test('in-app pages can cache; only the public gate stays no-store', () => {
   assert.match(config, /source: '\/sign-in'/);
   assert.doesNotMatch(config, /source: '\/:path\*'/);
   assert.match(config, /staleTimes/);
-  assert.match(read('lib/data.js'), /select\('id, kind, team_id, payload, updated_at'\)/);
+  assert.match(read('lib/data.js'), /DOC_SELECT = 'id, kind, team_id, payload, updated_at'/);
+  assert.match(read('lib/data.js'), /function fetchDocRows/);
+  assert.match(read('lib/data.js'), /\.eq\('team_id', teamId\)/);
   assert.doesNotMatch(read('lib/data.js'), /listDocs\(supabase, 'event'\)/);
 });
 

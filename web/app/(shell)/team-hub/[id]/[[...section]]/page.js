@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { TeamHub } from '../../../../../components/team-hub';
-import { parseHubSection } from '../../../../../lib/hub';
+import { parseHubSection, hubDocKinds } from '../../../../../lib/hub';
 import { resolveRuleset } from '../../../../../lib/ruleset';
 import { loadWorkspace } from '../../../../../lib/workspace';
 
@@ -13,7 +13,7 @@ export default async function TeamHubPage({ params }) {
   const { id, section: sectionParts } = await params;
   const teamId = decodeURIComponent(id);
   const { key, sub } = parseHubSection(sectionParts);
-  const data = await loadWorkspace();
+  const data = await loadWorkspace({ teamId, kinds: hubDocKinds(key) });
   const team = data.teams.find((item) => item.id === teamId);
   if (!team) {
     if (!data.teams[0]) redirect('/teams');

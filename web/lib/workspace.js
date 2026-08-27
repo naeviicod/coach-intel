@@ -21,24 +21,28 @@ const EMPTY_DOCS = {
 
 export const loadRosterCore = cache(async () => {
   const supabase = await createServerSupabase();
+  const roster = rememberRoster(async () => {
+    const [org, teams, members] = await Promise.all([
+      getOrg(supabase).catch(() => null),
+      listTeams(supabase).catch(() => []),
+      listAllMembers(supabase).catch(() => []),
+    ]);
+    return { org, teams, members };
+  });
   const user = await getSessionUser();
   const [bundle, profile] = await Promise.all([
-    rememberRoster(async () => {
-      const [org, teams, members] = await Promise.all([
-        getOrg(supabase).catch(() => null),
-        listTeams(supabase).catch(() => []),
-        listAllMembers(supabase).catch(() => []),
-      ]);
-      return { org, teams, members };
-    }),
+    roster,
     user ? getProfile(supabase, user.id) : null,
   ]);
   return { user, profile, ...bundle };
 });
 
-const loadCachedDocs = cache(async () => {
+const loadCachedDocs = cache(async (teamId = '', kindsKey = '') => {
   const supabase = await createServerSupabase();
-  return rememberDocs(() => loadDocBundles(supabase));
+  const kinds = kindsKey ? kindsKey.split(',') : undefined;
+  const loader = () => loadDocBundles(supabase, { teamId: teamId || undefined, kinds });
+  if (teamId || kindsKey) return loader();
+  return rememberDocs(loader);
 });
 
 function emptyDocs() {
@@ -48,10 +52,11 @@ function emptyDocs() {
   };
 }
 
-export async function loadWorkspace({ rosterOnly = false } = {}) {
+export async function loadWorkspace({ rosterOnly = false, teamId = '', kinds } = {}) {
+  const kindsKey = Array.isArray(kinds) && kinds.length ? [...kinds].sort().join(',') : '';
   const [core, docs] = await Promise.all([
     loadRosterCore(),
-    rosterOnly ? emptyDocs() : loadCachedDocs(),
+    rosterOnly ? emptyDocs() : loadCachedDocs(teamId || '', kindsKey),
   ]);
   const { user, org, teams: allTeams, members, profile } = core;
   const identity = sessionIdentity({ user, profile, members, org });

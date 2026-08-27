@@ -4,14 +4,11 @@ import { redirect } from 'next/navigation';
 import { resolveAccessRole, scopeTeams } from '../../lib/access';
 import { DesktopShell } from '../../components/desktop-shell';
 import { sessionIdentity } from '../../lib/identity';
-import { getSessionUser } from '../../lib/supabase/server';
 import { loadRosterCore } from '../../lib/workspace';
 
 export default async function ShellLayout({ children }) {
-  const user = await getSessionUser();
+  const { user, teams, members, profile, org } = await loadRosterCore();
   if (!user) redirect('/sign-in?next=/dashboard');
-
-  const { teams, members, profile, org } = await loadRosterCore();
   const identity = sessionIdentity({ user, profile, members, org });
   const teamIds = (members || [])
     .filter((row) => row.user_id === user.id)

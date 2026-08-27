@@ -112,17 +112,54 @@ export async function listGuildLinks(supabase) {
   return data || [];
 }
 
-export async function loadDocBundles(supabase) {
-  const { data, error } = await supabase
-    .from('shared_docs')
-    .select('id, kind, team_id, payload, updated_at')
-    .is('deleted_at', null);
-  let source = data || [];
-  if (error) {
-    const kinds = ['event', 'task', 'match', 'note', 'strat', 'scrim', 'vod', 'veto', 'opponent', 'rankings', 'ruleset'];
-    const fallback = await Promise.all(kinds.map((kind) => listDocs(supabase, kind).catch(() => [])));
-    source = kinds.flatMap((kind, i) => fallback[i].map((row) => ({ ...row, kind })));
+export const DOC_KINDS = ['event', 'task', 'match', 'note', 'strat', 'scrim', 'vod', 'veto', 'opponent', 'rankings', 'ruleset'];
+const DOC_SELECT = 'id, kind, team_id, payload, updated_at';
+const ORG_DOC_KINDS = new Set(['ruleset', 'rankings']);
+
+function keepDocRow(row, teamId, wanted) {
+  if (wanted && !wanted.includes(row.kind)) return false;
+  if (!teamId) return true;
+  if (row.team_id === teamId) return true;
+  return !row.team_id && ORG_DOC_KINDS.has(row.kind);
+}
+
+async function fetchDocRows(supabase, { teamId, kinds }) {
+  const wanted = kinds?.length ? kinds : DOC_KINDS;
+  const orgKinds = wanted.filter((kind) => ORG_DOC_KINDS.has(kind));
+  const teamKinds = wanted.filter((kind) => !ORG_DOC_KINDS.has(kind));
+  const run = async (builder) => {
+    const { data, error } = await builder;
+    if (error) throw error;
+    return data || [];
+  };
+  const parts = [];
+  if (teamId && teamKinds.length) {
+    parts.push(run(
+      supabase.from('shared_docs').select(DOC_SELECT).is('deleted_at', null).eq('team_id', teamId).in('kind', teamKinds)
+    ));
+  } else if (!teamId) {
+    parts.push(run(
+      supabase.from('shared_docs').select(DOC_SELECT).is('deleted_at', null).in('kind', wanted)
+    ));
   }
+  if (orgKinds.length) {
+    parts.push(run(
+      supabase.from('shared_docs').select(DOC_SELECT).is('deleted_at', null).is('team_id', null).in('kind', orgKinds)
+    ));
+  }
+  return (await Promise.all(parts)).flat();
+}
+
+export async function loadDocBundles(supabase, { teamId, kinds } = {}) {
+  const wanted = kinds?.length ? kinds : DOC_KINDS;
+  let source = [];
+  try {
+    source = await fetchDocRows(supabase, { teamId, kinds: wanted });
+  } catch {
+    const fallback = await Promise.all(wanted.map((kind) => listDocs(supabase, kind).catch(() => [])));
+    source = wanted.flatMap((kind, i) => fallback[i].map((row) => ({ ...row, kind })));
+  }
+  source = source.filter((row) => keepDocRow(row, teamId, wanted));
   const byKind = (kind) => source.filter((row) => row.kind === kind).map((row) => (row.payload ? mapDocRow(row) : row));
   const rankingsDocs = byKind('rankings');
   const rankings = rankingsDocs.find((d) => d.id === 'current') || rankingsDocs[0] || { region: '', teams: [] };
