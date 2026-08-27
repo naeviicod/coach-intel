@@ -38,6 +38,7 @@ jobs:
   release-macos:
     name: Build, sign, notarize, and verify macOS
     needs: validate
+    if: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY_P8 != '' }}
     runs-on: macos-14
     env:
       CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -98,6 +99,8 @@ jobs:
     name: Build Windows installer
     needs: validate
     runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -115,8 +118,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish verified release assets
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publish Windows release assets
+    if: always() && startsWith(github.ref, 'refs/tags/v') && needs.release-windows.result == 'success'
     needs: [release-macos, release-windows]
     runs-on: ubuntu-latest
     steps:
@@ -124,10 +127,16 @@ jobs:
         with:
           path: release-artifacts
           merge-multiple: true
-      - name: Publish only fully verified artifacts
+      - name: Publish available artifacts to GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" release-artifacts/* \
-            --title "Coach Intel ${GITHUB_REF_NAME#v}" \
-            --generate-notes
+          set -eu
+          test -n "$(find release-artifacts -name '*.exe' -print -quit)"
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" release-artifacts/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" release-artifacts/* \
+              --title "Coach Intel ${GITHUB_REF_NAME#v}" \
+              --generate-notes
+          fi

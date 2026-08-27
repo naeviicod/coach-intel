@@ -11,7 +11,7 @@
   "scripts": {
     "postinstall": "node -e \"process.platform==='darwin'&&require('child_process').execSync('sh scripts/patch-electron-branding.sh',{stdio:'inherit'})\"",
     "start": "sh scripts/open-packaged.sh",
-    "test": "node --test \"tests/**/*.test.js\"",
+    "test": "node scripts/run-tests.js",
     "verify:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/main.js",
     "verify:interaction": "env -u ELECTRON_RUN_AS_NODE electron scripts/_verify/interaction.js",
     "dist": "npm run dist:mac:dev",
