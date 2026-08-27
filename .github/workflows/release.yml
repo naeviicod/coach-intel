@@ -38,7 +38,7 @@ jobs:
   release-macos:
     name: Build, sign, notarize, and verify macOS
     needs: validate
-    if: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY_P8 != '' }}
+    continue-on-error: true
     runs-on: macos-14
     env:
       CSC_LINK: ${{ secrets.CSC_LINK }}

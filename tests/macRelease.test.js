@@ -36,7 +36,7 @@ test('CI discovers tests on Node 20 and publishes Windows even when macOS signin
   assert.equal(pkg.scripts.test, 'node scripts/run-tests.js');
   assert.match(workflow, /if: always\(\) && startsWith\(github\.ref, 'refs\/tags\/v'\) && needs\.release-windows\.result == 'success'/);
   assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY: false/);
-  assert.match(workflow, /secrets\.CSC_LINK != '' && secrets\.APPLE_API_KEY_P8 != ''/);
+  assert.match(workflow, /continue-on-error: true/);
 });
 
 test('Electron keeps auth tokens out of the renderer and uses hardened browser boundaries', () => {
