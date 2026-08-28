@@ -999,7 +999,7 @@ function renderSidebar() {
   sidebar.append(
     el('div', { class: 'sb-brand' }, [
       el('div', { class: 'sb-wordmark', 'aria-label': 'Coach Intel' }, [
-        el('img', { class: 'sb-wordmark-coach', src: asset('wordmark-coach.png'), alt: '' }),
+        el('img', { class: 'sb-wordmark-coach', src: asset('wordmark-coach.webp'), alt: '' }),
         el('span', { class: 'sb-wordmark-intel' }),
       ]),
     ])

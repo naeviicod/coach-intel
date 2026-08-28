@@ -69,8 +69,8 @@ button.sb-section-label { cursor: pointer; }
 }
 
 .sb-wordmark-intel {
-  -webkit-mask-image: url("/assets/wordmark-intel.png");
-  mask-image: url("/assets/wordmark-intel.png");
+  -webkit-mask-image: url("/assets/wordmark-intel.webp");
+  mask-image: url("/assets/wordmark-intel.webp");
 }
 
 .team-select select {
@@ -165,13 +165,16 @@ button.cal-day {
 .veto-tile-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .map-thumb.cover { height: 110px; }
 
+/* Below the 1024px JS breakpoint the nav is always .collapsed (icon rail), so
+   the shell stays the same flex row all the way down to phone widths instead
+   of switching to a block/stacked layout — a full-width, uncollapsed sidebar
+   here is unreachable (`#sidebar.collapsed` outranks `#sidebar` on specificity
+   regardless of viewport) and was never actually rendered. */
 @media (max-width: 900px) {
-  #app.shell {
-    display: block;
-    overflow: auto;
-    height: auto;
-    min-height: 100dvh;
-  }
-  #sidebar { width: 100%; border-radius: var(--panel-radius); margin-bottom: var(--shell-gap); }
-  .main-column { min-height: 70dvh; }
+  #app.shell { padding: 6px; gap: 6px; }
+}
+@media (max-width: 640px) {
+  #content { padding: 16px 14px 40px; }
+  .settings-page { padding: 16px 14px 20px; }
+  .hub-workspace { padding: 14px 14px 32px; }
 }

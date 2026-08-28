@@ -21,10 +21,10 @@ export function buildInviteFromApp({ org, teams = [], members = [], who, email, 
   const home = teams.find((row) => row.id === teamId) || team;
   return {
     org_name: orgDisplayName(org) || 'the organization',
-    org_logo: String(org?.logo || '').trim() || 'org/logos/org-logo.png',
+    org_logo: String(org?.logo || '').trim() || 'org/logos/org-logo.webp',
     team_name: String(home?.name || '').trim(),
     team_tag: String(home?.tag || '').trim(),
-    team_logo: String(home?.logo || '').trim() || (home?.id ? `org/logos/teams/${home.id}.png` : ''),
+    team_logo: String(home?.logo || '').trim() || (home?.id ? `org/logos/teams/${home.id}.webp` : ''),
     team_id: String(home?.id || teamId || '').trim(),
     gamertag,
     member_name: String(member?.name || '').trim(),
@@ -68,7 +68,7 @@ async function loadLocalApp() {
         name: profile.name,
         tag: profile.tag,
         accent: profile.accent,
-        logo: String(profile.logo || '').trim() || `org/logos/teams/${dir.name}.png`,
+        logo: String(profile.logo || '').trim() || `org/logos/teams/${dir.name}.webp`,
       });
     }
     let files = [];
@@ -104,7 +104,7 @@ async function bundledMarks() {
     teams = [];
   }
   return {
-    org: { name: 'Vantix', logo: 'org/logos/org-logo.png', accent: '#e10600' },
+    org: { name: 'Vantix', logo: 'org/logos/org-logo.webp', accent: '#e10600' },
     teams,
   };
 }

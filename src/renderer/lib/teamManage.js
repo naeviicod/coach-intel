@@ -2,6 +2,7 @@ import { el, faceMark, comboInput } from '../utils.js';
 import { openModal, toast } from '../components/modal.js';
 import { HANDLE_FIELDS, TITLE_SUGGESTIONS, memberStaffTitle, normalizeHandles } from './profile.js';
 import { defaultSlot, isStaffMember, normalizeSlot, isMemberDisabled } from './roster.js';
+import { compressImageFromPath } from './imageUpload.js';
 
 export const ROLES = ['IGL', 'AR', 'SMG', 'Sniper', 'Flex', 'Main Sub', 'Main AR'];
 
@@ -9,8 +10,8 @@ export async function uploadTeamLogo(team) {
   try {
     const src = await window.cci.pickImage();
     if (!src || !team?.id) return null;
-    const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-    const rel = await window.cci.copyImage(src, `org/logos/teams/${team.id}.${ext}`);
+    const bytes = await compressImageFromPath(src);
+    const rel = await window.cci.writeImageBytes(bytes, `org/logos/teams/${team.id}.webp`);
     if (!rel) throw new Error('Could not copy the logo file.');
     const saved = await window.cci.saveTeam({
       id: team.id,
@@ -83,10 +84,6 @@ function memberSlug(value) {
     .replace(/(^-|-$)/g, '');
 }
 
-function imageExt(sourcePath) {
-  return String(sourcePath.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-}
-
 function memberHeading(isEdit, member, slot) {
   if (isEdit) return `Edit ${member.gamertag}`;
   return { staff: 'Add Org Member', fa: 'Add Free Agent', bench: 'Add Bench Player' }[slot] || 'Add Member';
@@ -101,7 +98,7 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
   const initialSlot = normalizeSlot(member?.slot || slot);
   const teamChoices = !isEdit && Array.isArray(teams) && teams.length > 1 ? teams : null;
   let photoRel = member?.photo || null;
-  let pendingSrc = null;
+  let pendingBytes = null;
   const previewHost = el('div', {
     class: 'avatar-action',
     title: 'Change photo',
@@ -121,9 +118,9 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
     onclick: async () => {
       const src = await window.cci.pickImage();
       if (!src) return;
-      pendingSrc = src;
+      pendingBytes = await compressImageFromPath(src);
       const id = member?.id || memberSlug(body.querySelector('#member-gamertag').value) || 'player';
-      const rel = await window.cci.copyImage(src, `org/members/${teamId}/${id}.${imageExt(src)}`);
+      const rel = await window.cci.writeImageBytes(pendingBytes, `org/members/${teamId}/${id}.webp`);
       if (!rel) return;
       photoRel = rel;
       paintPreview();
@@ -263,8 +260,8 @@ export function openMemberModal(ctx, teamId, member, { onSaved, slot, teams } = 
           if (!enabled) handles._disabled = '1';
           const id = member?.id || memberSlug(gamertag);
           const saveTeamId = teamChoices ? body.querySelector('#member-team').value : teamId;
-          if (pendingSrc && id) {
-            const rel = await window.cci.copyImage(pendingSrc, `org/members/${saveTeamId}/${id}.${imageExt(pendingSrc)}`);
+          if (pendingBytes && id) {
+            const rel = await window.cci.writeImageBytes(pendingBytes, `org/members/${saveTeamId}/${id}.webp`);
             if (rel) photoRel = rel;
           }
           try {
@@ -307,7 +304,8 @@ export async function changeMemberPhoto(ctx, teamId, member, mark) {
   if (!src) return;
   const previous = [...mark.childNodes];
   try {
-    const rel = await window.cci.copyImage(src, `org/members/${teamId}/${member.id}.${imageExt(src)}`);
+    const bytes = await compressImageFromPath(src);
+    const rel = await window.cci.writeImageBytes(bytes, `org/members/${teamId}/${member.id}.webp`);
     if (!rel) throw new Error('Could not copy the photo.');
     const url = window.cci.dataUrlForPath ? await window.cci.dataUrlForPath(rel) : null;
     if (url) mark.replaceChildren(el('img', { src: url, alt: member.gamertag || '' }));
@@ -396,7 +394,8 @@ export async function openPhotoImportModal(ctx, team, members) {
             const member = members.find((m) => m.id === memberId);
             if (!member) { failed++; continue; }
             try {
-              const rel = await window.cci.copyImage(file.path, `org/members/${team.id}/${member.id}.${imageExt(file.path)}`);
+              const bytes = await compressImageFromPath(file.path);
+              const rel = await window.cci.writeImageBytes(bytes, `org/members/${team.id}/${member.id}.webp`);
               if (!rel) { failed++; continue; }
               await window.cci.saveMember(team.id, { ...member, photo: rel });
               ok++;

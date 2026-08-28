@@ -12,7 +12,7 @@ test('the Coach Intel site opens the desktop app over coachintel://', () => {
   assert.match(html, /Open Coach Intel/);
   assert.match(html, /Know More\. Win More\./);
   assert.match(open, /coachintel:\/\//);
-  for (const name of ['logo-mark-base.png', 'logo-mark-accent.png', 'wordmark.png', 'slogan.png']) {
+  for (const name of ['logo-mark-base.webp', 'logo-mark-accent.webp', 'wordmark.webp', 'slogan.webp']) {
     assert.equal(fs.existsSync(path.join(site, 'assets', name)), true, `${name} must ship with the site`);
   }
 });

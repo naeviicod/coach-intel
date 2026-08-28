@@ -1,6 +1,6 @@
 function withTeamLogo(row) {
   if (!row) return row;
-  return { ...row, logo: row.logo || (row.id ? `org/logos/teams/${row.id}.png` : null) };
+  return { ...row, logo: row.logo || (row.id ? `org/logos/teams/${row.id}.webp` : null) };
 }
 
 export async function listTeams(supabase) {

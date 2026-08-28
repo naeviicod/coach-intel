@@ -43,7 +43,7 @@ export function TeamMark({ team, className = 'team-logo' }) {
 }
 
 export function OrgMark({ org, className = 'sb-org-logo' }) {
-  const src = markSrc(org?.logo) || markSrc('org/logos/org-logo.png');
+  const src = markSrc(org?.logo) || markSrc('org/logos/org-logo.webp');
   const label = org?.tag || org?.name || 'Org';
   return (
     <div className={className}>

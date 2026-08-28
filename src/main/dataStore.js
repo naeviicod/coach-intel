@@ -100,7 +100,7 @@ async function deleteAllData() {
 // ---------- Org ----------
 
 async function existingOrgLogo() {
-  for (const rel of ['org/logos/org-logo.png', 'org/logos/org-logo.jpg', 'org/logos/org-logo.jpeg', 'org/logos/org-logo.webp']) {
+  for (const rel of ['org/logos/org-logo.webp', 'org/logos/org-logo.png', 'org/logos/org-logo.jpg', 'org/logos/org-logo.jpeg']) {
     try {
       await fs.access(path.join(DATA_ROOT, rel));
       return rel;
@@ -1116,6 +1116,29 @@ async function copyImage(sourcePath, destRelative) {
   return destRelative;
 }
 
+// Used by the picture pickers (org/team logos, profile and player photos):
+// the renderer downsizes and re-encodes the pick as WebP on a <canvas> before
+// this ever runs, so what lands on disk (and later syncs to cloud storage)
+// is already small instead of whatever multi-megabyte original was chosen.
+async function writeImageBytes(bytes, destRelative) {
+  const dest = path.join(DATA_ROOT, destRelative);
+  await ensureDir(path.dirname(dest));
+  await fs.writeFile(dest, Buffer.from(bytes));
+  return destRelative;
+}
+
+const SOURCE_IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+
+// Reads an arbitrary OS-picked file (outside DATA_ROOT) as a data: URL so the
+// renderer can draw it to a <canvas> without tripping cross-origin taint —
+// only place in the pipeline that needs the picker's raw, uncompressed bytes.
+async function readImageAsDataUrl(sourcePath) {
+  const buffer = await fs.readFile(sourcePath);
+  const ext = path.extname(sourcePath).slice(1).toLowerCase();
+  const mime = SOURCE_IMAGE_MIME[ext] || 'application/octet-stream';
+  return `data:${mime};base64,${buffer.toString('base64')}`;
+}
+
 const FOLDER_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
 // Non-recursive: lists image files directly inside a user-picked folder, for
@@ -1213,6 +1236,8 @@ module.exports = {
   getMapObjectives,
   saveMapObjectives,
   copyImage,
+  writeImageBytes,
+  readImageAsDataUrl,
   listFolderImages,
   saveMapArt,
   resolveDataPath,

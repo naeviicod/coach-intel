@@ -69,7 +69,7 @@ export function DesktopNav({ role, teams }) {
     <nav id="sidebar" className={collapsed ? 'collapsed' : ''} aria-label="Global navigation">
       <div className="sb-brand">
         <Link href="/dashboard" className="sb-wordmark" aria-label="Coach Intel">
-          <img className="sb-wordmark-coach" src="/assets/wordmark-coach.png" alt="" />
+          <img className="sb-wordmark-coach" src="/assets/wordmark-coach.webp" alt="" />
           <span className="sb-wordmark-intel" />
         </Link>
       </div>

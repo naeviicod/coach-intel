@@ -1,5 +1,6 @@
 import { createBrowserSupabase } from './supabase/browser';
 import { isProtectedPerson } from './access';
+import { compressImageFile } from './imageUpload';
 
 export function newId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -138,9 +139,11 @@ export async function uploadMemberPhoto(teamId, memberId, file) {
   const team = String(teamId || '').replace(/[^a-zA-Z0-9_-]/g, '');
   const id = String(memberId || '').replace(/[^a-zA-Z0-9_-]/g, '');
   if (!team || !id) throw new Error('Missing player.');
-  const key = `org/members/${team}/${id}.${safeExt}`;
-  const { error: upError } = await supabase.storage.from('org-assets').upload(key, file, {
-    contentType: file.type || `image/${safeExt}`,
+  const compressed = await compressImageFile(file);
+  const finalExt = compressed.type === 'image/webp' ? 'webp' : safeExt;
+  const key = `org/members/${team}/${id}.${finalExt}`;
+  const { error: upError } = await supabase.storage.from('org-assets').upload(key, compressed, {
+    contentType: compressed.type || `image/${safeExt}`,
     upsert: true,
   });
   if (upError) throw upError;

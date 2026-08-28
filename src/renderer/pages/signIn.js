@@ -65,8 +65,8 @@ function draw(container, state) {
     el('div', { class: 'signin-kicker' }, 'Secure channel'),
     el('div', { class: 'signin-identity' }, [
       el('div', { class: 'signin-lockup' }, [
-        el('img', { class: 'signin-mark', src: asset('splash-logo.png'), alt: 'Coach Intel' }),
-        el('img', { class: 'signin-wordmark', src: asset('splash-wordmark.png'), alt: '', 'aria-hidden': 'true' }),
+        el('img', { class: 'signin-mark', src: asset('splash-logo.webp'), alt: 'Coach Intel' }),
+        el('img', { class: 'signin-wordmark', src: asset('splash-wordmark.webp'), alt: '', 'aria-hidden': 'true' }),
       ]),
     ]),
     state.error

@@ -3,6 +3,7 @@ import { asset } from '../lib/assets.js';
 import { DEFAULT_ACCENT, applyAccent } from '../lib/accent.js';
 import { toast } from '../components/modal.js';
 import { orgIsProvisioned } from '../lib/orgLock.js';
+import { pickAndCompressImage } from '../lib/imageUpload.js';
 
 export async function render(container, ctx) {
   const existing = await window.cci.getOrg().catch(() => null);
@@ -22,7 +23,7 @@ export function renderUnlinked(container) {
   container.append(
     el('div', { class: 'onboarding-screen' }, [
       el('div', { class: 'onboarding-brand-wrap' }, [
-        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260818`, alt: 'Coach Intel' }),
+        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.webp')}?v=20260818`, alt: 'Coach Intel' }),
       ]),
       el('div', { class: 'onboarding-card' }, [
         el('div', { class: 'onboarding-step-label' }, 'INVITE REQUIRED'),
@@ -42,7 +43,7 @@ function draw(container, ctx, state) {
   container.append(
     el('div', { class: 'onboarding-screen' }, [
       el('div', { class: 'onboarding-brand-wrap' }, [
-        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.png')}?v=20260818`, alt: 'Coach Intel' }),
+        el('img', { class: 'onboarding-brand', src: `${asset('full-logo.webp')}?v=20260818`, alt: 'Coach Intel' }),
       ]),
       state.step === 1 ? orgStep(container, ctx, state) : teamStep(container, ctx, state),
     ])
@@ -197,10 +198,9 @@ function logoField(inputId, target, onChange) {
           class: 'btn',
           id: inputId,
           onclick: async () => {
-            const src = await window.cci.pickImage();
-            if (!src) return;
-            const ext = src.split('.').pop();
-            const rel = await window.cci.copyImage(src, `org/logos/org-logo.${ext}`);
+            const bytes = await pickAndCompressImage();
+            if (!bytes) return;
+            const rel = await window.cci.writeImageBytes(bytes, 'org/logos/org-logo.webp');
             target.logo = rel;
             onChange();
           },

@@ -16,7 +16,7 @@ test('mac packaging creates immutable universal DMG and ZIP artifacts with harde
   assert.equal(pkg.build.mac.entitlementsInherit, 'build/entitlements.mac.inherit.plist');
   assert.deepEqual(pkg.build.mac.target.map((target) => target.target), ['dmg', 'zip']);
   assert.deepEqual(pkg.build.mac.target.map((target) => target.arch), [['universal'], ['universal']]);
-  assert.equal(pkg.build.dmg.background, 'src/renderer/assets/splash-background.png');
+  assert.equal(pkg.build.dmg.background, 'src/renderer/assets/splash-background.webp');
   assert.match(read('build/Install Coach Intel.txt'), /Drag Coach Intel to the Applications folder/);
   assert.equal(fs.existsSync(path.join(root, 'build', 'icon.icns')), true);
 });

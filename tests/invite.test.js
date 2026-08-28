@@ -206,9 +206,9 @@ test('invite copy and email read org and roster from the app', async () => {
     email: 'ion@ikstudios.nl',
   });
   assert.equal(invite.org_name, 'Vantix');
-  assert.equal(invite.org_logo, 'org/logos/org-logo.png');
+  assert.equal(invite.org_logo, 'org/logos/org-logo.webp');
   assert.equal(invite.team_name, 'Rome');
-  assert.equal(invite.team_logo, 'org/logos/teams/rome.png');
+  assert.equal(invite.team_logo, 'org/logos/teams/rome.webp');
   assert.equal(invite.gamertag, 'NaeviiSZN');
   assert.equal(invite.play_role, 'SMG');
   assert.equal(invite.slot, 'starter');
@@ -222,8 +222,8 @@ test('a vxlt demo invite is Rome Team Leader with org and team marks', async () 
   const { buildInviteFromApp } = await import(appUrl);
   const { inviteCopy, previewJoinUrl } = await import(inviteUrl);
   const invite = buildInviteFromApp({
-    org: { name: 'Vantix', tag: 'VTX', logo: 'org/logos/org-logo.png', accent: '#ff0800' },
-    teams: [{ id: 'rome', name: 'Rome', tag: 'ROM', logo: 'org/logos/teams/rome.png' }],
+    org: { name: 'Vantix', tag: 'VTX', logo: 'org/logos/org-logo.webp', accent: '#ff0800' },
+    teams: [{ id: 'rome', name: 'Rome', tag: 'ROM', logo: 'org/logos/teams/rome.webp' }],
     members: [{
       gamertag: 'vxlt',
       name: 'Bracke',
@@ -240,10 +240,10 @@ test('a vxlt demo invite is Rome Team Leader with org and team marks', async () 
   assert.equal(invite.play_role, 'Flex');
   assert.equal(invite.slot, 'starter');
   assert.equal(invite.org_name, 'Vantix');
-  assert.equal(invite.org_logo, 'org/logos/org-logo.png');
+  assert.equal(invite.org_logo, 'org/logos/org-logo.webp');
   assert.equal(invite.team_name, 'Rome');
   assert.equal(invite.team_tag, 'ROM');
-  assert.equal(invite.team_logo, 'org/logos/teams/rome.png');
+  assert.equal(invite.team_logo, 'org/logos/teams/rome.webp');
   const copy = inviteCopy(invite);
   assert.equal(copy.kicker, "You've been selected");
   assert.match(copy.body, /vxlt, you were selected for Vantix/);

@@ -7,28 +7,38 @@ const path = require('path');
 const renderer = path.join(__dirname, '..', 'src', 'renderer');
 const assets = path.join(renderer, 'assets');
 const index = path.join(renderer, 'index.html');
-const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+// WebP's dimensions live at different byte offsets depending on which of its
+// sub-formats (VP8 / VP8L / VP8X) the encoder picked, so this checks the
+// container is genuinely WebP and large enough to be a real export, rather
+// than parsing the bitstream for exact pixels the way the old PNG check did.
+function assertRealWebp(file, label) {
+  const buf = fs.readFileSync(file);
+  assert.equal(buf.subarray(0, 4).toString('ascii'), 'RIFF', `${label} must be a WebP container`);
+  assert.equal(buf.subarray(8, 12).toString('ascii'), 'WEBP', `${label} must be a WebP container`);
+  assert.ok(buf.length >= 5000, `${label} must retain its supplied high-resolution export`);
+}
 
 test('splash uses the supplied branded background and identity assets', () => {
   const names = [
-    'splash-background.png',
-    'splash-logo.png',
-    'splash-wordmark.png',
-    'splash-slogan.png',
+    'splash-background.webp',
+    'splash-logo.webp',
+    'splash-wordmark.webp',
+    'splash-slogan.webp',
   ];
 
   for (const name of names) {
     const file = path.join(assets, name);
     assert.equal(fs.existsSync(file), true, `${name} must be bundled`);
-    assert.equal(fs.readFileSync(file).subarray(0, 4).equals(pngMagic), true, `${name} must be a PNG`);
+    assertRealWebp(file, name);
   }
 
   const html = fs.readFileSync(index, 'utf8');
   assert.match(html, /id="atmosphere"/);
   assert.match(html, /splash-atmosphere arena/);
-  assert.match(html, /splash-logo\.png/);
-  assert.match(html, /splash-wordmark\.png/);
-  assert.match(html, /splash-slogan\.png/);
+  assert.match(html, /splash-logo\.webp/);
+  assert.match(html, /splash-wordmark\.webp/);
+  assert.match(html, /splash-slogan\.webp/);
   assert.match(html, /alt="Coach Intel logo"/);
   assert.match(html, /alt="Coach Intel"/);
   assert.match(html, /alt="Competitive Intelligence for Call of Duty"/);
@@ -116,7 +126,7 @@ test('the splash dissolves into the app as one overlapping handoff', () => {
   assert.match(app, /raceTimeout\(completeSplashBar/);
   assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,220}transform:\s*scaleX\(0\)/);
   assert.match(styles, /\.splash-bar-fill \{[\s\S]{0,220}overflow:\s*hidden/);
-  assert.match(signIn, /asset\('splash-logo\.png'\)/);
+  assert.match(signIn, /asset\('splash-logo\.webp'\)/);
 });
 
 test('splash holds five seconds then signs in or opens the dashboard once', () => {
@@ -176,7 +186,7 @@ test('the sign-in destination retains a compact version of the splash identity',
   assert.match(signIn, /class: 'signin-brief'/);
   assert.match(signIn, /class: 'signin-lockup'/);
   assert.match(signIn, /class: 'signin-wordmark'/);
-  assert.match(signIn, /asset\('splash-wordmark\.png'\)/);
+  assert.match(signIn, /asset\('splash-wordmark\.webp'\)/);
   assert.doesNotMatch(signIn, /signin-slogan/);
   assert.doesNotMatch(signIn, /splash-slogan\.png/);
   assert.match(styles, /\.signin-lockup \{[\s\S]{0,280}grid-template-columns:\s*auto minmax\(0, 1fr\)/);
@@ -190,7 +200,7 @@ test('splash sits on the app pit with no pulse HUD', () => {
   const html = fs.readFileSync(index, 'utf8');
 
   assert.match(html, /data-background="orbit"/);
-  assert.match(html, /backgrounds\/orbit\.png/);
+  assert.match(html, /backgrounds\/orbit\.webp/);
   assert.doesNotMatch(html, /intel-hud/);
   assert.doesNotMatch(html, /intel-wave/);
   assert.doesNotMatch(html, /splash-flow/);
@@ -234,10 +244,10 @@ test('the About lockup paints the accent rather than filtering towards it', () =
   const styles = fs.readFileSync(path.join(renderer, 'styles.css'), 'utf8');
   const about = fs.readFileSync(path.join(renderer, 'pages', 'settings', 'sections', 'about.js'), 'utf8');
 
-  for (const name of ['logo-mark-base.png', 'logo-mark-accent.png']) {
+  for (const name of ['logo-mark-base.webp', 'logo-mark-accent.webp']) {
     const file = path.join(assets, name);
     assert.equal(fs.existsSync(file), true, `${name} must be bundled`);
-    assert.equal(fs.readFileSync(file).subarray(0, 4).equals(pngMagic), true, `${name} must be a PNG`);
+    assertRealWebp(file, name);
   }
   assert.match(about, /ci-lockup/);
   assert.match(about, /https:\/\/coach\.championshipseries\.eu\//);

@@ -30,7 +30,7 @@ export function render(container, { memberName = null, onComplete } = {}) {
       el('div', { class: 'onboarding-screen desktop-setup-screen' }, [
         el('div', { class: 'desktop-setup-brief' }, [
           el('div', { class: 'signin-kicker' }, 'Coach Intel setup'),
-          el('img', { class: 'desktop-setup-lockup', src: asset('full-logo.png'), alt: 'Coach Intel' }),
+          el('img', { class: 'desktop-setup-lockup', src: asset('full-logo.webp'), alt: 'Coach Intel' }),
           el('div', { class: 'desktop-setup-title', role: 'heading', 'aria-level': '1' }, copy.title),
           el('div', { class: 'desktop-setup-copy' }, [
             el('p', {}, copy.lineOne),

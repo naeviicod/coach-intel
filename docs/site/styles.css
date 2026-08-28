@@ -69,8 +69,8 @@ body {
   inset: 0;
   background: var(--accent);
   pointer-events: none;
-  -webkit-mask-image: url("assets/logo-mark-accent.png");
-  mask-image: url("assets/logo-mark-accent.png");
+  -webkit-mask-image: url("assets/logo-mark-accent.webp");
+  mask-image: url("assets/logo-mark-accent.webp");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;

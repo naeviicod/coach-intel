@@ -9,12 +9,12 @@ export async function render(panel, ctx) {
       el('div', { class: 'section-title' }, 'Coach Intel'),
       el('div', { class: 'about-lockup' }, [
         el('span', { class: 'ci-lockup', role: 'img', 'aria-label': 'Coach Intel' }, [
-          el('img', { class: 'ci-lockup-base', src: asset('logo-mark-base.png'), alt: '' }),
+          el('img', { class: 'ci-lockup-base', src: asset('logo-mark-base.webp'), alt: '' }),
           el('span', { class: 'ci-lockup-accent', 'aria-hidden': 'true' }),
         ]),
         el('div', { class: 'field-hint' }, 'Know More. Win More.'),
       ]),
-      aboutRow('Version', `v${version || '3.9.2'}`),
+      aboutRow('Version', `v${version || '3.9.3'}`),
       aboutLinkRow('Website', 'coach.championshipseries.eu', 'https://coach.championshipseries.eu/'),
       aboutRow('Mode', ctx?.online ? 'Online · Synced' : 'Offline · local cache'),
       ruleset ? aboutRow('Ruleset', `${ruleset.game} · Season ${ruleset.season} · v${ruleset.version}`) : null,

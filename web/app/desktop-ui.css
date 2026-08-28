@@ -916,8 +916,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   inset: 0;
   background: var(--accent);
   pointer-events: none;
-  -webkit-mask-image: url('/assets/wordmark-intel.png');
-  mask-image: url('/assets/wordmark-intel.png');
+  -webkit-mask-image: url('/assets/wordmark-intel.webp');
+  mask-image: url('/assets/wordmark-intel.webp');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
@@ -2384,8 +2384,8 @@ tr.clickable-row:hover td { background: #ffffff06; }
   inset: 0;
   background: var(--accent);
   pointer-events: none;
-  -webkit-mask-image: url('/assets/logo-mark-accent.png');
-  mask-image: url('/assets/logo-mark-accent.png');
+  -webkit-mask-image: url('/assets/logo-mark-accent.webp');
+  mask-image: url('/assets/logo-mark-accent.webp');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
@@ -3922,6 +3922,60 @@ tr.clickable-row:hover td { background: #ffffff06; }
 }
 .sb-shot-meta { font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
 .sb-shot-remove { margin-top: 8px; }
+
+/* ---------- Phone ---------- */
+
+@media (max-width: 640px) {
+  /* Contain-don't-redesign: these rows and panels are built for a desk-width
+     screen (fixed-width columns, a rail beside a canvas). Rather than reflow
+     each one, let the dense ones scroll horizontally within their own box so
+     a phone never gets page-wide horizontal scroll. */
+  .roster-row,
+  .crow:has(.roster-tags),
+  .playbooks,
+  .hub.board-studio .board-studio-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* The fixed 16rem tag column would otherwise claim most of the row width
+     before scrolling even kicks in, crushing the player name next to it. */
+  .roster-row .roster-tags,
+  .crow .roster-tags {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  #content,
+  .hub-workspace,
+  .settings-panel {
+    overflow-x: hidden;
+  }
+
+  #topbar { padding: 0 10px; gap: 8px; }
+  .topbar-search,
+  .status-pill,
+  .topbar-divider {
+    display: none;
+  }
+  .topbar-profile > div:first-child { display: none; }
+  .refresh-label { display: none; }
+  .btn.refresh-btn { padding: 0 8px; }
+
+  .page-identity { gap: 14px; }
+  .page-org-logo { width: 64px; height: 64px; border-radius: 14px; font-size: 22px; }
+  .page-org-name { font-size: 14px; }
+  .page-identity .page-title { font-size: 21px; }
+
+  .kpi-row,
+  .grid.cols-2,
+  .grid.cols-3,
+  .grid.cols-4,
+  .handle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav { grid-template-columns: 1fr; }
+}
 
 @media print {
   #sidebar, #topbar, #statusbar, .filter-bar, .btn { display: none !important; }

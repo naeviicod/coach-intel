@@ -10,15 +10,15 @@ const ART_CACHE = '20260821-1k';
 // structure read across the page instead of hugging the corners.
 export const BACKGROUND_OPTIONS = [
   { id: 'pit', name: 'Pit', src: null, zoom: 1, hint: 'Soft honeycomb wash in the gutters' },
-  { id: 'hex', name: 'Hex', src: 'backgrounds/hex.png', zoom: 1.08, hint: 'Hex grid and topography' },
-  { id: 'focus', name: 'Focus', src: 'backgrounds/focus.png', zoom: 1.14, hint: 'Angular formation around a quiet center' },
-  { id: 'command-ring', name: 'Command Ring', src: 'backgrounds/command-ring.png', zoom: 1.16, hint: 'Tactical rings and a quiet center' },
-  { id: 'blackout', name: 'Blackout', src: 'backgrounds/blackout.png', zoom: 1.14, hint: 'Dark steel with lime edge light' },
-  { id: 'prism', name: 'Prism', src: 'backgrounds/prism.png', zoom: 1.2, hint: 'Symmetric crystal formation' },
-  { id: 'vector', name: 'Vector', src: 'backgrounds/vector.png', zoom: 1.14, hint: 'Diagonal tactical vectors' },
-  { id: 'strata', name: 'Strata', src: 'backgrounds/strata.png', zoom: 1.12, hint: 'Layered smoke and scan lines' },
-  { id: 'hex-front', name: 'Hex Front', src: 'backgrounds/hex-front.png', zoom: 1.16, hint: 'Luminous hexagonal perimeter' },
-  { id: 'orbit', name: 'Orbit', src: 'backgrounds/orbit.png', zoom: 1.14, hint: 'Network constellation frame' },
+  { id: 'hex', name: 'Hex', src: 'backgrounds/hex.webp', zoom: 1.08, hint: 'Hex grid and topography' },
+  { id: 'focus', name: 'Focus', src: 'backgrounds/focus.webp', zoom: 1.14, hint: 'Angular formation around a quiet center' },
+  { id: 'command-ring', name: 'Command Ring', src: 'backgrounds/command-ring.webp', zoom: 1.16, hint: 'Tactical rings and a quiet center' },
+  { id: 'blackout', name: 'Blackout', src: 'backgrounds/blackout.webp', zoom: 1.14, hint: 'Dark steel with lime edge light' },
+  { id: 'prism', name: 'Prism', src: 'backgrounds/prism.webp', zoom: 1.2, hint: 'Symmetric crystal formation' },
+  { id: 'vector', name: 'Vector', src: 'backgrounds/vector.webp', zoom: 1.14, hint: 'Diagonal tactical vectors' },
+  { id: 'strata', name: 'Strata', src: 'backgrounds/strata.webp', zoom: 1.12, hint: 'Layered smoke and scan lines' },
+  { id: 'hex-front', name: 'Hex Front', src: 'backgrounds/hex-front.webp', zoom: 1.16, hint: 'Luminous hexagonal perimeter' },
+  { id: 'orbit', name: 'Orbit', src: 'backgrounds/orbit.webp', zoom: 1.14, hint: 'Network constellation frame' },
 ];
 
 const BACKGROUND_ALIASES = { frame: 'hex', lattice: 'hex', sector: 'hex' };

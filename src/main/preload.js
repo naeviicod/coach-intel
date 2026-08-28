@@ -12,6 +12,12 @@ async function copyImage(sourcePath, destRelative) {
   return relative;
 }
 
+async function writeImageBytes(bytes, destRelative) {
+  const relative = await ipcRenderer.invoke('cci:writeImageBytes', bytes, destRelative);
+  imageUrlCache.invalidate(relative);
+  return relative;
+}
+
 async function setMyPhoto(sourcePath) {
   const relative = await ipcRenderer.invoke('cci:setMyPhoto', sourcePath);
   imageUrlCache.invalidate(relative);
@@ -122,6 +128,8 @@ contextBridge.exposeInMainWorld('cci', {
   pickImageFolder: () => ipcRenderer.invoke('cci:pickImageFolder'),
   listFolderImages: (folderPath) => ipcRenderer.invoke('cci:listFolderImages', folderPath),
   copyImage,
+  writeImageBytes,
+  readImageAsDataUrl: (sourcePath) => ipcRenderer.invoke('cci:readImageAsDataUrl', sourcePath),
   saveMapArt,
   dataUrlForPath: (relative) => imageUrlCache.get(relative),
 

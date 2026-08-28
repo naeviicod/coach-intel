@@ -24,8 +24,8 @@ export default async function InviteEmailPreviewPage({ searchParams }) {
     slot: invite.slot,
     url: previewJoinUrl(invite.gamertag),
     accent: invite.accent,
-    ciLogoSrc: '/assets/splash-logo.png',
-    wordmarkSrc: '/assets/splash-wordmark.png',
+    ciLogoSrc: '/assets/splash-logo.webp',
+    wordmarkSrc: '/assets/splash-wordmark.webp',
     orgLogoSrc: markSrc(invite.org_logo),
     teamLogoSrc: markSrc(invite.team_logo),
   };

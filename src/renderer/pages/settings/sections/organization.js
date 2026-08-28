@@ -1,6 +1,7 @@
 import { el, orgMark } from '../../../utils.js';
 import { ACCENT_PRESETS, DEFAULT_ACCENT, applyAccent, normalizeHex } from '../../../lib/accent.js';
 import { toast } from '../../../components/modal.js';
+import { pickAndCompressImage } from '../../../lib/imageUpload.js';
 
 // Org-wide chrome only: what every teammate sees. The signed-in person's own
 // name, photo and wallpaper live in Profile, which every role can open.
@@ -55,11 +56,10 @@ export async function render(panel, ctx) {
         el('button', {
           class: 'btn',
           onclick: async () => {
-            const src = await window.cci.pickImage();
-            if (!src) return;
-            const ext = src.split('.').pop();
-            await window.cci.copyImage(src, `org/logos/org-logo.${ext}`);
-            await save({ logo: `org/logos/org-logo.${ext}` });
+            const bytes = await pickAndCompressImage();
+            if (!bytes) return;
+            const logo = await window.cci.writeImageBytes(bytes, 'org/logos/org-logo.webp');
+            await save({ logo });
           },
         }, 'Upload Logo'),
       ]),

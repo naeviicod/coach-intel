@@ -44,15 +44,15 @@ test('the public site is a product gateway, not an Open App splash', () => {
   assert.match(gateway, /signin-lockup/);
   assert.match(gateway, /signin-mark/);
   assert.match(read('components/pit.js'), /id="atmosphere"/);
-  assert.match(read('components/pit.js'), /backgrounds\/orbit\.png/);
+  assert.match(read('components/pit.js'), /backgrounds\/orbit\.webp/);
   assert.match(read('app/layout.js'), /desktop-ui\.css/);
   assert.doesNotMatch(gateway, /Opens Discord\. You land in the app/);
   assert.doesNotMatch(read('components/invite-gate.js'), /Opens Discord\. You land in the app/);
   assert.doesNotMatch(gateway, /SplashLockup/);
   assert.doesNotMatch(gateway, /splash-slogan/);
-  assert.match(lockup, /splash-logo\.png/);
-  assert.match(lockup, /splash-wordmark\.png/);
-  assert.match(lockup, /splash-slogan\.png/);
+  assert.match(lockup, /splash-logo\.webp/);
+  assert.match(lockup, /splash-wordmark\.webp/);
+  assert.match(lockup, /splash-slogan\.webp/);
   assert.match(signIn, /Sign in with Discord/);
   assert.doesNotMatch(gateway, /coachintel:\/\//);
   assert.match(open, /coachintel:\/\//);
@@ -65,7 +65,7 @@ test('the public site is a product gateway, not an Open App splash', () => {
   const icon = fs.readFileSync(path.join(web, 'app', 'icon.png'));
   assert.equal(icon.readUInt32BE(16), 64);
   assert.equal(icon.readUInt32BE(20), 64);
-  for (const name of ['splash-logo.png', 'splash-wordmark.png', 'splash-slogan.png', 'splash-background.png']) {
+  for (const name of ['splash-logo.webp', 'splash-wordmark.webp', 'splash-slogan.webp', 'splash-background.webp']) {
     assert.equal(fs.existsSync(path.join(web, 'public', 'assets', name)), true, `${name} must ship with the site`);
   }
 });
@@ -258,7 +258,7 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.match(read('app/desktop-web.css'), /board-wrap \.strat-map-preview/);
   assert.match(read('components/veto-lab-view.js'), /veto-tile/);
   assert.match(read('components/veto-lab-view.js'), /veto-col/);
-  assert.match(read('lib/maps.js'), /colossus\.jpg/);
+  assert.match(read('lib/maps.js'), /colossus\.webp/);
   assert.match(read('lib/access.js'), /STAFF_ONLY_PAGES/);
   assert.match(read('lib/access.js'), /ORG_TOOL_PAGES/);
   assert.match(inviteBtn, /className="btn sm"/);
@@ -480,13 +480,13 @@ test('download picker follows the visitor OS and skips empty URLs', () => {
 test('map covers and layouts resolve to public assets that exist', async () => {
   const { pathToFileURL } = require('node:url');
   const { mapCoverSrc, mapLayoutSrc } = await import(pathToFileURL(path.join(web, 'lib/maps.js')).href);
-  assert.equal(mapCoverSrc('Colossus'), '/assets/maps/colossus.jpg');
+  assert.equal(mapCoverSrc('Colossus'), '/assets/maps/colossus.webp');
   assert.equal(mapLayoutSrc('Colossus', 'Hardpoint'), '/assets/maps/colossus-hp.webp');
-  assert.equal(mapLayoutSrc('Den', 'Search & Destroy'), '/assets/maps/den-snd.png');
-  assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus.jpg')));
+  assert.equal(mapLayoutSrc('Den', 'Search & Destroy'), '/assets/maps/den-snd.webp');
+  assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus.webp')));
   assert.ok(fs.existsSync(path.join(web, 'public/assets/maps/colossus-hp.webp')));
-  assert.ok(fs.existsSync(path.join(root, 'data/maps/colossus.jpg')));
-  assert.ok(fs.existsSync(path.join(root, 'data/maps/den-hp.png')));
+  assert.ok(fs.existsSync(path.join(root, 'data/maps/colossus.webp')));
+  assert.ok(fs.existsSync(path.join(root, 'data/maps/den-hp.webp')));
 });
 
 test('web calendar collapses a league match that is both an event and a logged match', async () => {

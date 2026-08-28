@@ -35,8 +35,8 @@ export function InviteGate({ error, nextPath = '/dashboard', invite = null }) {
           <div className="signin-kicker">{who && !error ? copy.kicker : 'Secure channel'}</div>
           <div className="signin-identity">
             <div className="signin-lockup">
-              <img className="signin-mark" src="/assets/splash-logo.png" alt="Coach Intel" />
-              <img className="signin-wordmark" src="/assets/splash-wordmark.png" alt="" aria-hidden="true" />
+              <img className="signin-mark" src="/assets/splash-logo.webp" alt="Coach Intel" />
+              <img className="signin-wordmark" src="/assets/splash-wordmark.webp" alt="" aria-hidden="true" />
             </div>
           </div>
           {error ? (

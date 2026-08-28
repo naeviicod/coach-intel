@@ -129,7 +129,7 @@ export function playerAvatarSrc(seed) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
   const idx = (hash % AVATAR_COUNT) + 1;
-  return asset(`avatars/soldier-${idx}.png`);
+  return asset(`avatars/soldier-${idx}.webp`);
 }
 
 export function playerAvatar(member, attrs = {}) {
@@ -222,7 +222,7 @@ export function orgMark(org, attrs = {}) {
     [
       org?.logo,
       fallbackLogo,
-      'org/logos/org-logo.png',
+      'org/logos/org-logo.webp',
       'org/logos/org-logo.jpg',
       'org/logos/org-logo.jpeg',
       'org/logos/org-logo.webp',

@@ -3,6 +3,7 @@ import { BACKGROUND_OPTIONS, DEFAULT_BACKGROUND, applyBackground, backgroundUrl,
 import { chipIdentity, isNaevii, titleChoices } from '../../../lib/profile.js';
 import { getPref, setPref } from '../../../prefs.js';
 import { toast } from '../../../components/modal.js';
+import { pickAndCompressImage } from '../../../lib/imageUpload.js';
 
 // Everything about the person at this Mac: who the chip says they are, what the
 // app looks like for them, and the way out. Org-wide settings live next door in
@@ -79,17 +80,16 @@ function profileCard(org, chip, ctx) {
       el('button', {
         class: 'btn',
         onclick: async () => {
-          const src = await window.cci.pickImage();
-          if (!src) return;
           try {
+            const bytes = await pickAndCompressImage();
+            if (!bytes) return;
             if (local) {
-              const ext = String(src.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-              const rel = await window.cci.copyImage(src, `org/profile-photo.${ext}`);
+              const rel = await window.cci.writeImageBytes(bytes, 'org/profile-photo.webp');
               if (!rel) return;
               await save({ profilePhoto: rel });
               return;
             }
-            await window.cci.setMyPhoto(src);
+            await window.cci.setMyPhoto(bytes);
             await ctx.refreshShell();
             ctx.reload();
             toast('Saved.');

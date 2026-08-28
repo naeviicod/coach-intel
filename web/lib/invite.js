@@ -83,9 +83,9 @@ export function inviteChips({ team, playRole, slot, accessRole } = {}) {
 export function inviteVisual(invite) {
   const teamId = String(invite?.team_id || '').trim();
   return {
-    orgLogo: String(invite?.org_logo || '').trim() || 'org/logos/org-logo.png',
+    orgLogo: String(invite?.org_logo || '').trim() || 'org/logos/org-logo.webp',
     orgName: String(invite?.org_name || '').trim() || 'the organization',
-    teamLogo: String(invite?.team_logo || '').trim() || (teamId ? `org/logos/teams/${teamId}.png` : ''),
+    teamLogo: String(invite?.team_logo || '').trim() || (teamId ? `org/logos/teams/${teamId}.webp` : ''),
     teamName: String(invite?.team_name || '').trim() || 'Team',
     teamTag: String(invite?.team_tag || '').trim(),
     accent: String(invite?.accent || invite?.org_accent || '').trim() || null,

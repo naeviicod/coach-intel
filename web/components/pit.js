@@ -6,7 +6,7 @@ export function Pit() {
       <span className="arena-hex" />
       <span className="arena-grain" />
       <span className="arena-art">
-        <img className="arena-art-img" src="/assets/backgrounds/orbit.png" alt="" draggable="false" />
+        <img className="arena-art-img" src="/assets/backgrounds/orbit.webp" alt="" draggable="false" />
         <span className="arena-art-tint" aria-hidden="true" />
       </span>
     </div>

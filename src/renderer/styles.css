@@ -937,8 +937,8 @@ html.accent-neutral.accent-tinted #atmosphere.art-bg .arena-art-tint {
   inset: 0;
   background: var(--accent);
   pointer-events: none;
-  -webkit-mask-image: url('cci-asset://static/wordmark-intel.png');
-  mask-image: url('cci-asset://static/wordmark-intel.png');
+  -webkit-mask-image: url('cci-asset://static/wordmark-intel.webp');
+  mask-image: url('cci-asset://static/wordmark-intel.webp');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
@@ -2440,8 +2440,8 @@ tr.series-map-row td { color: var(--text-faint); font-size: 12px; }
   inset: 0;
   background: var(--accent);
   pointer-events: none;
-  -webkit-mask-image: url('cci-asset://static/logo-mark-accent.png');
-  mask-image: url('cci-asset://static/logo-mark-accent.png');
+  -webkit-mask-image: url('cci-asset://static/logo-mark-accent.webp');
+  mask-image: url('cci-asset://static/logo-mark-accent.webp');
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;

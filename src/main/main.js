@@ -1171,7 +1171,13 @@ ipcMain.handle('cci:copyImage', requireEdit(async (e, sourcePath, destRelative) 
   return rel;
 }));
 
-const PROFILE_PHOTO_EXTS = new Set(['png', 'jpg', 'jpeg', 'webp']);
+ipcMain.handle('cci:writeImageBytes', requireEdit(async (e, bytes, destRelative) => {
+  const rel = await dataStore.writeImageBytes(bytes, destRelative);
+  syncAssetToCloud(rel).catch(() => {});
+  return rel;
+}));
+
+ipcMain.handle('cci:readImageAsDataUrl', (e, sourcePath) => dataStore.readImageAsDataUrl(sourcePath));
 
 ipcMain.handle('cci:updateMyProfile', async (e, payload) => {
   const { session } = await supabase.get().getState();
@@ -1179,15 +1185,13 @@ ipcMain.handle('cci:updateMyProfile', async (e, payload) => {
   return supabase.get().updateMyProfile(payload || {});
 });
 
-ipcMain.handle('cci:setMyPhoto', async (e, sourcePath) => {
+ipcMain.handle('cci:setMyPhoto', async (e, bytes) => {
   const { session } = await supabase.get().getState();
   if (!session?.user?.id) throw new Error('Sign in to set a photo the rest of the org can see.');
-  const ext = path.extname(String(sourcePath || '')).slice(1).toLowerCase();
-  if (!PROFILE_PHOTO_EXTS.has(ext)) throw new Error('Choose a PNG, JPG, or WebP image.');
   const userId = String(session.user.id);
   if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('Invalid account.');
-  const relative = `org/profiles/${userId}.${ext === 'jpeg' ? 'jpg' : ext}`;
-  const saved = await dataStore.copyImage(sourcePath, relative);
+  const relative = `org/profiles/${userId}.webp`;
+  const saved = await dataStore.writeImageBytes(bytes, relative);
   syncAssetToCloud(saved).catch(() => {});
   await supabase.get().updateMyPhoto(saved);
   return saved;

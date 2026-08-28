@@ -31,7 +31,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
         <span className="arena-hex" />
         <span className="arena-grain" />
         <span className="arena-art">
-          <img className="arena-art-img" src="/assets/backgrounds/orbit.png" alt="" draggable="false" />
+          <img className="arena-art-img" src="/assets/backgrounds/orbit.webp" alt="" draggable="false" />
           <span className="arena-art-tint" aria-hidden="true" />
         </span>
       </div>
@@ -62,7 +62,7 @@ export function DesktopShell({ userLabel, role, title, avatarUrl, org, teams, me
               <span>Ruleset checked {RULESET.last_checked}</span>
             </div>
             <div className="sbar-group sources">
-              <span className="sbar-label">v3.9.2</span>
+              <span className="sbar-label">v3.9.3</span>
               <span className="sbar-src">{RULESET.label}</span>
               <span className="sbar-src">Org cloud</span>
             </div>
