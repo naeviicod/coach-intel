@@ -26,6 +26,12 @@ generator will validate the expected assets, compose the sidebar bitmap, and
 write `build/installerSidebar.bmp` in the format NSIS consumes. The Windows
 packaging command will run that generator before `electron-builder`.
 
+The selected organization and team are release metadata, not an application
+default: a future customer release replaces those two source images and its
+selection record, then regenerates the sidebar. The existing `USERNAME`
+welcome greeting remains the member-level personalization; no member portrait
+belongs in the small installer sidebar.
+
 The generator will retain the Coach Intel mark and fixed canvas dimensions,
 preserve each supplied logo's aspect ratio, and composite opaque black behind
 transparent areas so the final BMP is valid for NSIS. Missing, unreadable, or
