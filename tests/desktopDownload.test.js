@@ -123,33 +123,33 @@ test('the download action is keyboard operable and announces its status', () => 
 test('Settings download uses the current GitHub Windows installer when app_releases is missing or stale', () => {
   const { overlayCurrentRelease, githubWindowsUrl } = require(path.join(web, 'lib', 'releases.js'));
   const current = require(path.join(web, 'package.json')).version;
-  assert.equal(current, '3.9.1');
+  assert.equal(current, '3.9.2');
   assert.equal(
-    githubWindowsUrl('3.9.1'),
-    'https://github.com/naeviicod/coach-intel/releases/download/v3.9.1/Coach-Intel-Setup-3.9.1.exe',
+    githubWindowsUrl('3.9.2'),
+    'https://github.com/naeviicod/coach-intel/releases/download/v3.9.2/Coach-Intel-Setup-3.9.2.exe',
   );
 
-  const fromEmpty = overlayCurrentRelease(null, '3.9.1');
-  assert.equal(fromEmpty.version, '3.9.1');
-  assert.equal(fromEmpty.windows_url, githubWindowsUrl('3.9.1'));
+  const fromEmpty = overlayCurrentRelease(null, '3.9.2');
+  assert.equal(fromEmpty.version, '3.9.2');
+  assert.equal(fromEmpty.windows_url, githubWindowsUrl('3.9.2'));
   assert.equal(fromEmpty.mac_url, null);
 
   const stale = overlayCurrentRelease({
     version: '3.5.0',
     windows_url: 'https://example.com/old.exe',
     mac_url: 'https://example.com/old.dmg',
-  }, '3.9.1');
-  assert.equal(stale.version, '3.9.1');
-  assert.equal(stale.windows_url, githubWindowsUrl('3.9.1'));
+  }, '3.9.2');
+  assert.equal(stale.version, '3.9.2');
+  assert.equal(stale.windows_url, githubWindowsUrl('3.9.2'));
   assert.equal(stale.mac_url, null);
 
   const currentRow = overlayCurrentRelease({
-    version: '3.9.1',
-    windows_url: 'https://cdn.example/Coach-Intel-Setup-3.9.1.exe',
-    mac_url: 'https://cdn.example/Coach-Intel-3.9.1-macOS.dmg',
-  }, '3.9.1');
-  assert.equal(currentRow.windows_url, 'https://cdn.example/Coach-Intel-Setup-3.9.1.exe');
-  assert.equal(currentRow.mac_url, 'https://cdn.example/Coach-Intel-3.9.1-macOS.dmg');
+    version: '3.9.2',
+    windows_url: 'https://cdn.example/Coach-Intel-Setup-3.9.2.exe',
+    mac_url: 'https://cdn.example/Coach-Intel-3.9.2-macOS.dmg',
+  }, '3.9.2');
+  assert.equal(currentRow.windows_url, 'https://cdn.example/Coach-Intel-Setup-3.9.2.exe');
+  assert.equal(currentRow.mac_url, 'https://cdn.example/Coach-Intel-3.9.2-macOS.dmg');
 });
 
 test('CI Desktop stays inside the authenticated settings shell, which already gates signed-out visitors', () => {
