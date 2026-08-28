@@ -6,6 +6,8 @@ import { DesktopShell } from '../../components/desktop-shell';
 import { sessionIdentity } from '../../lib/identity';
 import { loadRosterCore } from '../../lib/workspace';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ShellLayout({ children }) {
   const { user, teams, members, profile, org } = await loadRosterCore();
   if (!user) redirect('/sign-in?next=/dashboard');

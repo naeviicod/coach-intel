@@ -69,9 +69,13 @@ export async function ensureProfile(supabase) {
 }
 
 export async function listAllMembers(supabase) {
-  const { data, error } = await supabase
+  const full = await supabase
     .from('members')
     .select('id, team_id, gamertag, name, role, slot, title, user_id, photo, aliases, handles');
+  if (!full.error) return attachProfileFaces(supabase, full.data || []);
+  const { data, error } = await supabase
+    .from('members')
+    .select('id, team_id, gamertag, name, role, slot, title, user_id, photo, aliases');
   if (error) throw error;
   return attachProfileFaces(supabase, data || []);
 }

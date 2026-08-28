@@ -12,6 +12,11 @@ export function OrgLiveSync() {
   const timer = useRef(null);
 
   useEffect(() => {
+    // First paint can still be a stale empty RSC payload from the client
+    // router cache. Pull once on mount so a poisoned "0 teams" page does not
+    // sit there until someone clicks + Add Team.
+    fetch('/api/revalidate', { method: 'POST', cache: 'no-store' }).catch(() => null);
+    router.refresh();
     const supabase = createBrowserSupabase();
     const pull = () => {
       window.clearTimeout(timer.current);

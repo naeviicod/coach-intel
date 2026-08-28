@@ -15,6 +15,7 @@ export function AddTeam({ canEdit }) {
     setError('');
     try {
       await saveTeam({ id: slugify(form.name), name: form.name, tag: form.tag });
+      await fetch('/api/revalidate', { method: 'POST', cache: 'no-store' }).catch(() => null);
       window.location.reload();
     } catch (err) {
       setError(err.message || 'Could not create team.');

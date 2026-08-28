@@ -6,7 +6,7 @@ const nextConfig = {
   experimental: {
     externalDir: true,
     staleTimes: {
-      dynamic: 30,
+      dynamic: 0,
       static: 180,
     },
   },

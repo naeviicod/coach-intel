@@ -212,8 +212,10 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.doesNotMatch(read('app/(shell)/players/page.js'), /title\.slice\(0,\s*2\)/);
   assert.match(read('lib/workspace.js'), /loadRosterCore/);
   assert.match(read('lib/workspace.js'), /rememberRoster/);
+  assert.match(read('lib/workspace.js'), /readTeams/);
   assert.match(read('lib/workspace.js'), /rosterOnly/);
   assert.match(read('app/(shell)/layout.js'), /loadRosterCore/);
+  assert.match(read('app/(shell)/layout.js'), /force-dynamic/);
   assert.doesNotMatch(read('app/(shell)/layout.js'), /ensureProfile/);
   assert.match(read('app/auth/callback/route.js'), /ensureProfile/);
   assert.match(read('next.config.js'), /staleTimes/);
@@ -401,6 +403,28 @@ test('org workspace cache reuses the first load until it is cleared', async () =
   mod.invalidateWorkspaceCache();
   const fresh = await mod.rememberRoster(async () => ({ n: ++n }));
   assert.equal(fresh.n, 2);
+});
+
+test('an empty team list is not reused so a later fetch can show the roster', async () => {
+  const { pathToFileURL } = require('node:url');
+  const mod = await import(pathToFileURL(path.join(web, 'lib/workspace-cache.js')).href);
+  mod.invalidateWorkspaceCache();
+  let n = 0;
+  const empty = await mod.rememberRoster('user-1', async () => ({ n: ++n, teams: [] }));
+  const next = await mod.rememberRoster('user-1', async () => ({ n: ++n, teams: [{ id: 'rome' }] }));
+  assert.equal(empty.teams.length, 0);
+  assert.equal(next.n, 2);
+  assert.equal(next.teams[0].id, 'rome');
+});
+
+test('roster cache does not leak from one signed-in user to another', async () => {
+  const { pathToFileURL } = require('node:url');
+  const mod = await import(pathToFileURL(path.join(web, 'lib/workspace-cache.js')).href);
+  mod.invalidateWorkspaceCache();
+  const a = await mod.rememberRoster('user-a', async () => ({ teams: [{ id: 'rome' }] }));
+  const b = await mod.rememberRoster('user-b', async () => ({ teams: [{ id: 'other' }] }));
+  assert.equal(a.teams[0].id, 'rome');
+  assert.equal(b.teams[0].id, 'other');
 });
 
 test('Vercel env example and releases schema are ready to apply', () => {

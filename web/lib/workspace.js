@@ -19,20 +19,27 @@ const EMPTY_DOCS = {
   rulesetDocs: [],
 };
 
+async function readTeams(supabase) {
+  const first = await listTeams(supabase).catch(() => null);
+  if (first?.length) return first;
+  const again = await listTeams(supabase).catch(() => first || []);
+  return again || [];
+}
+
 export const loadRosterCore = cache(async () => {
-  const supabase = await createServerSupabase();
-  const roster = rememberRoster(async () => {
-    const [org, teams, members] = await Promise.all([
-      getOrg(supabase).catch(() => null),
-      listTeams(supabase).catch(() => []),
-      listAllMembers(supabase).catch(() => []),
-    ]);
-    return { org, teams, members };
-  });
   const user = await getSessionUser();
-  const [bundle, profile] = await Promise.all([
-    roster,
-    user ? getProfile(supabase, user.id) : null,
+  if (!user) return { user: null, profile: null, org: null, teams: [], members: [] };
+  const supabase = await createServerSupabase();
+  const [profile, bundle] = await Promise.all([
+    getProfile(supabase, user.id),
+    rememberRoster(user.id, async () => {
+      const [org, teams, members] = await Promise.all([
+        getOrg(supabase).catch(() => null),
+        readTeams(supabase),
+        listAllMembers(supabase).catch(() => []),
+      ]);
+      return { org, teams, members };
+    }),
   ]);
   return { user, profile, ...bundle };
 });
