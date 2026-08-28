@@ -20,14 +20,16 @@
     "release:mac": "npx electron-builder --mac --universal --publish never",
     "verify:mac:release": "sh scripts/verify-macos-release.sh",
     "verify:version": "node scripts/verify-version.js",
-    "dist:win": "electron-builder --win nsis",
-    "release:win": "electron-builder --win nsis --publish never",
+    "generate:installer-sidebar": "node scripts/generate-installer-sidebar.js",
+    "dist:win": "npm run generate:installer-sidebar && electron-builder --win nsis",
+    "release:win": "npm run generate:installer-sidebar && electron-builder --win nsis --publish never",
     "ship": "npm version patch",
     "postversion": "git push && git push --tags"
   },
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "pngjs": "^7.0.0"
   },
   "build": {
     "appId": "com.naevii.coachintel",
