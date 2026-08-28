@@ -11,6 +11,17 @@ function read(rel) {
   return fs.readFileSync(path.join(web, rel), 'utf8');
 }
 
+test('middleware returns before Vercel can 504 on a hung auth call', () => {
+  const middleware = read('middleware.js');
+  const sync = read('components/org-live-sync.js');
+  assert.match(middleware, /AbortSignal\.timeout/);
+  assert.match(middleware, /isAppPath/);
+  assert.ok(middleware.indexOf('isAppPath') < middleware.indexOf('getUser'));
+  assert.match(middleware, /matcher:[\s\S]*api\//);
+  assert.doesNotMatch(sync, /router\.prefetch/);
+  assert.doesNotMatch(sync, /APP_PREFIXES/);
+});
+
 test('Discord return paths survive encoding so invites redeem on the website', async () => {
   const { pathToFileURL } = require('node:url');
   const { safeAuthNext } = await import(pathToFileURL(path.join(web, 'lib/auth-next.js')).href);
@@ -219,7 +230,8 @@ test('signed-in shell reads teams and members from Supabase', () => {
   assert.doesNotMatch(read('app/(shell)/layout.js'), /ensureProfile/);
   assert.match(read('app/auth/callback/route.js'), /ensureProfile/);
   assert.match(read('next.config.js'), /staleTimes/);
-  assert.match(read('components/org-live-sync.js'), /router.prefetch/);
+  assert.doesNotMatch(read('components/org-live-sync.js'), /router\.prefetch/);
+  assert.doesNotMatch(read('components/org-live-sync.js'), /APP_PREFIXES/);
   assert.match(read('components/org-live-sync.js'), /api\/revalidate/);
   assert.match(read('lib/supabase/server.js'), /cache\(/);
   assert.match(fs.readFileSync(path.join(root, 'src/renderer/pages/playersPage.js'), 'utf8'), /Promise\.all\(teams\.map/);

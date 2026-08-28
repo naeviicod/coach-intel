@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './lib/config';
 import { isAppPath } from './lib/nav';
 
+const AUTH_TIMEOUT_MS = 4000;
+
 export async function middleware(request) {
   const incoming = request.nextUrl;
   if (incoming.searchParams.get('code') && incoming.pathname !== '/auth/callback') {
@@ -11,8 +13,16 @@ export async function middleware(request) {
     return NextResponse.redirect(callback);
   }
 
+  const path = incoming.pathname;
+  if (!isAppPath(path)) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      fetch: (url, init = {}) => fetch(url, { ...init, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) }),
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -27,12 +37,15 @@ export async function middleware(request) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user || null;
+  } catch {
+    return response;
+  }
 
-  const path = request.nextUrl.pathname;
-  if (isAppPath(path) && !user) {
+  if (!user) {
     const signIn = new URL('/sign-in', request.url);
     signIn.searchParams.set('next', path);
     return NextResponse.redirect(signIn);
@@ -42,5 +55,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.png|icon.png|apple-icon.png|assets/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.png|icon.png|apple-icon.png|assets/|api/).*)'],
 };
