@@ -132,9 +132,14 @@ a { color: inherit; }
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 140ms var(--ease-out), background 140ms var(--ease-out), box-shadow 140ms var(--ease-out);
 }
-.gate .btn.primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
+.gate .btn.primary:hover {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent);
+}
 .gate .btn.primary:active { transform: scale(0.97); }
 .signin-discord {
   min-width: 280px;
@@ -164,16 +169,16 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 28px 32px 22px;
+  gap: 20px;
+  padding: 36px 40px 30px;
   border-radius: 20px;
-  background: color-mix(in srgb, #080a0c 48%, transparent);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  border: 1px solid color-mix(in srgb, #ffffff 12%, var(--line));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 28px 56px -28px rgba(0, 0, 0, 0.7);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 32px 64px -28px rgba(0, 0, 0, 0.75);
 }
 .gate .signin-brief { width: 100%; }
 .stage.signin-brief { width: min(680px, 92vw); }
